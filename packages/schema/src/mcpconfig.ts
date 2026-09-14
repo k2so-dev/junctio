@@ -1,5 +1,5 @@
 import { parseDockerRun } from "./dockerargs.ts";
-import type { RuntimeKind, ServerInput } from "./server.ts";
+import type { RuntimeKind, ServerInput, TransportKind } from "./server.ts";
 
 export type ParsedServer = {
   key: string;
@@ -179,7 +179,13 @@ function entriesOf(root: unknown): [string, unknown][] | null {
   return null;
 }
 
-function httpDraft(key: string, raw: RawServer, url: string, notes: string[]): ServerInput {
+function remoteDraft(
+  key: string,
+  raw: RawServer,
+  url: string,
+  transport: TransportKind,
+  notes: string[]
+): ServerInput {
   const headers = stringMap(raw.headers);
   for (const [name, value] of Object.entries(headers)) {
     if (templated(value)) {
@@ -190,7 +196,7 @@ function httpDraft(key: string, raw: RawServer, url: string, notes: string[]): S
   const authorization = Object.keys(headers).find((name) => name.toLowerCase() === "authorization");
   return {
     ...baseDraft(cleanName(key)),
-    transport: "http",
+    transport,
     url,
     headers,
     authMode: authorization ? "header" : "none"
@@ -229,7 +235,7 @@ function stdioDraft(key: string, raw: RawServer, command: string, notes: string[
 }
 
 function summarize(draft: ServerInput): string {
-  if (draft.transport === "http") return draft.url ?? "";
+  if (draft.transport !== "stdio") return draft.url ?? "";
   const argv = draft.runtime === "custom" ? draft.args : [draft.runtime, ...draft.args];
   return argv.map(quote).join(" ");
 }
@@ -252,16 +258,17 @@ function convert(key: string, value: unknown): ParsedServer {
           ? value.serverUrl
           : null;
 
-  if (type === "sse" || transport === "sse") {
-    return refused(key, url ?? "", "legacy SSE is not proxied, the gateway speaks streamable http only");
-  }
+  const legacySse = type === "sse" || transport === "sse";
 
   if (url !== null) {
     const notes: string[] = [];
     if (templated(url)) return refused(key, url, "the url is a placeholder, fill it in by hand");
-    const draft = httpDraft(key, value, url, notes);
+    if (legacySse) notes.push("legacy SSE entry, added as an sse server");
+    const draft = remoteDraft(key, value, url, legacySse ? "sse" : "http", notes);
     return { key, draft, summary: summarize(draft), notes };
   }
+
+  if (legacySse) return refused(key, "", "this sse entry has no url");
 
   const command = typeof value.command === "string" ? value.command.trim() : "";
   if (command === "") return refused(key, "", "this entry has neither a command nor a url");

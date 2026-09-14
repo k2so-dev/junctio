@@ -11,6 +11,8 @@ import { officialMeta, REGISTRY_URL } from "./types.ts";
 
 const STDIO_RUNTIMES: Record<string, "npx" | "uvx" | "docker"> = { npm: "npx", pypi: "uvx", oci: "docker" };
 
+const REMOTE_TRANSPORTS: Record<string, "http" | "sse"> = { "streamable-http": "http", sse: "sse" };
+
 const UNSUPPORTED_PACKAGE: Record<string, string> = {
   nuget: "nuget packages need the dotnet toolchain, which the gateway image does not ship",
   mcpb: "bundles are installed by a desktop client, not by a gateway"
@@ -181,14 +183,15 @@ function remoteOption(remote: RegistryTransport, index: number, name: string): R
   const label = `remote · ${remote.type ?? "unknown"}`;
   const detail = url;
 
-  if (remote.type !== "streamable-http") {
+  const transport = REMOTE_TRANSPORTS[remote.type ?? ""];
+  if (!transport) {
     return {
       id,
       kind: "remote",
       label,
       detail,
       supported: false,
-      reason: "the gateway speaks streamable http only, legacy sse endpoints are not proxied",
+      reason: "only streamable http and sse remotes are supported",
       draft: null,
       inputs: []
     };
@@ -209,7 +212,7 @@ function remoteOption(remote: RegistryTransport, index: number, name: string): R
         ? null
         : {
             ...baseDraft(name),
-            transport: "http",
+            transport,
             url,
             authMode: authorization ? "header" : "none",
             headers: authorization ? { Authorization: headers[authorization] ?? "" } : {}

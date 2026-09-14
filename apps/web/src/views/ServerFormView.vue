@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { parseDockerRun, type RuntimeKind, type ServerInput, type UpstreamAuthMode } from "@junctio/schema";
+import {
+  parseDockerRun,
+  type RuntimeKind,
+  type ServerInput,
+  type TransportKind,
+  type UpstreamAuthMode
+} from "@junctio/schema";
 import { ArrowLeft, Eye, EyeOff, Loader2, Plus, X } from "@lucide/vue";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -26,7 +32,7 @@ const editing = computed(() => id.value !== null);
 
 const form = reactive({
   name: "",
-  transport: "stdio" as "stdio" | "http",
+  transport: "stdio" as TransportKind,
   runtime: "npx" as RuntimeKind,
   args: "",
   env: [] as { key: string; value: string }[],

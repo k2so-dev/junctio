@@ -142,6 +142,14 @@ describe("servers api", () => {
     expect(response.status).toBe(400);
   });
 
+  test("requires a url for sse transport", async () => {
+    const response = await api("/v1/servers", {
+      method: "POST",
+      body: JSON.stringify({ name: "legacy", transport: "sse" })
+    });
+    expect(response.status).toBe(400);
+  });
+
   test("previews the resolved command", async () => {
     const response = await api("/v1/servers/preview", {
       method: "POST",

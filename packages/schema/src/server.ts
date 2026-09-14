@@ -5,7 +5,7 @@ export const runtimeKinds = ["node", "npx", "bunx", "uvx", "uv", "docker", "cust
 export const RuntimeKind = z.enum(runtimeKinds);
 export type RuntimeKind = z.infer<typeof RuntimeKind>;
 
-export const transportKinds = ["stdio", "http"] as const;
+export const transportKinds = ["stdio", "http", "sse"] as const;
 export const TransportKind = z.enum(transportKinds);
 export type TransportKind = z.infer<typeof TransportKind>;
 
@@ -60,7 +60,7 @@ export const ServerInput = z
         ctx.addIssue({ code: "custom", path: ["authMode"], message: "stdio supports auth mode none only" });
       }
     } else {
-      if (!v.url) ctx.addIssue({ code: "custom", path: ["url"], message: "url is required for http" });
+      if (!v.url) ctx.addIssue({ code: "custom", path: ["url"], message: "url is required for http and sse" });
     }
   });
 export type ServerInput = z.infer<typeof ServerInput>;

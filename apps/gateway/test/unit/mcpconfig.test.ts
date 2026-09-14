@@ -83,10 +83,13 @@ describe("client config import", () => {
     expect(entry.notes).toContain("replace the placeholders in the arguments");
   });
 
-  test("refuses legacy sse", () => {
+  test("imports a legacy sse entry as an sse server", () => {
     const entry = only(`{"mcpServers":{"old":{"type":"sse","url":"https://example.com/sse"}}}`);
-    expect(entry.draft).toBeNull();
+    expect(entry.draft?.transport).toBe("sse");
+    expect(entry.draft?.url).toBe("https://example.com/sse");
+    expect(entry.summary).toBe("https://example.com/sse");
     expect(entry.notes[0]).toContain("SSE");
+    expect(ServerInput.safeParse(entry.draft).success).toBe(true);
   });
 
   test("digs the object out of a fenced snippet", () => {

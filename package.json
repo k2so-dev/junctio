@@ -15,7 +15,8 @@
     "build:web": "bun run --cwd apps/web build",
     "test": "bun test",
     "typecheck": "bun run --cwd apps/gateway typecheck && bun run --cwd apps/web typecheck",
-    "db:generate": "bun run --cwd apps/gateway db:generate"
+    "db:generate": "bun run --cwd apps/gateway db:generate",
+    "check:links": "bun run --cwd apps/web check:links"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

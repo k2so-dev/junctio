@@ -1,0 +1,5 @@
+**/node_modules
+apps/web/dist
+data
+.git
+*.db*

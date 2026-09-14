@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/
+*.db
+*.db-shm
+*.db-wal
+*.db.bak
+.env
+.DS_Store
+junctio

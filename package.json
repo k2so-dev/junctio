@@ -1,0 +1,23 @@
+{
+  "name": "junctio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun --watch apps/gateway/src/index.ts",
+    "start": "bun apps/gateway/src/index.ts",
+    "dev:web": "bun --cwd apps/web run dev",
+    "build:web": "bun --cwd apps/web run build",
+    "test": "bun test",
+    "typecheck": "bun run --cwd apps/gateway typecheck && bun --cwd apps/web run typecheck",
+    "db:generate": "bun run --cwd apps/gateway db:generate"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,334 @@
+import type { Subprocess } from "bun";
+import type { Logger } from "../log.ts";
+import { ChildProcessTransport } from "./stdio.ts";
+import type { LogRegistry } from "./logbuffer.ts";
+
+export type ProcessState = "stopped" | "starting" | "running" | "idle" | "failed";
+
+export type SpawnSpec = {
+  argv: string[];
+  cwd: string | null;
+  env: Record<string, string>;
+  idleTimeoutSec: number;
+  warm: boolean;
+};
+
+export type ProcessInfo = {
+  state: ProcessState;
+  pid: number | null;
+  restarts: number;
+  consecutiveFailures: number;
+  lastError: string | null;
+  generation: number;
+};
+
+export type AcquireResult = {
+  transport: ChildProcessTransport;
+  generation: number;
+};
+
+export type SupervisorOptions = {
+  getSpec: (serverId: string) => SpawnSpec | null;
+  logs: LogRegistry;
+  logger: Logger;
+  onExit?: (serverId: string, generation: number) => void;
+  maxConsecutiveFailures?: number;
+  backoffBaseMs?: number;
+  backoffCapMs?: number;
+  stopGraceMs?: number;
+  idleCheckMs?: number;
+};
+
+const HEALTHY_AFTER_MS = 5_000;
+
+type Managed = {
+  serverId: string;
+  proc: Subprocess<"pipe", "pipe", "pipe">;
+  transport: ChildProcessTransport;
+  generation: number;
+  controller: AbortController;
+  startedAt: number;
+  lastActivity: number;
+  idleTimeoutSec: number;
+  stopping: boolean;
+  exited: Promise<void>;
+};
+
+export class ProcessSupervisor {
+  private readonly running = new Map<string, Managed>();
+  private readonly starting = new Map<string, Promise<AcquireResult>>();
+  private readonly info = new Map<string, ProcessInfo>();
+  private readonly backoffUntil = new Map<string, number>();
+  private generationSeq = 0;
+  private idleTimer: ReturnType<typeof setInterval> | null = null;
+  private shuttingDown = false;
+
+  private readonly maxConsecutiveFailures: number;
+  private readonly backoffBaseMs: number;
+  private readonly backoffCapMs: number;
+  private readonly stopGraceMs: number;
+
+  constructor(private readonly options: SupervisorOptions) {
+    this.maxConsecutiveFailures = options.maxConsecutiveFailures ?? 10;
+    this.backoffBaseMs = options.backoffBaseMs ?? 1_000;
+    this.backoffCapMs = options.backoffCapMs ?? 60_000;
+    this.stopGraceMs = options.stopGraceMs ?? 5_000;
+    const interval = options.idleCheckMs ?? 30_000;
+    if (interval > 0) {
+      this.idleTimer = setInterval(() => void this.sweepIdle(), interval);
+      this.idleTimer.unref?.();
+    }
+  }
+
+  getInfo(serverId: string): ProcessInfo {
+    const current = this.info.get(serverId);
+    if (current) return { ...current };
+    return { state: "stopped", pid: null, restarts: 0, consecutiveFailures: 0, lastError: null, generation: 0 };
+  }
+
+  private patchInfo(serverId: string, patch: Partial<ProcessInfo>): void {
+    const current = this.getInfo(serverId);
+    this.info.set(serverId, { ...current, ...patch });
+  }
+
+  reset(serverId: string): void {
+    this.backoffUntil.delete(serverId);
+    this.patchInfo(serverId, { state: "stopped", consecutiveFailures: 0, lastError: null });
+  }
+
+  touch(serverId: string): void {
+    const managed = this.running.get(serverId);
+    if (managed) managed.lastActivity = Date.now();
+  }
+
+  isRunning(serverId: string): boolean {
+    return this.running.has(serverId);
+  }
+
+  async acquire(serverId: string): Promise<AcquireResult> {
+    if (this.shuttingDown) throw new Error("gateway is shutting down");
+    const managed = this.running.get(serverId);
+    if (managed && !managed.stopping) {
+      managed.lastActivity = Date.now();
+      return { transport: managed.transport, generation: managed.generation };
+    }
+    const pending = this.starting.get(serverId);
+    if (pending) return pending;
+
+    const info = this.getInfo(serverId);
+    if (info.state === "failed") {
+      throw new Error(`server is in failed state: ${info.lastError ?? "unknown error"}`);
+    }
+    const until = this.backoffUntil.get(serverId) ?? 0;
+    if (Date.now() < until) {
+      const waitMs = until - Date.now();
+      throw new Error(`server is backing off after a crash, retry in ${waitMs}ms`);
+    }
+
+    const promise = this.spawn(serverId).finally(() => this.starting.delete(serverId));
+    this.starting.set(serverId, promise);
+    return promise;
+  }
+
+  private async spawn(serverId: string): Promise<AcquireResult> {
+    const spec = this.options.getSpec(serverId);
+    if (!spec) throw new Error("server is not configured for stdio");
+    const argv = spec.argv.filter((part) => part !== "");
+    if (argv.length === 0) throw new Error("empty command");
+
+    this.patchInfo(serverId, { state: "starting", lastError: null });
+    const controller = new AbortController();
+    const generation = ++this.generationSeq;
+    const logger = this.options.logger.child({ server: serverId });
+
+    let proc: Subprocess<"pipe", "pipe", "pipe">;
+    try {
+      proc = Bun.spawn(argv, {
+        cwd: spec.cwd ?? undefined,
+        env: spec.env,
+        stdin: "pipe",
+        stdout: "pipe",
+        stderr: "pipe",
+        signal: controller.signal
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.recordFailure(serverId, message);
+      throw new Error(`failed to spawn: ${message}`);
+    }
+
+    this.options.logs.append(serverId, "system", `started: ${argv.join(" ")} (pid ${proc.pid})`);
+    logger.info("upstream process started", { pid: proc.pid, argv: argv[0] });
+
+    const transport = new ChildProcessTransport({ stdin: proc.stdin, stdout: proc.stdout });
+    const managed: Managed = {
+      serverId,
+      proc,
+      transport,
+      generation,
+      controller,
+      startedAt: Date.now(),
+      lastActivity: Date.now(),
+      idleTimeoutSec: spec.idleTimeoutSec,
+      stopping: false,
+      exited: Promise.resolve()
+    };
+
+    void this.pipeStderr(serverId, proc.stderr);
+    managed.exited = this.watchExit(managed, spec);
+    this.running.set(serverId, managed);
+    this.patchInfo(serverId, { state: "running", pid: proc.pid ?? null, generation });
+    return { transport, generation };
+  }
+
+  private async pipeStderr(serverId: string, stream: ReadableStream<Uint8Array>): Promise<void> {
+    const decoder = new TextDecoder();
+    let rest = "";
+    const logger = this.options.logger.child({ server: serverId });
+    const reader = stream.getReader();
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        rest += decoder.decode(value, { stream: true });
+        const lines = rest.split("\n");
+        rest = lines.pop() ?? "";
+        for (const line of lines) {
+          if (line.trim() === "") continue;
+          this.options.logs.append(serverId, "stderr", line);
+          logger.debug("upstream stderr", { line });
+        }
+      }
+    } catch {
+      return;
+    } finally {
+      reader.releaseLock();
+    }
+    if (rest.trim() !== "") this.options.logs.append(serverId, "stderr", rest);
+  }
+
+  private async watchExit(managed: Managed, spec: SpawnSpec): Promise<void> {
+    const { serverId, proc, generation } = managed;
+    const code = await proc.exited;
+    const signal = proc.signalCode;
+    if (this.running.get(serverId) === managed) this.running.delete(serverId);
+    await managed.transport.close();
+    const logger = this.options.logger.child({ server: serverId });
+    const detail = signal ? `signal ${signal}` : `code ${code}`;
+    this.options.logs.append(serverId, "system", `exited with ${detail}`);
+
+    if (managed.stopping || this.shuttingDown) {
+      logger.info("upstream process stopped", { detail });
+      if (!this.shuttingDown && this.getInfo(serverId).state !== "idle") {
+        this.patchInfo(serverId, { state: "stopped", pid: null });
+      }
+      this.options.onExit?.(serverId, generation);
+      return;
+    }
+
+    logger.warn("upstream process exited unexpectedly", { detail });
+    const lived = Date.now() - managed.startedAt;
+    if (lived >= HEALTHY_AFTER_MS) this.patchInfo(serverId, { consecutiveFailures: 0 });
+    this.recordFailure(serverId, `process exited with ${detail}`);
+    this.options.onExit?.(serverId, generation);
+
+    const info = this.getInfo(serverId);
+    if (spec.warm && info.state !== "failed" && !this.shuttingDown) {
+      const delay = Math.max(0, (this.backoffUntil.get(serverId) ?? 0) - Date.now());
+      const timer = setTimeout(() => {
+        if (this.shuttingDown) return;
+        this.acquire(serverId).catch((error: unknown) => {
+          logger.warn("warm restart failed", { error: String(error) });
+        });
+      }, delay);
+      timer.unref?.();
+    }
+  }
+
+  private recordFailure(serverId: string, message: string): void {
+    const info = this.getInfo(serverId);
+    const failures = info.consecutiveFailures + 1;
+    const failed = failures >= this.maxConsecutiveFailures;
+    this.patchInfo(serverId, {
+      state: failed ? "failed" : "stopped",
+      pid: null,
+      restarts: info.restarts + 1,
+      consecutiveFailures: failures,
+      lastError: message
+    });
+    if (failed) {
+      this.backoffUntil.delete(serverId);
+      this.options.logs.append(serverId, "system", `giving up after ${failures} consecutive failures`);
+      return;
+    }
+    const delay = Math.min(this.backoffCapMs, this.backoffBaseMs * 2 ** (failures - 1));
+    this.backoffUntil.set(serverId, Date.now() + delay);
+  }
+
+  async stop(serverId: string, state: ProcessState = "stopped"): Promise<void> {
+    const pending = this.starting.get(serverId);
+    if (pending) await pending.catch(() => undefined);
+    const managed = this.running.get(serverId);
+    if (!managed) {
+      if (this.getInfo(serverId).state !== "failed") this.patchInfo(serverId, { state, pid: null });
+      return;
+    }
+    managed.stopping = true;
+    this.running.delete(serverId);
+    this.patchInfo(serverId, { state, pid: null });
+    managed.proc.kill("SIGTERM");
+    const timer = setTimeout(() => {
+      try {
+        managed.proc.kill("SIGKILL");
+      } catch {
+        return;
+      }
+    }, this.stopGraceMs);
+    timer.unref?.();
+    try {
+      await managed.exited;
+    } finally {
+      clearTimeout(timer);
+      managed.controller.abort();
+    }
+  }
+
+  async restart(serverId: string): Promise<void> {
+    await this.stop(serverId);
+    this.reset(serverId);
+    await this.acquire(serverId);
+  }
+
+  private async sweepIdle(): Promise<void> {
+    const now = Date.now();
+    for (const managed of [...this.running.values()]) {
+      if (managed.idleTimeoutSec <= 0 || managed.stopping) continue;
+      if (now - managed.lastActivity < managed.idleTimeoutSec * 1000) continue;
+      this.options.logs.append(managed.serverId, "system", "stopped after idle timeout");
+      await this.stop(managed.serverId, "idle");
+    }
+  }
+
+  async shutdown(): Promise<void> {
+    this.shuttingDown = true;
+    if (this.idleTimer) clearInterval(this.idleTimer);
+    this.idleTimer = null;
+    const pending = [...this.starting.values()];
+    await Promise.allSettled(pending);
+    const all = [...this.running.values()];
+    await Promise.allSettled(
+      all.map(async (managed) => {
+        managed.stopping = true;
+        this.running.delete(managed.serverId);
+        managed.proc.kill("SIGTERM");
+        const timer = setTimeout(() => managed.proc.kill("SIGKILL"), this.stopGraceMs);
+        try {
+          await managed.exited;
+        } finally {
+          clearTimeout(timer);
+          managed.controller.abort();
+        }
+      })
+    );
+  }
+}

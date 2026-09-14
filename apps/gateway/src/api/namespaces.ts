@@ -141,7 +141,8 @@ export function createNamespacesApi(core: Core): Hono {
           displayName: override?.displayName ?? null,
           description: override?.description ?? null,
           originalDescription: tool.description ?? null,
-          annotations: (override?.annotations as Record<string, unknown> | null) ?? null
+          annotations: (override?.annotations as Record<string, unknown> | null) ?? null,
+          originalAnnotations: (tool.annotations as Record<string, unknown> | undefined) ?? null
         });
       }
     }

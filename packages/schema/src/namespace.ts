@@ -59,6 +59,7 @@ export const NamespaceToolDto = z.object({
   displayName: z.string().nullable(),
   description: z.string().nullable(),
   originalDescription: z.string().nullable(),
-  annotations: z.record(z.string(), z.unknown()).nullable()
+  annotations: z.record(z.string(), z.unknown()).nullable(),
+  originalAnnotations: z.record(z.string(), z.unknown()).nullable()
 });
 export type NamespaceToolDto = z.infer<typeof NamespaceToolDto>;

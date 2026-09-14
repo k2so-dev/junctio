@@ -11,10 +11,10 @@
   "scripts": {
     "dev": "bun --watch apps/gateway/src/cli/index.ts serve",
     "start": "bun apps/gateway/src/cli/index.ts serve",
-    "dev:web": "bun --cwd apps/web run dev",
-    "build:web": "bun --cwd apps/web run build",
+    "dev:web": "bun run --cwd apps/web dev",
+    "build:web": "bun run --cwd apps/web build",
     "test": "bun test",
-    "typecheck": "bun run --cwd apps/gateway typecheck",
+    "typecheck": "bun run --cwd apps/gateway typecheck && bun run --cwd apps/web typecheck",
     "db:generate": "bun run --cwd apps/gateway db:generate"
   },
   "devDependencies": {

@@ -4,13 +4,13 @@ Self-hosted MCP gateway for one developer or a small team. One container, one vo
 
 The promise: **auth does not go stale.** Not between your client and the gateway, and not between the gateway and its upstreams.
 
-- **No telemetry.** Nothing leaves your machine. There is no phone-home, no analytics, no update ping.
+- **No telemetry.** Nothing leaves your machine. There is no phone-home, no analytics, no update ping. The one outbound call the UI ever makes is to the public MCP registry, on the Explore page, and only while you are looking at it.
 - **One endpoint per client.** Point Claude Code, Codex or Cursor at a single URL and manage the servers behind it from a web UI.
 - **Upstream OAuth that survives.** Tokens are refreshed proactively on a schedule, not after a request already failed.
 
 ## Status
 
-Early, but the whole path works: gateway, aggregation, API key auth, a built-in OAuth authorization server, upstream OAuth, REST API, web UI and container image. Not published to a registry yet — build it yourself.
+Early, but the whole path works: gateway, aggregation, API key auth, a built-in OAuth authorization server, upstream OAuth, REST API, web UI, registry browsing and container image. Not published to a registry yet — build it yourself.
 
 ## Quickstart
 
@@ -73,6 +73,26 @@ The environment handed to a child process is built explicitly: the `PATH` from s
 `TMPDIR` matters more than it looks: `bunx` unpacks and executes packages there, so a temporary directory mounted `noexec` makes it exit with status 1 and no output at all. The image points `TMPDIR` at `/cache/tmp` for that reason, and the gateway warns at startup if the directory it ends up with is `noexec`.
 
 For HTTP the gateway speaks Streamable HTTP. The auth mode is `none`, `header` for a static token, or `oauth` for the full client flow.
+
+## Explore
+
+The Explore page lists what other people have published to the official MCP registry at `registry.modelcontextprotocol.io`, so you can add a server without hunting for its package name.
+
+The browser never talks to the registry. The gateway does, over its public read-only endpoints, with no key and no account. It asks only when you open the page, type a search or press refresh, and it sends nothing but your search term and the name of an entry you opened. Every answer is stored in `junctio.db` for an hour, so paging back and forth costs nothing, and entries older than a day are swept away.
+
+If the registry is slow or down, a request gives up after ten seconds and the page falls back to the cached copy, saying how old it is and what went wrong. With nothing cached you get an error and a retry button instead of an empty table.
+
+The registry searches by name only and has no filters, so the page offers search, paging and nothing it cannot honour. Every row is the latest version of that server.
+
+| Published as | What the gateway does |
+|---|---|
+| npm package, stdio | Prefills an `npx` server with the pinned version, its arguments and its environment |
+| PyPI package, stdio | Prefills a `uvx` server |
+| Remote Streamable HTTP | Prefills an HTTP server, with the `Authorization` header when the entry declares one |
+| Remote SSE | Refused: the gateway proxies Streamable HTTP only |
+| Container image, NuGet, bundle | Refused: the image ships no docker or dotnet toolchain |
+
+Install opens the ordinary Add server form with the fields already filled in, including placeholders like `<allowed_directory>` where the registry says an argument is needed. Nothing is written to the database until you press save, so secrets and paths are yours to fill in first, with the exact command shown next to the form.
 
 ## Aggregation
 

@@ -39,6 +39,7 @@ const form = reactive({
 });
 
 const showEnv = ref(false);
+const prefilledFrom = ref<string | null>(null);
 const preview = ref("");
 const busy = ref(false);
 const loading = ref(false);
@@ -142,8 +143,39 @@ function removeEnv(index: number) {
   form.env.splice(index, 1);
 }
 
+function applyDraft(draft: ServerInput, source: string) {
+  form.name = draft.name;
+  form.transport = draft.transport;
+  form.runtime = draft.runtime;
+  form.args = draft.args.join("\n");
+  form.env = Object.entries(draft.env).map(([key, value]) => ({ key, value }));
+  if (form.env.length === 0) addEnv();
+  form.cwd = draft.cwd ?? "";
+  form.url = draft.url ?? "";
+  form.authMode = draft.authMode;
+  form.authorization = draft.headers.Authorization ?? "";
+  form.oauthScope = draft.oauthScope ?? "";
+  prefilledFrom.value = source;
+  void refreshPreview();
+}
+
+function pendingDraft(): { draft: ServerInput; source: string } | null {
+  const state = window.history.state as { draft?: unknown; source?: unknown } | null;
+  if (typeof state?.draft !== "string") return null;
+  try {
+    return { draft: JSON.parse(state.draft) as ServerInput, source: String(state.source ?? "the registry") };
+  } catch {
+    return null;
+  }
+}
+
 async function load() {
   if (!id.value) {
+    const pending = pendingDraft();
+    if (pending) {
+      applyDraft(pending.draft, pending.source);
+      return;
+    }
     form.args = RUNTIME_SEEDS[form.runtime] ?? "";
     addEnv();
     void refreshPreview();
@@ -215,9 +247,15 @@ onMounted(load);
     </Button>
 
     <h1 class="text-lg font-semibold tracking-tight">{{ editing ? "Edit server" : "Add server" }}</h1>
-    <p class="mt-1 mb-6 text-muted-foreground">
+    <p class="mt-1 text-muted-foreground">
       The process gets an explicit PATH and only the env you set here. Nothing from the gateway leaks in.
     </p>
+    <p v-if="prefilledFrom" class="mt-2 rounded-lg border bg-card px-3 py-2 text-muted-foreground">
+      Prefilled from the registry entry
+      <span class="font-mono text-foreground">{{ prefilledFrom }}</span
+      >. Nothing is saved until you press save, so fill in the secrets and check the command first.
+    </p>
+    <div class="mb-6" />
 
     <div class="grid items-start gap-7 lg:grid-cols-[minmax(320px,540px)_minmax(280px,1fr)]">
       <form class="flex flex-col gap-4" @submit.prevent="submit">

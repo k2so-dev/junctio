@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Boxes, Braces, KeyRound, Layers, LogOut, Plug, ScrollText, Settings2 } from "@lucide/vue";
+import { Boxes, Braces, Compass, KeyRound, Layers, LogOut, Plug, ScrollText, Settings2 } from "@lucide/vue";
 import { computed, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
@@ -24,6 +24,7 @@ const { health, settings, startHealthPolling, stopHealthPolling, refreshHealth, 
 
 const items = [
   { name: "servers", label: "Servers", icon: Boxes },
+  { name: "explore", label: "Explore", icon: Compass },
   { name: "namespaces", label: "Namespaces", icon: Layers },
   { name: "endpoints", label: "Endpoints", icon: Plug },
   { name: "api-keys", label: "API Keys", icon: KeyRound },

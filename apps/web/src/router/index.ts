@@ -10,6 +10,7 @@ const router = createRouter({
     { path: "/servers/new", name: "server-new", component: () => import("@/views/ServerFormView.vue") },
     { path: "/servers/:id", name: "server", component: () => import("@/views/ServerDetailView.vue") },
     { path: "/servers/:id/edit", name: "server-edit", component: () => import("@/views/ServerFormView.vue") },
+    { path: "/explore", name: "explore", component: () => import("@/views/ExploreView.vue") },
     { path: "/namespaces/:id?", name: "namespaces", component: () => import("@/views/NamespacesView.vue") },
     { path: "/endpoints/:id?", name: "endpoints", component: () => import("@/views/EndpointsView.vue") },
     { path: "/api-keys", name: "api-keys", component: () => import("@/views/ApiKeysView.vue") },

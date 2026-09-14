@@ -126,7 +126,7 @@ describe("health", () => {
     expect(before.servers.needsReauth).toBe(0);
     expect(before.status).toBe("ok");
 
-    seedHttpServer(harness.core, { name: "remote", url: "https://example.com/mcp", authMode: "oauth" });
+    await seedHttpServer(harness.core, { name: "remote", url: "https://example.com/mcp", authMode: "oauth" });
 
     const after = (await (await fetch(`${harness.url}/health`)).json()) as {
       status: string;

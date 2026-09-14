@@ -291,9 +291,40 @@
           "isLatest": true
         }
       }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.dotnetmcp/nuget-filesystem",
+        "description": "A filesystem MCP server published as a NuGet package.",
+        "version": "1.4.0",
+        "repository": {
+          "url": "https://github.com/dotnetmcp/nuget-filesystem",
+          "source": "github"
+        },
+        "packages": [
+          {
+            "registryType": "nuget",
+            "identifier": "DotnetMcp.Filesystem",
+            "version": "1.4.0",
+            "transport": {
+              "type": "stdio"
+            }
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-08-11T09:12:44.118221Z",
+          "publishedAt": "2026-08-11T09:12:44.118221Z",
+          "updatedAt": "2026-08-11T09:12:44.118221Z",
+          "isLatest": true
+        }
+      }
     }
   ],
   "metadata": {
-    "count": 5
+    "count": 6
   }
 }

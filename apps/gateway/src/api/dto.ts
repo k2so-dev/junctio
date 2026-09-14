@@ -34,7 +34,7 @@ export function mergeHeaders(
 export function serverStatus(core: Core, row: ServerRow, oauth: ServerOAuthInfo | null): ServerStatus {
   if (!row.enabled) return "stopped";
   if (oauth && (oauth.status === "needs_reauth" || oauth.status === "no_refresh")) return oauth.status;
-  if (row.transport === "http") return core.pool.cachedCatalog(row.id) ? "running" : "stopped";
+  if (row.transport !== "stdio") return core.pool.cachedCatalog(row.id) ? "running" : "stopped";
   return core.supervisor.getInfo(row.id).state;
 }
 

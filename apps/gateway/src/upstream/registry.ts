@@ -78,7 +78,7 @@ export class ServerRegistry {
   }
 
   preview(row: ServerRow): string {
-    if (row.transport === "http") return row.url ?? "";
+    if (row.transport !== "stdio") return row.url ?? "";
     return previewCommand({ runtime: row.runtime, args: row.args });
   }
 }

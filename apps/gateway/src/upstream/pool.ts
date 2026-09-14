@@ -2,6 +2,7 @@ import {
   Client,
   SdkError,
   SdkErrorCode,
+  SseError,
   type McpSubscription,
   type PriorDiscovery,
   type Prompt,
@@ -16,7 +17,7 @@ import type { Logger } from "../log.ts";
 import { VERSION } from "../config.ts";
 import type { ProcessSupervisor } from "./supervisor.ts";
 import type { ServerRegistry } from "./registry.ts";
-import { createHttpTransport } from "./http.ts";
+import { createRemoteTransport } from "./http.ts";
 import { UpstreamError, type UpstreamAuth } from "./types.ts";
 import type { LogRegistry } from "./logbuffer.ts";
 
@@ -113,6 +114,11 @@ export class UpstreamPool {
     return { era, protocolVersion: entry.client.getNegotiatedProtocolVersion() ?? null };
   }
 
+  private async closeEntry(entry: Entry): Promise<void> {
+    await entry.subscription?.close().catch(() => undefined);
+    await entry.client.close().catch(() => undefined);
+  }
+
   async invalidate(serverId: string, reason = "config changed"): Promise<void> {
     this.options.registry.invalidate(serverId);
     this.verdicts.delete(serverId);
@@ -121,7 +127,7 @@ export class UpstreamPool {
     this.entries.delete(serverId);
     entry.closing = true;
     this.options.logger.debug("closing upstream client", { server: serverId, reason });
-    await entry.client.close().catch(() => undefined);
+    await this.closeEntry(entry);
   }
 
   invalidateCatalog(serverId: string): void {
@@ -133,7 +139,18 @@ export class UpstreamPool {
     const entry = this.entries.get(serverId);
     if (!entry || entry.generation !== generation) return;
     this.entries.delete(serverId);
-    void entry.client.close().catch(() => undefined);
+    void this.closeEntry(entry);
+  }
+
+  private evict(serverId: string, client: Client, reason: string): void {
+    const entry = this.entries.get(serverId);
+    this.options.logger.debug("dropping upstream client", { server: serverId, reason });
+    if (entry?.client === client) {
+      this.entries.delete(serverId);
+      void this.closeEntry(entry);
+      return;
+    }
+    void client.close().catch(() => undefined);
   }
 
   private prior(serverId: string): PriorDiscovery | undefined {
@@ -162,7 +179,7 @@ export class UpstreamPool {
       const handle = await this.options.supervisor.acquire(serverId);
       return { transport: handle.transport, generation: handle.generation };
     }
-    const transport = createHttpTransport({
+    const transport = createRemoteTransport({
       server: resolved,
       auth: this.options.auth,
       logger: this.options.logger,
@@ -192,9 +209,16 @@ export class UpstreamPool {
     client.setNotificationHandler("notifications/prompts/list_changed", async () => {
       this.invalidateCatalog(serverId);
     });
+    client.onerror = (error) => {
+      if (!(error instanceof SseError)) return;
+      this.options.logs.append(serverId, "system", "sse stream dropped, reconnecting on the next call");
+      this.evict(serverId, client, "sse stream dropped");
+    };
     client.onclose = () => {
       const current = this.entries.get(serverId);
-      if (current?.client === client) this.entries.delete(serverId);
+      if (current?.client !== client) return;
+      this.entries.delete(serverId);
+      void current.subscription?.close().catch(() => undefined);
     };
     return client;
   }
@@ -354,6 +378,6 @@ export class UpstreamPool {
   async shutdown(): Promise<void> {
     const all = [...this.entries.values()];
     this.entries.clear();
-    await Promise.allSettled(all.map((entry) => entry.client.close()));
+    await Promise.allSettled(all.map((entry) => this.closeEntry(entry)));
   }
 }

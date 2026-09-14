@@ -36,7 +36,7 @@ describe("protocol eras", () => {
     remote = await startMockHttpMcp({ issuer: null, requireAuth: false, modern: true });
     legacyUpstream = seedStdioServer(harness.core, { name: "legacy" });
     modernUpstream = seedStdioServer(harness.core, { name: "modern", fixture: MOCK_STDIO_MODERN });
-    httpUpstream = seedHttpServer(harness.core, { name: "remote", url: remote.url });
+    httpUpstream = await seedHttpServer(harness.core, { name: "remote", url: remote.url });
     fragileUpstream = seedStdioServer(harness.core, { name: "fragile", env: { MOCK_EXIT_ON_PROBE: "1" } });
 
     const mixed = seedNamespace(harness.core, "mixed", [

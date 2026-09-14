@@ -110,20 +110,29 @@ export function seedStdioServer(
   return id;
 }
 
-export function seedHttpServer(core: Core, options: { name: string; url: string; authMode?: "none" | "header" | "oauth" }): string {
+export async function seedHttpServer(
+  core: Core,
+  options: {
+    name: string;
+    url: string;
+    authMode?: "none" | "header" | "oauth";
+    transport?: "http" | "sse";
+    headers?: Record<string, string>;
+  }
+): Promise<string> {
   const id = randomId();
   core.db
     .insert(servers)
     .values({
       id,
       name: options.name,
-      transport: "http",
+      transport: options.transport ?? "http",
       runtime: "custom",
       args: [],
       env: {},
       cwd: null,
       url: options.url,
-      headersEnc: null,
+      headersEnc: options.headers ? await core.cipher.encrypt(JSON.stringify(options.headers)) : null,
       authMode: options.authMode ?? "none",
       oauthScope: null,
       enabled: true,

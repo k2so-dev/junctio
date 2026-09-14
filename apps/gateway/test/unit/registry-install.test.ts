@@ -84,10 +84,10 @@ describe("install options", () => {
   });
 
   test("refuses what the gateway cannot run and says why", () => {
-    const nuget = installOptions(entry("io.github.j0hanz/filesystem-mcp"), "filesystem-mcp").find((option) =>
-      option.label.startsWith("nuget")
-    );
-    expect(nuget === undefined || nuget.supported === false).toBe(true);
+    const nuget = installOptions(entry("io.github.dotnetmcp/nuget-filesystem"), "nuget-filesystem")[0]!;
+    expect(nuget.supported).toBe(false);
+    expect(nuget.reason).toContain("dotnet toolchain");
+    expect(nuget.draft).toBeNull();
   });
 
   test("turns a container image into a docker server", () => {
@@ -139,10 +139,7 @@ describe("summaries", () => {
   });
 
   test("marks an entry with no runnable option as not installable", () => {
-    const [websocket] = registryEntries({
-      servers: [{ server: { name: "io.example/ws", remotes: [{ type: "websocket", url: "wss://example.com" }] } }]
-    } as never);
-    expect(summarize(websocket!, false).installable).toBe(false);
+    expect(summarize(entry("io.github.dotnetmcp/nuget-filesystem"), false).installable).toBe(false);
     expect(summarize(entry("com.pulsemcp/remote-filesystem"), false).installable).toBe(true);
   });
 });

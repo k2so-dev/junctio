@@ -44,7 +44,7 @@ export function buildHealth(core: Core): HealthDto {
       const status = oauthStatus.get(row.id) ?? "needs_reauth";
       if (status === "needs_reauth" || status === "no_refresh") needsReauth += 1;
     }
-    if (row.transport === "http") {
+    if (row.transport !== "stdio") {
       if (core.pool.cachedCatalog(row.id)) running += 1;
       continue;
     }

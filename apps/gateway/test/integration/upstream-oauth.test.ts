@@ -23,7 +23,7 @@ async function setupOauthServer(options: { ttlSec?: number; refreshIntervalMs?: 
     withBaseUrl: true,
     ...(options.refreshIntervalMs ? { refreshIntervalMs: options.refreshIntervalMs } : {})
   });
-  const serverId = seedHttpServer(harness.core, { name: "remote", url: upstream.url, authMode: "oauth" });
+  const serverId = await seedHttpServer(harness.core, { name: "remote", url: upstream.url, authMode: "oauth" });
   const namespaceId = seedNamespace(harness.core, "ns", [{ serverId }]);
   const endpointId = seedEndpoint(harness.core, { slug: "gw", namespaceId });
   const token = await seedApiKey(harness.core, endpointId);

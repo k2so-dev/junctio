@@ -41,7 +41,7 @@ export function registerServerTools(server: McpServer, deps: AdminDeps): void {
     {
       title: "Create a server",
       description:
-        "Add an upstream server. For stdio pick a runtime and pass every argument separately, in order: npx wants -y and the package name. For http set transport to http, a url, and authMode header with an Authorization header, or oauth to run the client flow later. Nothing is added to the arguments behind your back.",
+        "Add an upstream server. For stdio pick a runtime and pass every argument separately, in order: npx wants -y and the package name. For a remote server set transport to http with its streamable http url, or sse with the stream url of a legacy HTTP+SSE server, plus authMode header with an Authorization header, or oauth to run the client flow later. Nothing is added to the arguments behind your back.",
       inputSchema: ServerInput,
       annotations: MUTATES
     },

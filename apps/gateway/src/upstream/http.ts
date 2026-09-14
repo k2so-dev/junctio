@@ -1,4 +1,9 @@
-import { StreamableHTTPClientTransport, type FetchLike } from "@modelcontextprotocol/client";
+import {
+  SSEClientTransport,
+  StreamableHTTPClientTransport,
+  type FetchLike,
+  type Transport
+} from "@modelcontextprotocol/client";
 import type { Logger } from "../log.ts";
 import type { ResolvedServer, UpstreamAuth } from "./types.ts";
 
@@ -9,11 +14,10 @@ export type HttpTransportOptions = {
   onUnauthorized?: () => void;
 };
 
-export function createHttpTransport(options: HttpTransportOptions): StreamableHTTPClientTransport {
+export function authorizedFetch(options: HttpTransportOptions): FetchLike {
   const { server, auth, logger } = options;
-  const url = new URL(server.row.url ?? "");
 
-  const fetchWithAuth: FetchLike = async (input, init) => {
+  return async (input, init) => {
     const send = async (extra: Record<string, string>) => {
       const headers = new Headers(init?.headers);
       for (const [key, value] of Object.entries(server.headers)) headers.set(key, value);
@@ -34,6 +38,18 @@ export function createHttpTransport(options: HttpTransportOptions): StreamableHT
     if (retried.status === 401) options.onUnauthorized?.();
     return retried;
   };
+}
 
-  return new StreamableHTTPClientTransport(url, { fetch: fetchWithAuth });
+export function createHttpTransport(options: HttpTransportOptions): StreamableHTTPClientTransport {
+  const url = new URL(options.server.row.url ?? "");
+  return new StreamableHTTPClientTransport(url, { fetch: authorizedFetch(options) });
+}
+
+export function createSseTransport(options: HttpTransportOptions): SSEClientTransport {
+  const url = new URL(options.server.row.url ?? "");
+  return new SSEClientTransport(url, { fetch: authorizedFetch(options) });
+}
+
+export function createRemoteTransport(options: HttpTransportOptions): Transport {
+  return options.server.row.transport === "sse" ? createSseTransport(options) : createHttpTransport(options);
 }

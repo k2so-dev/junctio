@@ -41,7 +41,7 @@ export class UpstreamOauthFlow {
   private serverUrl(serverId: string): string {
     const row = this.options.db.select().from(servers).where(eq(servers.id, serverId)).get();
     if (!row) throw new Error("server not found");
-    if (row.transport !== "http" || !row.url) throw new Error("oauth is only supported for http upstreams");
+    if (row.transport === "stdio" || !row.url) throw new Error("oauth is only supported for remote upstreams");
     return row.url;
   }
 

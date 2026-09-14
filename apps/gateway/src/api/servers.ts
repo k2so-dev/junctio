@@ -22,6 +22,16 @@ const CONNECTION_FIELDS = [
   "idleTimeoutSec"
 ] as const satisfies readonly (keyof ServerRow)[];
 
+async function processFailure(core: Core, serverId: string, attempts = 10, stepMs = 30): Promise<string | null> {
+  for (let i = 0; i < attempts; i++) {
+    const lastError = core.supervisor.getInfo(serverId).lastError;
+    if (lastError) return lastError;
+    if (core.supervisor.isRunning(serverId) && i > 0) return null;
+    await Bun.sleep(stepMs);
+  }
+  return null;
+}
+
 function findServer(core: Core, id: string): ServerRow | null {
   return core.db.select().from(servers).where(eq(servers.id, id)).get() ?? null;
 }
@@ -219,13 +229,15 @@ export function createServersApi(core: Core): Hono {
       };
       return c.json(result);
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const processError = row.transport === "stdio" ? await processFailure(core, row.id) : null;
       const result: TestResultDto = {
         ok: false,
         durationMs: Date.now() - started,
         serverInfo: null,
         protocolVersion: null,
         toolCount: null,
-        error: error instanceof Error ? error.message : String(error)
+        error: processError ?? message
       };
       return c.json(result);
     }

@@ -245,7 +245,27 @@ describe("servers api", () => {
       await api(`/v1/servers/${created.id}/test`, { method: "POST" })
     );
     expect(tested.ok).toBe(false);
-    expect(tested.error).toBeTruthy();
+    expect(tested.error).toContain("mock server refusing to start");
+  }, 30_000);
+
+  test("test reports why the process died, not just a closed connection", async () => {
+    const created = await json<{ id: string }>(
+      await api("/v1/servers", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "silent",
+          transport: "stdio",
+          runtime: "custom",
+          args: ["bun", MOCK_STDIO],
+          env: { PATH: Bun.env.PATH, HOME: Bun.env.HOME, MOCK_SILENT_EXIT: "1" }
+        })
+      })
+    );
+    const tested = await json<{ ok: boolean; error: string | null }>(
+      await api(`/v1/servers/${created.id}/test`, { method: "POST" })
+    );
+    expect(tested.ok).toBe(false);
+    expect(tested.error).toContain("without writing anything");
   }, 30_000);
 });
 

@@ -42,8 +42,26 @@ export type SupervisorOptions = {
 const HEALTHY_AFTER_MS = 5_000;
 const HINT = "check the arguments the runtime received and that TMPDIR allows execution";
 
+const MAX_REASON = 200;
+
 function formatDuration(ms: number): string {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
+const ERROR_LINE = /\b(error|fatal|exception|traceback|panic)\b/i;
+
+function explain(silent: boolean, managed: Managed): string {
+  if (silent) return ` without writing anything; ${HINT}`;
+  const line = (managed.errorLine ?? managed.lastLine)?.trim();
+  if (!line) return "";
+  const reason = line.length > MAX_REASON ? `${line.slice(0, MAX_REASON)}…` : line;
+  return managed.errorLine ? `: ${reason}` : `, last output: ${reason}`;
+}
+
+function remember(managed: Managed, line: string): void {
+  managed.output += 1;
+  managed.lastLine = line;
+  if (!managed.errorLine && ERROR_LINE.test(line)) managed.errorLine = line;
 }
 
 type Managed = {
@@ -57,6 +75,8 @@ type Managed = {
   idleTimeoutSec: number;
   stopping: boolean;
   output: number;
+  lastLine: string | null;
+  errorLine: string | null;
   exited: Promise<void>;
 };
 
@@ -178,7 +198,7 @@ export class ProcessSupervisor {
       stdin: proc.stdin,
       stdout: proc.stdout,
       onUnparsed: (line) => {
-        managed.output += 1;
+        remember(managed, line);
         this.options.logs.append(serverId, "stdout", line);
         logger.debug("upstream wrote a non-protocol line", { line });
       }
@@ -194,6 +214,8 @@ export class ProcessSupervisor {
       idleTimeoutSec: spec.idleTimeoutSec,
       stopping: false,
       output: 0,
+      lastLine: null,
+      errorLine: null,
       exited: Promise.resolve()
     };
 
@@ -219,7 +241,7 @@ export class ProcessSupervisor {
         rest = lines.pop() ?? "";
         for (const line of lines) {
           if (line.trim() === "") continue;
-          managed.output += 1;
+          remember(managed, line);
           this.options.logs.append(serverId, "stderr", line);
           logger.debug("upstream stderr", { line });
         }
@@ -230,7 +252,7 @@ export class ProcessSupervisor {
       reader.releaseLock();
     }
     if (rest.trim() !== "") {
-      managed.output += 1;
+      remember(managed, rest.trim());
       this.options.logs.append(serverId, "stderr", rest);
     }
   }
@@ -262,10 +284,7 @@ export class ProcessSupervisor {
 
     logger.warn("upstream process exited unexpectedly", { detail });
     if (lived >= HEALTHY_AFTER_MS) this.patchInfo(serverId, { consecutiveFailures: 0 });
-    this.recordFailure(
-      serverId,
-      silent ? `process exited with ${detail} without writing anything; ${HINT}` : `process exited with ${detail}`
-    );
+    this.recordFailure(serverId, `process exited with ${detail}${explain(silent, managed)}`);
     this.options.onExit?.(serverId, generation);
 
     const info = this.getInfo(serverId);

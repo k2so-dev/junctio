@@ -32,6 +32,8 @@ const server = Bun.serve({
 
 core.logger.info("listening", { url: `http://${config.host}:${config.port}` });
 
+core.upstreamAuth.start();
+
 for (const row of core.db.select().from(servers).where(eq(servers.warm, true)).all()) {
   if (!row.enabled || row.transport !== "stdio") continue;
   core.supervisor.acquire(row.id).catch((error: unknown) => {

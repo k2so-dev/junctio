@@ -6,6 +6,7 @@ import type { Core } from "../core.ts";
 import { servers } from "../db/schema.ts";
 import { createMcpRoute } from "./mcp.ts";
 import { createWellKnownRoute } from "./wellknown.ts";
+import { createUpstreamOauthRoute } from "./oauth.ts";
 import { RemoteJwtVerifier } from "../auth/downstream/jwt.ts";
 
 export type AppOptions = {
@@ -55,6 +56,7 @@ export function createApp(options: AppOptions): Hono {
 
   app.route("/.well-known", createWellKnownRoute({ core, verifier }));
   app.route("/mcp", createMcpRoute({ core, verifier }));
+  app.route("/oauth/upstream", createUpstreamOauthRoute(core));
 
   if (publicDir) {
     app.get("/assets/*", async (c) => {

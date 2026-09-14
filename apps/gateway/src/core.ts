@@ -9,7 +9,8 @@ import { ProcessSupervisor } from "./upstream/supervisor.ts";
 import { ServerRegistry } from "./upstream/registry.ts";
 import { UpstreamPool } from "./upstream/pool.ts";
 import { Aggregator } from "./aggregate/aggregator.ts";
-import { noopUpstreamAuth, type UpstreamAuth } from "./upstream/types.ts";
+import { type UpstreamAuth } from "./upstream/types.ts";
+import { UpstreamAuthService } from "./auth/upstream/index.ts";
 
 export type Core = {
   config: Config;
@@ -22,6 +23,7 @@ export type Core = {
   supervisor: ProcessSupervisor;
   pool: UpstreamPool;
   aggregator: Aggregator;
+  upstreamAuth: UpstreamAuthService;
   startedAt: number;
   setUpstreamAuth(auth: UpstreamAuth): void;
   shutdown(): Promise<void>;
@@ -30,6 +32,8 @@ export type Core = {
 export type CoreOptions = {
   config: Config;
   dbFile?: string;
+  fetchImpl?: typeof fetch;
+  refreshIntervalMs?: number;
 };
 
 export function databaseFile(config: Config): string {
@@ -45,10 +49,19 @@ export function createCore(options: CoreOptions): Core {
   const logs = new LogRegistry();
   const registry = new ServerRegistry(db, cipher);
 
-  let auth: UpstreamAuth = noopUpstreamAuth;
+  const upstreamAuth = new UpstreamAuthService({
+    db,
+    cipher,
+    logger,
+    baseUrl: config.baseUrl,
+    ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+    ...(options.refreshIntervalMs ? { intervalMs: options.refreshIntervalMs } : {})
+  });
+  let auth: UpstreamAuth = upstreamAuth;
   const authProxy: UpstreamAuth = {
     authHeaders: (server) => auth.authHeaders(server),
-    handleUnauthorized: (serverId) => auth.handleUnauthorized(serverId)
+    handleUnauthorized: (serverId) => auth.handleUnauthorized(serverId),
+    markNeedsReauth: (serverId, reason) => auth.markNeedsReauth?.(serverId, reason)
   };
 
   let pool: UpstreamPool;
@@ -72,11 +85,13 @@ export function createCore(options: CoreOptions): Core {
     supervisor,
     pool,
     aggregator,
+    upstreamAuth,
     startedAt: Date.now(),
     setUpstreamAuth(next) {
       auth = next;
     },
     async shutdown() {
+      upstreamAuth.stop();
       await pool.shutdown();
       await supervisor.shutdown();
       sqlite.close(false);

@@ -8,6 +8,7 @@ export type ResolvedServer = {
 export interface UpstreamAuth {
   authHeaders(server: ResolvedServer): Promise<Record<string, string>>;
   handleUnauthorized(serverId: string): Promise<boolean>;
+  markNeedsReauth?(serverId: string, reason: string): void;
 }
 
 export const noopUpstreamAuth: UpstreamAuth = {

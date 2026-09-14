@@ -110,7 +110,10 @@ export class UpstreamPool {
         server: resolved,
         auth: this.options.auth,
         logger: this.options.logger,
-        onUnauthorized: () => this.options.logs.append(serverId, "system", "upstream rejected the token")
+        onUnauthorized: () => {
+          this.options.logs.append(serverId, "system", "upstream rejected the token");
+          this.options.auth.markNeedsReauth?.(serverId, "upstream returned 401 after a refresh attempt");
+        }
       });
     }
 

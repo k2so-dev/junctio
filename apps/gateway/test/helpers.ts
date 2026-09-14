@@ -32,12 +32,35 @@ export function testConfig(overrides: Record<string, string> = {}): Config {
   });
 }
 
-export async function startHarness(options: { verifier?: RemoteJwtVerifier | null; env?: Record<string, string> } = {}): Promise<Harness> {
+export async function freePort(): Promise<number> {
+  const probe = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response("") });
+  const port = probe.port ?? 0;
+  await probe.stop(true);
+  return port;
+}
+
+export type HarnessOptions = {
+  verifier?: RemoteJwtVerifier | null;
+  env?: Record<string, string>;
+  withBaseUrl?: boolean;
+  refreshIntervalMs?: number;
+};
+
+export async function startHarness(options: HarnessOptions = {}): Promise<Harness> {
   const dir = mkdtempSync(join(tmpdir(), "junctio-test-"));
-  const config = testConfig({ JUNCTIO_DATA_DIR: dir, ...(options.env ?? {}) });
-  const core = createCore({ config, dbFile: join(dir, "junctio.db") });
+  const port = options.withBaseUrl ? await freePort() : 0;
+  const config = testConfig({
+    JUNCTIO_DATA_DIR: dir,
+    ...(options.withBaseUrl ? { JUNCTIO_BASE_URL: `http://127.0.0.1:${port}` } : {}),
+    ...(options.env ?? {})
+  });
+  const core = createCore({
+    config,
+    dbFile: join(dir, "junctio.db"),
+    ...(options.refreshIntervalMs ? { refreshIntervalMs: options.refreshIntervalMs } : {})
+  });
   const app = createApp({ core, verifier: options.verifier ?? null, publicDir: null });
-  const server = Bun.serve({ port: 0, hostname: "127.0.0.1", idleTimeout: 0, fetch: app.fetch });
+  const server = Bun.serve({ port, hostname: "127.0.0.1", idleTimeout: 0, fetch: app.fetch });
   return {
     core,
     config,

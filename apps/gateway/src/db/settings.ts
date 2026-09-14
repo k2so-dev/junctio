@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm";
-import { dirname } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { Db } from "./index.ts";
 import { settings } from "./schema.ts";
+import { randomId } from "../crypto.ts";
 
 const RUNTIME_BINARIES = ["bun", "bunx", "node", "npx", "uv", "uvx"];
 const SYSTEM_PATH = ["/usr/local/bin", "/usr/bin", "/bin"];
@@ -21,6 +23,7 @@ export function defaultRuntimePath(): string {
 }
 
 export const DEFAULT_SETTINGS = {
+  gateway_id: "",
   tool_separator: "__",
   runtime_path: defaultRuntimePath(),
   api_key_query_param: "false",
@@ -41,6 +44,26 @@ export function setSetting(db: Db, key: SettingKey, value: string): void {
     .values({ key, value })
     .onConflictDoUpdate({ target: settings.key, set: { value } })
     .run();
+}
+
+export function gatewayId(db: Db): string {
+  const current = getSetting(db, "gateway_id");
+  if (current !== "") return current;
+  const next = randomId();
+  setSetting(db, "gateway_id", next);
+  return next;
+}
+
+export function reconcileGatewayId(db: Db, dataDir: string): string {
+  const file = join(dataDir, "gateway-id");
+  const onDisk = existsSync(file) ? readFileSync(file, "utf8").trim() : "";
+  if (onDisk !== "" && getSetting(db, "gateway_id") === "") {
+    setSetting(db, "gateway_id", onDisk);
+    return onDisk;
+  }
+  const id = gatewayId(db);
+  if (onDisk !== id) writeFileSync(file, id);
+  return id;
 }
 
 export function getSettings(db: Db): Record<SettingKey, string> {

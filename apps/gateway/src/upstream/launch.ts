@@ -10,6 +10,7 @@ export type ProcessLaunch = {
 
 export type ContainerLaunch = {
   kind: "container";
+  gatewayId: string;
   serverId: string;
   name: string;
   container: ContainerSpec;

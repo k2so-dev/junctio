@@ -7,6 +7,7 @@ import { toast } from "vue-sonner";
 import CodeBlock from "@/components/CodeBlock.vue";
 import DefinitionList from "@/components/DefinitionList.vue";
 import StatusDot from "@/components/StatusDot.vue";
+import DockerStatus from "@/components/server/DockerStatus.vue";
 import ServerAuth from "@/components/server/ServerAuth.vue";
 import ServerLogs from "@/components/server/ServerLogs.vue";
 import ServerTools from "@/components/server/ServerTools.vue";
@@ -89,9 +90,12 @@ const overview = computed(() => {
 const stats = computed(() => {
   const current = server.value;
   if (!current) return [];
+  const container = current.runtime === "docker" && current.transport === "stdio";
   return [
     { label: "Status", value: statusMeta(current.status).label },
-    { label: "PID", value: current.pid === null ? "—" : String(current.pid) },
+    container
+      ? { label: "Container", value: current.containerId === null ? "—" : current.containerId.slice(0, 12) }
+      : { label: "PID", value: current.pid === null ? "—" : String(current.pid) },
     { label: "Restarts", value: String(current.restarts) },
     { label: "Tools", value: current.toolCount === null ? "—" : String(current.toolCount) },
     { label: "Protocol", value: current.protocolVersion ?? "—" }
@@ -267,6 +271,8 @@ onUnmounted(() => {
                   <div class="mt-0.5 font-mono text-base">{{ stat.value }}</div>
                 </div>
               </div>
+
+              <DockerStatus v-if="server.runtime === 'docker' && server.transport === 'stdio'" compact />
 
               <div v-if="server.lastError" class="rounded-lg border border-destructive/50 bg-destructive/8 p-3.5">
                 <div class="font-medium text-destructive">Last error</div>

@@ -199,8 +199,8 @@ export class DockerClient {
     await response.text().catch(() => "");
   }
 
-  async list(label: string): Promise<ContainerSummary[]> {
-    const filters = encodeURIComponent(JSON.stringify({ label: [label] }));
+  async list(...labels: string[]): Promise<ContainerSummary[]> {
+    const filters = encodeURIComponent(JSON.stringify({ label: labels }));
     const body = await this.json<{ Id?: string; Names?: string[]; Labels?: Record<string, string> }[]>(
       "GET",
       `/containers/json?all=1&filters=${filters}`

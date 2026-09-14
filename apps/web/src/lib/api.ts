@@ -4,6 +4,7 @@ import type {
   ApiKeyInput,
   ConsentDecisionDto,
   ConsentRequestDto,
+  DockerStatusDto,
   EndpointDto,
   EndpointInput,
   EndpointPatch,
@@ -184,6 +185,10 @@ export const api = {
         "GET",
         `/v1/registry/server${query({ name, refresh: refresh ? "1" : undefined })}`
       )
+  },
+
+  docker: {
+    status: () => request<DockerStatusDto>("GET", "/v1/docker")
   },
 
   requestLog: (params: { endpointId?: string; serverId?: string; status?: string; limit?: number }) =>

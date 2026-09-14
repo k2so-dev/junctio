@@ -48,6 +48,7 @@ claude mcp add --transport http junctio https://mcp.example.com/mcp/main \
 | `JUNCTIO_OAUTH_ISSUER` | no | Issuer URL of an external identity provider. Leave it empty to use the gateway's own authorization server. |
 | `JUNCTIO_OAUTH_AUDIENCE` | no | Override the expected audience of an external provider. Defaults to the endpoint URL. |
 | `JUNCTIO_DATA_DIR` | no | Where `junctio.db` lives. Defaults to `/data`. |
+| `JUNCTIO_DOCKER_SOCKET` | no | Socket of the daemon that runs `docker` servers. Defaults to `/var/run/docker.sock`. |
 | `JUNCTIO_PUBLIC_DIR` | no | Directory of the built UI. Defaults to `./public`, then `./apps/web/dist`. |
 | `PORT` / `HOST` | no | Listener. Defaults to `3000` and `0.0.0.0`. |
 | `LOG_LEVEL` | no | `debug`, `info`, `warn` or `error`. Defaults to `info`. |
@@ -64,6 +65,7 @@ For stdio the `runtime` field is the launcher and everything else is yours: the 
 |---|---|---|
 | `npx` | `-y`, `@scope/pkg`, `/data` | `npx -y @scope/pkg /data` |
 | `uv` | `run`, `main.py` | `uv run main.py` |
+| `docker` | `run`, `-i`, `--rm`, `ghcr.io/x/y` | `docker run -i --rm ghcr.io/x/y` |
 | `custom` | `/usr/local/bin/srv`, `--flag` | `/usr/local/bin/srv --flag` |
 
 Nothing is added behind your back. The form seeds `-y` for `npx` and `run` for `uv` because those are what you almost always want, but they are ordinary text you can delete. The same goes for flags the gateway has no opinion about: `bunx` honours the package shebang and runs most CLIs under Node, so add `--bun` yourself if you want Bun to execute it.
@@ -71,6 +73,36 @@ Nothing is added behind your back. The form seeds `-y` for `npx` and `run` for `
 The environment handed to a child process is built explicitly: the `PATH` from settings, `HOME`, `TMPDIR` and the variables you configured. Nothing else is inherited, and `JUNCTIO_*` variables are never passed down. That `PATH` defaults to the directories where the gateway found `bun`, `node` and `uv` at first start, plus the system ones; change it in Settings if a runtime lives elsewhere.
 
 `TMPDIR` matters more than it looks: `bunx` unpacks and executes packages there, so a temporary directory mounted `noexec` makes it exit with status 1 and no output at all. The image points `TMPDIR` at `/cache/tmp` for that reason, and the gateway warns at startup if the directory it ends up with is `noexec`.
+
+### Servers that ship as an image
+
+Some servers are published only as a container. The `docker` runtime takes the `docker run` line those projects print, minus the word `docker`, and runs it over the Docker Engine API. The image ships no docker client: the gateway talks to the daemon socket itself, so a stop is a stop rather than a signal sent to a wrapper process.
+
+Mount the socket and join its group:
+
+```yaml
+services:
+  junctio:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID}"
+```
+
+`DOCKER_GID` comes from `stat -c %g /var/run/docker.sock`. The repository carries this as `compose.docker.yml`:
+
+```bash
+DOCKER_GID=$(stat -c %g /var/run/docker.sock) \
+  docker compose -f compose.yml -f compose.docker.yml up -d
+```
+
+**Handing over that socket is handing over the host.** Anything that reaches it can start a privileged container and read every file on the machine. Mount it only if you actually run container servers, and read [SECURITY.md](.github/SECURITY.md) first.
+
+The gateway reads the flags it can carry over to the API — `-e`, `-v`, `--mount`, `--network`, `-w`, `-u`, `--entrypoint`, `--init`, `--pull`, `--label` — ignores `-t`, `--name` and `--platform` with a note, and refuses everything else by name when you save, rather than dropping it quietly. `-d`, `-p` and `--privileged` are refused on purpose: the container has to stay attached to the gateway's stdio, an stdio server publishes no port, and a privileged container is not something a config paste should be able to ask for.
+
+The container's environment is the Environment you filled in plus any `-e KEY=value` in the arguments; a bare `-e KEY` takes its value from that same list, the way docker takes it from your shell. `JUNCTIO_*` variables are never passed down. A `-v` path is resolved by the daemon, so it is a path on the host, not inside the gateway container.
+
+Containers are named `junctio-<server>-<gateway>` and carry `junctio.gateway` and `junctio.server` labels. Stopping removes them, and a gateway that comes back from a crash sweeps whatever its own last run left behind. The gateway id is generated once and kept in the database, so several gateways can share one daemon without clearing each other's containers. One wrinkle worth knowing: a process running as PID 1 in a container ignores `SIGTERM` unless it installs a handler, so a stop waits out the five second grace and then kills it. Add `--init` to the arguments and it shuts down at once.
 
 For HTTP the gateway speaks Streamable HTTP. The auth mode is `none`, `header` for a static token, or `oauth` for the full client flow.
 
@@ -92,7 +124,8 @@ Each row links out to whatever the entry declares, in a new tab: the repository,
 | PyPI package, stdio | Prefills a `uvx` server |
 | Remote Streamable HTTP | Prefills an HTTP server, with the `Authorization` header when the entry declares one |
 | Remote SSE | Refused: the gateway proxies Streamable HTTP only |
-| Container image, NuGet, bundle | Refused: the image ships no docker or dotnet toolchain |
+| Container image, stdio | Prefills a `docker` server with `run -i --rm`, the declared mounts and the image |
+| NuGet, bundle | Refused: the image ships no dotnet toolchain, and bundles are a desktop client's job |
 
 Install opens the ordinary Add server form with the fields already filled in, including placeholders like `<allowed_directory>` where the registry says an argument is needed. Nothing is written to the database until you press save, so secrets and paths are yours to fill in first, with the exact command shown next to the form.
 
@@ -108,7 +141,7 @@ Sending you away without a way back would be pointless, so the tab starts with a
 { "mcpServers": { "foo": { "command": "npx", "args": ["-y", "@x/foo"] } } }
 ```
 
-Paste it and each server in it turns into a row with the command it would run and an Add button. The `mcpServers` wrapper is read, so is the VS Code `servers` wrapper with `type: http`, so is a bare server object, and so are the `vscode:mcp/install` and `cursor://` links a site hands to your editor. A fenced snippet with prose around it is fine, the object is dug out. An `npx`, `bunx`, `uvx`, `uv` or `node` command becomes that runtime; anything else becomes a custom command, with a warning for `docker`, which the image does not ship. Placeholders like `${input:token}` are blanked and listed as things to fill in, and a legacy SSE entry is refused with its reason rather than half-imported.
+Paste it and each server in it turns into a row with the command it would run and an Add button. The `mcpServers` wrapper is read, so is the VS Code `servers` wrapper with `type: http`, so is a bare server object, and so are the `vscode:mcp/install` and `cursor://` links a site hands to your editor. A fenced snippet with prose around it is fine, the object is dug out. An `npx`, `bunx`, `uvx`, `uv` or `node` command becomes that runtime, `docker` and `podman` become the docker runtime with their `run` line intact, and anything else becomes a custom command. Placeholders like `${input:token}` are blanked and listed as things to fill in, and a legacy SSE entry is refused with its reason rather than half-imported.
 
 The parsing happens in your browser. Nothing is sent to the gateway and nothing is written until you press save on the Add server form, which matters because these snippets often carry a token.
 
@@ -152,7 +185,7 @@ claude mcp add --transport http junctio-admin https://mcp.example.com/mcp/_admin
   --header "Authorization: Bearer $JUNCTIO_ADMIN_TOKEN"
 ```
 
-Forty-two tools, one per action, over the same REST API the web UI uses, so validation and behaviour cannot drift apart: servers (create, edit, start, stop, test, logs, upstream OAuth), namespaces (membership, prefixes, tool overrides, collision checks), endpoints, registry search and install, settings, request log and health. The current state is also readable as resources like `junctio://servers`, which costs an agent less context than a tool call. Destructive tools are annotated as such, so a client can ask before running them.
+Forty-three tools, one per action, over the same REST API the web UI uses, so validation and behaviour cannot drift apart: servers (create, edit, start, stop, test, logs, upstream OAuth), namespaces (membership, prefixes, tool overrides, collision checks), endpoints, registry search and install, settings, request log and health. The current state is also readable as resources like `junctio://servers`, which costs an agent less context than a tool call. Destructive tools are annotated as such, so a client can ask before running them.
 
 Three things are deliberately absent. **API keys cannot be issued or revoked**, only listed. **OAuth clients cannot be revoked and consent cannot be granted**, since an agent approving its own authorization would defeat the consent screen. **The management server cannot switch itself off**, or on: passing that field is rejected by the schema.
 

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { RuntimeKind, ServerInput, UpstreamAuthMode } from "@junctio/schema";
+import { parseDockerRun, type RuntimeKind, type ServerInput, type UpstreamAuthMode } from "@junctio/schema";
 import { ArrowLeft, Eye, EyeOff, Loader2, Plus, X } from "@lucide/vue";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import CodeBlock from "@/components/CodeBlock.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
+import DockerStatus from "@/components/server/DockerStatus.vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,15 +48,16 @@ const loading = ref(false);
 const fieldErrors = ref<Record<string, string>>({});
 
 const RUNTIMES = [
-  { value: "npx" as const, label: "npx", hint: "npx <args>" },
-  { value: "bunx" as const, label: "bunx", hint: "bunx <args>" },
-  { value: "uvx" as const, label: "uvx", hint: "uvx <args>" },
-  { value: "node" as const, label: "node", hint: "node <args>" },
-  { value: "uv" as const, label: "uv", hint: "uv <args>" },
-  { value: "custom" as const, label: "custom", hint: "<executable> <args>" }
+  { value: "npx" as const, label: "npx", hint: "An npm package, fetched on first start" },
+  { value: "bunx" as const, label: "bunx", hint: "An npm package, run through Bun" },
+  { value: "uvx" as const, label: "uvx", hint: "A Python package from PyPI" },
+  { value: "node" as const, label: "node", hint: "A JavaScript file already on disk" },
+  { value: "uv" as const, label: "uv", hint: "A Python project already on disk" },
+  { value: "docker" as const, label: "docker", hint: "A container image, run over the docker socket" },
+  { value: "custom" as const, label: "custom", hint: "Any executable, named by the first argument" }
 ];
 
-const RUNTIME_SEEDS: Partial<Record<RuntimeKind, string>> = { npx: "-y", uv: "run" };
+const RUNTIME_SEEDS: Partial<Record<RuntimeKind, string>> = { npx: "-y", uv: "run", docker: "run" };
 
 const ARG_PLACEHOLDERS: Record<RuntimeKind, string> = {
   npx: "-y\n@modelcontextprotocol/server-filesystem\n/data",
@@ -82,8 +84,21 @@ function seedArgs(runtime: RuntimeKind, previous: RuntimeKind) {
   form.args = lines.join("\n");
 }
 
+const argLines = computed(() =>
+  form.args.split("\n").map((line) => line.trim()).filter((line) => line !== "")
+);
+
+const isDocker = computed(() => form.transport === "stdio" && form.runtime === "docker");
+
+const dockerRun = computed(() => {
+  if (!isDocker.value || argLines.value.length === 0) return null;
+  const env: Record<string, string> = {};
+  for (const entry of form.env) if (entry.key.trim() !== "") env[entry.key.trim()] = entry.value;
+  return parseDockerRun(argLines.value, env);
+});
+
 const argsWarning = computed(() => {
-  const first = form.args.split("\n").map((line) => line.trim()).find((line) => line !== "");
+  const first = argLines.value[0];
   if (!first || form.runtime === "npx" || form.runtime === "custom") return null;
   if (first !== "-y" && first !== "--yes") return null;
   return `${form.runtime} has no ${first} flag — only npx does. It would be taken as the package name.`;
@@ -132,7 +147,7 @@ watch(
 );
 
 watch(
-  () => [form.transport, form.runtime, form.args, form.url] as const,
+  () => [form.transport, form.runtime, form.args, form.url, JSON.stringify(form.env)] as const,
   () => void refreshPreview(),
   { immediate: false }
 );
@@ -285,15 +300,17 @@ onMounted(load);
         </div>
 
         <template v-if="form.transport === 'stdio'">
-          <div class="grid gap-2 sm:max-w-[220px]">
+          <div class="grid gap-2 sm:max-w-[360px]">
             <Label>Runtime</Label>
-            <SearchSelect v-model="form.runtime" :options="RUNTIMES" />
+            <SearchSelect v-model="form.runtime" :options="RUNTIMES" show-hint />
           </div>
 
           <div class="grid gap-2">
             <Label for="args">
               Arguments
-              <span class="font-normal text-muted-foreground">— one per line</span>
+              <span class="font-normal text-muted-foreground">
+                {{ isDocker ? "— the docker run line, one word per line, without docker" : "— one per line" }}
+              </span>
             </Label>
             <Textarea
               id="args"
@@ -303,7 +320,13 @@ onMounted(load);
               class="font-mono text-xs"
             />
             <p v-if="fieldErrors.args" class="text-xs text-destructive">{{ fieldErrors.args }}</p>
-            <p v-else-if="argsWarning" class="text-xs text-warning">{{ argsWarning }}</p>
+            <p v-for="message in dockerRun?.errors ?? []" v-else :key="message" class="text-xs text-destructive">
+              {{ message }}
+            </p>
+            <p v-for="message in dockerRun?.notes ?? []" :key="message" class="text-xs text-warning">
+              {{ message }}
+            </p>
+            <p v-if="!isDocker && argsWarning && !fieldErrors.args" class="text-xs text-warning">{{ argsWarning }}</p>
           </div>
 
           <div class="grid gap-2">
@@ -334,12 +357,18 @@ onMounted(load);
               <Plus class="size-3" />
               Add variable
             </Button>
+            <p v-if="isDocker" class="text-xs leading-relaxed text-muted-foreground">
+              Handed to the container. An <span class="font-mono">-e KEY</span> without a value in the arguments takes
+              it from here.
+            </p>
           </div>
 
           <div class="grid gap-2">
             <Label for="cwd">
               Working directory
-              <span class="font-normal text-muted-foreground">— optional</span>
+              <span class="font-normal text-muted-foreground">
+                {{ isDocker ? "— inside the container, optional" : "— optional" }}
+              </span>
             </Label>
             <Input id="cwd" v-model="form.cwd" placeholder="/data" class="font-mono text-xs" />
           </div>
@@ -432,11 +461,23 @@ onMounted(load);
 
       <div class="flex flex-col gap-3 lg:sticky lg:top-6">
         <CodeBlock :title="form.transport === 'stdio' ? 'Resulting command' : 'Endpoint'" :code="preview" />
+
+        <template v-if="isDocker">
+          <DockerStatus />
+          <p class="rounded-lg border bg-card p-3.5 text-xs leading-relaxed text-muted-foreground">
+            A <span class="font-mono text-foreground">-v</span> path is read on the host the daemon runs on, not inside
+            the gateway container. The gateway names the container, keeps it attached and removes it on stop, so
+            <span class="font-mono text-foreground">--name</span>,
+            <span class="font-mono text-foreground">-d</span> and
+            <span class="font-mono text-foreground">-p</span> have no place here.
+          </p>
+        </template>
+
         <div
           v-if="form.transport === 'stdio'"
           class="flex flex-col gap-2 rounded-lg border bg-card p-3.5 text-muted-foreground"
         >
-          <div class="flex justify-between gap-3">
+          <div v-if="!isDocker" class="flex justify-between gap-3">
             <span>PATH</span>
             <span class="text-right font-mono break-all text-foreground">{{ settings?.runtimePath ?? "—" }}</span>
           </div>
@@ -453,6 +494,10 @@ onMounted(load);
           <div class="flex justify-between gap-3">
             <span>Inherited env</span>
             <span class="font-mono text-foreground">none</span>
+          </div>
+          <div v-if="isDocker" class="flex justify-between gap-3">
+            <span>On stop</span>
+            <span class="font-mono text-foreground">stop, then remove</span>
           </div>
         </div>
         <div v-else class="flex flex-col gap-2 rounded-lg border bg-card p-3.5 text-muted-foreground">

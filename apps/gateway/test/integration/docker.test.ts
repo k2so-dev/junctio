@@ -5,7 +5,8 @@ import { join } from "node:path";
 import type { DockerStatusDto, ServerDto } from "@junctio/schema";
 import { startHarness, MOCK_STDIO, type Harness } from "../helpers.ts";
 import { startMockDocker, type MockDocker } from "../fixtures/mock-docker.ts";
-import { reapContainers, SERVER_LABEL } from "../../src/upstream/docker/launcher.ts";
+import { GATEWAY_LABEL, reapContainers, SERVER_LABEL } from "../../src/upstream/docker/launcher.ts";
+import { gatewayId } from "../../src/db/settings.ts";
 import { dockerStatus } from "../../src/api/docker.ts";
 
 const IMAGE = "mcp/mock:latest";
@@ -76,10 +77,12 @@ describe("docker runtime", () => {
     const catalog = (await (await get(`/v1/servers/${server.id}/tools`)).json()) as { tools: { name: string }[] };
     expect(catalog.tools.map((tool) => tool.name)).toContain("echo");
 
+    const own = gatewayId(harness.core.db);
     const running = docker.containers();
     expect(running).toHaveLength(1);
-    expect(running[0]?.name).toBe("junctio-mock-container");
+    expect(running[0]?.name).toBe(`junctio-mock-container-${own.slice(0, 6)}`);
     expect(running[0]?.labels[SERVER_LABEL]).toBe(server.id);
+    expect(running[0]?.labels[GATEWAY_LABEL]).toBe(own);
 
     const logs = (await (await get(`/v1/servers/${server.id}/logs`)).json()) as { line: string }[];
     expect(logs.some((entry) => entry.line.includes("mock server boxed ready"))).toBe(true);
@@ -140,10 +143,23 @@ describe("docker runtime", () => {
   }, 30_000);
 
   test("sweeps containers a previous run left behind", async () => {
-    docker.seedContainer({ [SERVER_LABEL]: "gone" }, "junctio-orphan");
-    await reapContainers(harness.core.docker, harness.core.logger);
+    const own = gatewayId(harness.core.db);
+    docker.seedContainer({ [GATEWAY_LABEL]: own, [SERVER_LABEL]: "gone" }, "junctio-orphan");
+    await reapContainers(harness.core.docker, harness.core.logger, own);
     expect(docker.containers()).toHaveLength(0);
   });
+
+  test("leaves the containers of another gateway alone", async () => {
+    const own = gatewayId(harness.core.db);
+    docker.seedContainer({ [GATEWAY_LABEL]: "somebody-else", [SERVER_LABEL]: "theirs" }, "junctio-theirs");
+    await reapContainers(harness.core.docker, harness.core.logger, own);
+    expect(docker.containers().map((container) => container.name)).toEqual(["junctio-theirs"]);
+
+    const server = await createServer(["run", "-i", "--rm", IMAGE, "bun", MOCK_STDIO]);
+    await post(`/v1/servers/${server.id}/start`);
+    expect(docker.containers().map((container) => container.name)).toContain("junctio-theirs");
+    expect(docker.containers()).toHaveLength(2);
+  }, 20_000);
 
   test("answers what it knows about the daemon", async () => {
     const status = (await (await get("/v1/docker")).json()) as DockerStatusDto;

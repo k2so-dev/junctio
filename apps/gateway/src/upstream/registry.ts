@@ -7,7 +7,7 @@ import type { Cipher } from "../crypto.ts";
 import type { ResolvedServer } from "./types.ts";
 import { buildArgv, buildChildEnv, previewCommand } from "./command.ts";
 import type { SpawnSpec } from "./supervisor.ts";
-import { getSetting } from "../db/settings.ts";
+import { gatewayId, getSetting } from "../db/settings.ts";
 
 export class ServerRegistry {
   private readonly cache = new Map<string, ResolvedServer>();
@@ -49,7 +49,13 @@ export class ServerRegistry {
       if (!parsed.spec) throw new Error(parsed.errors.join("; "));
       const container = { ...parsed.spec, workdir: parsed.spec.workdir ?? row.cwd };
       return {
-        launch: { kind: "container", serverId: row.id, name: row.name, container },
+        launch: {
+          kind: "container",
+          gatewayId: gatewayId(this.db),
+          serverId: row.id,
+          name: row.name,
+          container
+        },
         idleTimeoutSec,
         warm
       };

@@ -10,6 +10,8 @@ Junctio is a single-tenant gateway for one developer or a small trusted team. Tw
 
 There is no isolation between upstream servers. They share a process namespace, a filesystem and a cache volume. A malicious MCP server can read the tokens of every other one. Do not add a server you would not run locally.
 
+**The docker socket, if you mount it, is root on the host.** The `docker` runtime needs `/var/run/docker.sock`, and anything that reaches that socket can start a privileged container, mount `/` into it and read or change every file on the machine — including the gateway's own data volume and `JUNCTIO_SECRET`. Mounting it therefore raises the stakes of everything above: whoever can add a server, and any agent holding the management token, gains that reach. Mount it only if you run container servers, and leave it out otherwise. The gateway refuses `--privileged`, `--cap-add`, `--device` and `--pid` in the arguments of a server, but that is a guard rail on the config form, not a boundary: the socket itself has no such notion. Nor does a container isolate the gateway from the server it runs — it only limits that server to the paths you handed it with `-v`.
+
 ## What is protected
 
 - Access tokens, refresh tokens, upstream client secrets and static headers are encrypted with AES-GCM using a key derived from `JUNCTIO_SECRET`. The process refuses to start without that variable.
@@ -26,6 +28,7 @@ There is no isolation between upstream servers. They share a process namespace, 
 ## What is not protected
 
 - No sandboxing of upstream processes. Use a dedicated container or VM if you need it.
+- No restriction on what a container server may mount. A `-v /:/host` in the arguments is accepted, because the gateway cannot tell an intentional mount from a careless one.
 - No role-based access control. Admin access is all or nothing, and an approved OAuth client reaches every tool in the namespace behind its endpoint.
 - No audit log beyond the request log and the structured application log.
 - `JUNCTIO_SECRET` is read from the environment. Anyone who can read the process environment can decrypt the database.

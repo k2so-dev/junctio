@@ -1,0 +1,6 @@
+services:
+  junctio:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:?set DOCKER_GID, e.g. stat -c %g /var/run/docker.sock}"

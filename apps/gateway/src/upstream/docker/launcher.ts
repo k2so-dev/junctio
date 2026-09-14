@@ -3,6 +3,7 @@ import type { ContainerLaunch, Handle } from "../launch.ts";
 import { DockerClient, DockerError, type CreateBody } from "./client.ts";
 import { attachContainer } from "./stream.ts";
 
+export const GATEWAY_LABEL = "junctio.gateway";
 export const SERVER_LABEL = "junctio.server";
 export const NAME_LABEL = "junctio.name";
 
@@ -15,7 +16,12 @@ function body(launch: ContainerLaunch): CreateBody {
     Env: Object.entries(spec.env).map(([key, value]) => `${key}=${value}`),
     WorkingDir: spec.workdir,
     User: spec.user,
-    Labels: { ...spec.labels, [SERVER_LABEL]: launch.serverId, [NAME_LABEL]: launch.name },
+    Labels: {
+      ...spec.labels,
+      [GATEWAY_LABEL]: launch.gatewayId,
+      [SERVER_LABEL]: launch.serverId,
+      [NAME_LABEL]: launch.name
+    },
     OpenStdin: true,
     StdinOnce: true,
     AttachStdin: true,
@@ -31,8 +37,10 @@ function body(launch: ContainerLaunch): CreateBody {
   };
 }
 
-async function removeOwn(client: DockerClient, serverId: string): Promise<void> {
-  const existing = await client.list(`${SERVER_LABEL}=${serverId}`).catch(() => []);
+async function removeOwn(client: DockerClient, launch: ContainerLaunch): Promise<void> {
+  const existing = await client
+    .list(`${GATEWAY_LABEL}=${launch.gatewayId}`, `${SERVER_LABEL}=${launch.serverId}`)
+    .catch(() => []);
   for (const container of existing) await client.remove(container.id).catch(() => undefined);
 }
 
@@ -52,7 +60,7 @@ export async function spawnContainer(
   log: (line: string) => void
 ): Promise<Handle> {
   const spec = launch.container;
-  await removeOwn(client, launch.serverId);
+  await removeOwn(client, launch);
 
   if (spec.pull === "always" || !(await client.hasImage(spec.image))) {
     if (spec.pull === "never") throw new Error(`image ${spec.image} is not present and --pull never forbids fetching it`);
@@ -60,7 +68,7 @@ export async function spawnContainer(
     await client.pull(spec.image, (status) => log(`pull: ${status}`));
   }
 
-  const name = `junctio-${launch.name}`;
+  const name = `junctio-${launch.name}-${launch.gatewayId.slice(0, 6)}`;
   const id = await create(client, launch, name);
   const short = id.slice(0, 12);
 
@@ -112,18 +120,29 @@ export async function spawnContainer(
   };
 }
 
-export async function reapContainers(client: DockerClient, logger: Logger): Promise<void> {
+export async function reapContainers(client: DockerClient, logger: Logger, gatewayId: string): Promise<void> {
   let leftovers;
   try {
-    leftovers = await client.list(SERVER_LABEL);
+    leftovers = await client.list(`${GATEWAY_LABEL}=${gatewayId}`);
   } catch (error) {
     logger.debug("docker is unavailable, skipping the leftover sweep", { error: String(error) });
     return;
   }
-  if (leftovers.length === 0) return;
-  for (const container of leftovers) await client.remove(container.id).catch(() => undefined);
-  logger.info("removed leftover containers from a previous run", {
-    count: leftovers.length,
-    names: leftovers.map((container) => container.names[0] ?? container.id.slice(0, 12))
+  if (leftovers.length > 0) {
+    for (const container of leftovers) await client.remove(container.id).catch(() => undefined);
+    logger.info("removed leftover containers from a previous run", {
+      count: leftovers.length,
+      names: leftovers.map((container) => container.names[0] ?? container.id.slice(0, 12))
+    });
+  }
+
+  const foreign = (await client.list(SERVER_LABEL).catch(() => [])).filter(
+    (container) => container.labels[GATEWAY_LABEL] !== gatewayId
+  );
+  if (foreign.length === 0) return;
+  logger.warn("found junctio containers owned by another gateway id, leaving them alone", {
+    count: foreign.length,
+    names: foreign.map((container) => container.names[0] ?? container.id.slice(0, 12)),
+    hint: "remove them by hand if no other gateway is using this docker socket"
   });
 }

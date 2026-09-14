@@ -21,6 +21,7 @@ const props = withDefaults(
     emptyText?: string;
     searchThreshold?: number;
     disabled?: boolean;
+    showHint?: boolean;
     triggerClass?: string;
     contentClass?: string;
   }>(),
@@ -52,10 +53,17 @@ function pick(value: T) {
         role="combobox"
         :aria-expanded="open"
         :disabled="disabled"
-        :class="cn('w-full min-w-0 justify-between font-normal', triggerClass)"
+        :class="
+          cn('w-full min-w-0 justify-between font-normal', showHint && 'h-auto items-center py-2', triggerClass)
+        "
       >
-        <span :class="cn('min-w-0 truncate', selected?.mono && 'font-mono', !selected && 'text-muted-foreground')">
-          {{ selected?.label ?? placeholder }}
+        <span class="flex min-w-0 flex-col items-start gap-0.5">
+          <span :class="cn('min-w-0 truncate', selected?.mono && 'font-mono', !selected && 'text-muted-foreground')">
+            {{ selected?.label ?? placeholder }}
+          </span>
+          <span v-if="showHint && selected?.hint" class="min-w-0 truncate text-xs font-normal text-muted-foreground">
+            {{ selected.hint }}
+          </span>
         </span>
         <ChevronsUpDown class="ml-2 size-3.5 shrink-0 opacity-50" />
       </Button>

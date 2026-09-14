@@ -5,6 +5,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { toast } from "vue-sonner";
 import CodeBlock from "@/components/CodeBlock.vue";
 import PageHeader from "@/components/PageHeader.vue";
+import DockerStatus from "@/components/server/DockerStatus.vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -172,6 +173,20 @@ onMounted(async () => {
           </div>
           <p class="pb-1 text-xs leading-relaxed text-muted-foreground">
             The only PATH a child process sees. Nothing else from the gateway environment is inherited.
+          </p>
+        </div>
+      </section>
+
+      <section class="overflow-hidden rounded-lg border bg-card">
+        <header class="flex items-baseline justify-between border-b px-3.5 py-2.5">
+          <span class="font-medium">Docker</span>
+          <span class="text-xs text-muted-foreground">JUNCTIO_DOCKER_SOCKET</span>
+        </header>
+        <div class="flex flex-col gap-2 px-3.5 py-3">
+          <DockerStatus />
+          <p class="text-xs leading-relaxed text-muted-foreground">
+            Needed only by servers with the docker runtime. The gateway talks to the daemon over this socket instead of
+            shipping a docker client.
           </p>
         </div>
       </section>

@@ -8,6 +8,7 @@ export type RequestRecord = {
   serverId: string | null;
   method: string;
   tool: string | null;
+  protocol: string | null;
   durationMs: number;
   status: "ok" | "error";
   errorCode: string | null;

@@ -1,17 +1,16 @@
 import { Hono } from "hono";
-import { eq } from "drizzle-orm";
 import {
   createMcpHandler,
   isLegacyRequest,
   ProtocolError,
   ProtocolErrorCode,
   Server,
-  WebStandardStreamableHTTPServerTransport,
-  type McpHttpHandler
+  WebStandardStreamableHTTPServerTransport
 } from "@modelcontextprotocol/server";
+import { latestProtocolVersion } from "@junctio/schema";
 import type { Core } from "../core.ts";
 import { VERSION } from "../config.ts";
-import { endpoints, type EndpointRow } from "../db/schema.ts";
+import type { EndpointRow } from "../db/schema.ts";
 import { authenticateEndpoint, challengeHeader, endpointBySlug, type JwtVerifier } from "../auth/downstream/middleware.ts";
 import { recordRequest } from "./requestlog.ts";
 import { checkOrigin } from "./origin.ts";
@@ -24,7 +23,7 @@ export type McpRouteOptions = {
 };
 
 const LEGACY_PROTOCOL = "2025-03-26";
-const MODERN_PROTOCOL = "2026-07-28";
+const MODERN_PROTOCOL = latestProtocolVersion;
 
 async function readBody(request: Request): Promise<unknown> {
   try {
@@ -45,8 +44,13 @@ function requestedProtocol(request: Request, body: unknown): string | null {
   return typeof version === "string" ? version : LEGACY_PROTOCOL;
 }
 
-async function serveLegacy(core: Core, endpoint: EndpointRow, request: Request): Promise<Response> {
-  const server = buildServer(core, endpoint);
+async function serveLegacy(
+  core: Core,
+  endpoint: EndpointRow,
+  request: Request,
+  protocol: string | null
+): Promise<Response> {
+  const server = buildServer(core, endpoint, protocol);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true
@@ -67,7 +71,7 @@ function jsonRpcError(status: number, code: number, message: string, headers: Re
   });
 }
 
-function buildServer(core: Core, endpoint: EndpointRow): Server {
+function buildServer(core: Core, endpoint: EndpointRow, protocol: string | null): Server {
   const server = new Server(
     { name: "junctio", version: VERSION },
     { capabilities: { tools: { listChanged: false }, resources: {}, prompts: {} } }
@@ -83,6 +87,7 @@ function buildServer(core: Core, endpoint: EndpointRow): Server {
       serverId: null,
       method: "tools/list",
       tool: null,
+      protocol,
       durationMs: Date.now() - started,
       status: "ok",
       errorCode: null
@@ -104,6 +109,7 @@ function buildServer(core: Core, endpoint: EndpointRow): Server {
         serverId,
         method: "tools/call",
         tool: name,
+        protocol,
         durationMs: Date.now() - started,
         status: result.isError ? "error" : "ok",
         errorCode: result.isError ? "tool_error" : null
@@ -116,6 +122,7 @@ function buildServer(core: Core, endpoint: EndpointRow): Server {
         serverId: error instanceof UpstreamError ? error.serverId || null : null,
         method: "tools/call",
         tool: name,
+        protocol,
         durationMs: Date.now() - started,
         status: "error",
         errorCode: code
@@ -160,24 +167,18 @@ export function createMcpRoute(options: McpRouteOptions): Hono {
   const { core } = options;
   const app = new Hono();
   const limiter = new EndpointLimiter();
-  const handlers = new Map<string, McpHttpHandler>();
 
-  const modernHandler = (endpoint: EndpointRow): McpHttpHandler => {
-    const existing = handlers.get(endpoint.id);
-    if (existing) return existing;
-    const handler = createMcpHandler(
-      () => {
-        const current = core.db.select().from(endpoints).where(eq(endpoints.id, endpoint.id)).get();
-        if (!current || !current.enabled) throw new Error("endpoint is gone");
-        return buildServer(core, current);
-      },
-      {
-        legacy: "reject",
-        onerror: (error) => core.logger.error("mcp request failed", { endpoint: endpoint.slug, error: String(error) })
-      }
-    );
-    handlers.set(endpoint.id, handler);
-    return handler;
+  const serveModern = async (
+    endpoint: EndpointRow,
+    request: Request,
+    body: unknown,
+    protocol: string | null
+  ): Promise<Response> => {
+    const handler = createMcpHandler(() => buildServer(core, endpoint, protocol), {
+      legacy: "reject",
+      onerror: (error) => core.logger.error("mcp request failed", { endpoint: endpoint.slug, error: String(error) })
+    });
+    return await handler.fetch(request, body === undefined ? undefined : { parsedBody: body });
   };
 
   app.all("/:slug", async (c) => {
@@ -226,9 +227,9 @@ export function createMcpRoute(options: McpRouteOptions): Hono {
 
     try {
       if (endpoint.protocolMin < MODERN_PROTOCOL && (await isLegacyRequest(request, body))) {
-        return await serveLegacy(core, endpoint, request);
+        return await serveLegacy(core, endpoint, request, protocol ?? LEGACY_PROTOCOL);
       }
-      return await modernHandler(endpoint).fetch(request, body === undefined ? undefined : { parsedBody: body });
+      return await serveModern(endpoint, request, body, protocol ?? MODERN_PROTOCOL);
     } catch (error) {
       core.logger.error("mcp request failed", { endpoint: slug, error: String(error) });
       return jsonRpcError(500, -32603, "internal error");

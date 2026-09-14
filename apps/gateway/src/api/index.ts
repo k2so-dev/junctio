@@ -165,6 +165,7 @@ export function createApi(core: Core): Hono {
       serverName: row.serverId ? (serverNames.get(row.serverId) ?? null) : null,
       method: row.method,
       tool: row.tool,
+      protocol: row.protocol,
       durationMs: row.durationMs,
       status: row.status,
       errorCode: row.errorCode

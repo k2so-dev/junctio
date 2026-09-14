@@ -112,7 +112,9 @@ After that:
 
 ## Protocol
 
-Streamable HTTP, stateless: no `Mcp-Session-Id`, no session state to lose across restarts. The gateway speaks both protocol eras on the same URL. A `2026-07-28` client sends its version and capabilities in `_meta` on every request and never calls `initialize`; a `2025-11-25` or `2025-06-18` client gets the classic handshake, served per request. Each endpoint declares the oldest revision it accepts: pick `2026-07-28` to refuse the handshake era entirely, which is what a modern-only client fleet wants. The check runs on the `initialize` body and on the `MCP-Protocol-Version` header.
+Streamable HTTP, stateless: no `Mcp-Session-Id`, no session state to lose across restarts. The gateway speaks both protocol eras on the same URL. A `2026-07-28` client sends its version and capabilities in `_meta` on every request and never calls `initialize`; a `2025-11-25` or `2025-06-18` client gets the classic handshake, served per request. The check runs on the `initialize` body and on the `MCP-Protocol-Version` header.
+
+Each endpoint declares the oldest revision it accepts, and a new one accepts **`2026-07-28` only**. That refuses the handshake era outright, which is what a modern-only client fleet wants; a client stuck on an older revision gets `-32022` until you lower the minimum on that endpoint. The endpoint page lists the revisions its clients actually spoke, so lowering it is an informed decision rather than a guess, and the request log carries the revision of every call.
 
 Upstreams are negotiated the same way. The gateway probes each server once with `server/discover`, talks `2026-07-28` to servers that answer, and falls back to `initialize` for everything else. A stdio server that dies on the probe is respawned and spoken to as legacy from then on; the verdict is cached for a day and dropped when the server config changes. The negotiated revision is shown on the server page and in the connection test.
 

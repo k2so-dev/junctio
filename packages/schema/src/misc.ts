@@ -29,6 +29,7 @@ export const RequestLogDto = z.object({
   serverName: z.string().nullable(),
   method: z.string(),
   tool: z.string().nullable(),
+  protocol: z.string().nullable(),
   durationMs: z.number(),
   status: z.enum(["ok", "error"]),
   errorCode: z.string().nullable()

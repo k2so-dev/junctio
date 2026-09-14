@@ -108,6 +108,7 @@ onUnmounted(() => {
             <TableHead class="w-32">Endpoint</TableHead>
             <TableHead class="w-32">Server</TableHead>
             <TableHead class="min-w-52">Method / tool</TableHead>
+            <TableHead class="w-28">Protocol</TableHead>
             <TableHead class="w-24 text-right">Duration</TableHead>
             <TableHead class="w-40">Status</TableHead>
           </TableRow>
@@ -120,6 +121,7 @@ onUnmounted(() => {
             </TableCell>
             <TableCell class="max-w-[160px] truncate">{{ row.serverName ?? "—" }}</TableCell>
             <TableCell class="max-w-0 truncate">{{ row.tool ?? row.method }}</TableCell>
+            <TableCell class="text-muted-foreground">{{ row.protocol ?? "—" }}</TableCell>
             <TableCell :class="['text-right', durationTone(row.durationMs)]">
               {{ duration(row.durationMs) }}
             </TableCell>

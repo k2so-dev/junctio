@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
+import { endpoints, requestLog } from "../../src/db/schema.ts";
 import { startMockHttpMcp, type MockHttpMcp } from "../fixtures/mock-http-mcp.ts";
 import {
   connectClient,
@@ -13,6 +15,7 @@ import {
 } from "../helpers.ts";
 
 const MODERN = "2026-07-28";
+const ADMIN_TOKEN = "token-0123456789abcdef";
 
 function text(result: { content: unknown }): string {
   const first = (result.content as { type: string; text?: string }[])[0];
@@ -29,7 +32,7 @@ describe("protocol eras", () => {
   let fragileUpstream: string;
 
   beforeAll(async () => {
-    harness = await startHarness();
+    harness = await startHarness({ env: { JUNCTIO_ADMIN_TOKEN: ADMIN_TOKEN } });
     remote = await startMockHttpMcp({ issuer: null, requireAuth: false, modern: true });
     legacyUpstream = seedStdioServer(harness.core, { name: "legacy" });
     modernUpstream = seedStdioServer(harness.core, { name: "modern", fixture: MOCK_STDIO_MODERN });
@@ -105,6 +108,32 @@ describe("protocol eras", () => {
     const { tools } = await client.listTools();
     expect(tools.length).toBeGreaterThan(0);
     await client.close();
+  });
+
+  test("the request log keeps the revision each client spoke", async () => {
+    const modern = await connectClient(`${harness.url}/mcp/mixed`, token, { pin: MODERN });
+    await modern.listTools();
+    await modern.close();
+    const legacy = await connectClient(`${harness.url}/mcp/mixed`, token);
+    await legacy.listTools();
+    await legacy.close();
+
+    const endpoint = harness.core.db.select().from(endpoints).where(eq(endpoints.slug, "mixed")).get();
+    const rows = harness.core.db
+      .select()
+      .from(requestLog)
+      .where(eq(requestLog.endpointId, endpoint!.id))
+      .all();
+    const revisions = new Set(rows.map((row) => row.protocol));
+    expect(revisions.has(MODERN)).toBe(true);
+    expect(revisions.has("2025-11-25")).toBe(true);
+
+    const response = await fetch(`${harness.url}/api/v1/endpoints/${endpoint!.id}/protocols`, {
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` }
+    });
+    const usage = (await response.json()) as { protocol: string; count: number; lastSeenAt: number }[];
+    expect(usage.map((entry) => entry.protocol).sort()).toEqual(["2025-11-25", MODERN]);
+    expect(usage.every((entry) => entry.count > 0 && entry.lastSeenAt > 0)).toBe(true);
   });
 
   test("an upstream that dies on the probe is respawned and spoken to as legacy", async () => {

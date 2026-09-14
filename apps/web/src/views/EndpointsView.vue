@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import type { ApiKeyDto, EndpointAuthMode, EndpointDto, NamespaceDto, ProtocolVersion } from "@junctio/schema";
+import type {
+  ApiKeyDto,
+  EndpointAuthMode,
+  EndpointDto,
+  EndpointProtocolUsageDto,
+  NamespaceDto,
+  ProtocolVersion
+} from "@junctio/schema";
+import { latestProtocolVersion } from "@junctio/schema";
 import { Check, Copy, ExternalLink, KeyRound, Loader2, Plus, Trash2 } from "@lucide/vue";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -21,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, api } from "@/lib/api";
 import { CLIENTS, type AuthKind } from "@/lib/clients";
+import { relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useFreshKeys } from "@/stores/keys";
 import { useSession } from "@/stores/session";
@@ -33,6 +42,7 @@ const { tokens: freshTokens } = useFreshKeys();
 const endpoints = ref<EndpointDto[]>([]);
 const namespaces = ref<NamespaceDto[]>([]);
 const keys = ref<ApiKeyDto[]>([]);
+const seen = ref<EndpointProtocolUsageDto[]>([]);
 const client = ref("claude-code");
 const kindPick = ref<AuthKind>("key");
 const keyPick = ref("");
@@ -44,9 +54,9 @@ const busy = ref(false);
 const KEY_PLACEHOLDER = "<your-api-key>";
 
 const PROTOCOLS: SelectOption<ProtocolVersion>[] = [
-  { value: "2025-06-18", label: "2025-06-18", hint: "Every current client", mono: true },
-  { value: "2025-11-25", label: "2025-11-25", hint: "Last revision with the initialize handshake", mono: true },
-  { value: "2026-07-28", label: "2026-07-28", hint: "Stateless era only; refuses older clients", mono: true }
+  { value: "2026-07-28", label: "2026-07-28", hint: "Modern era only; older clients are refused", mono: true },
+  { value: "2025-11-25", label: "2025-11-25", hint: "Both eras; older clients get the handshake", mono: true },
+  { value: "2025-06-18", label: "2025-06-18", hint: "Both eras, widest compatibility", mono: true }
 ];
 
 const AUTH_MODES: { value: EndpointAuthMode; label: string; hint: string }[] = [
@@ -142,6 +152,19 @@ async function loadAll() {
   ]);
 }
 
+async function loadSeen() {
+  const id = selectedId.value;
+  if (!id) {
+    seen.value = [];
+    return;
+  }
+  try {
+    seen.value = await api.endpoints.protocols(id);
+  } catch {
+    seen.value = [];
+  }
+}
+
 async function patch(patchBody: Parameters<typeof api.endpoints.patch>[1]) {
   if (!selectedId.value) return;
   try {
@@ -160,7 +183,7 @@ async function create() {
       slug: draft.value.slug,
       namespaceId: draft.value.namespaceId,
       authMode: "api_key",
-      protocolMin: "2025-06-18",
+      protocolMin: latestProtocolVersion,
       rateLimit: { perMinute: 0 },
       enabled: true
     });
@@ -204,15 +227,23 @@ watch(client, (value) => {
 });
 
 watch(
-  [selectedId, endpointKeys],
+  () => endpointKeys.value.map((key) => key.id).join(","),
   () => {
+    if (endpointKeys.value.some((key) => key.id === keyPick.value)) return;
     const fresh = endpointKeys.value.find((key) => freshTokens.has(key.id));
     keyPick.value = fresh?.id ?? "";
   },
   { immediate: true }
 );
 
-onMounted(loadAll);
+watch(selectedId, () => {
+  void loadSeen();
+});
+
+onMounted(async () => {
+  await loadAll();
+  await loadSeen();
+});
 </script>
 
 <template>
@@ -290,6 +321,16 @@ onMounted(loadAll);
             trigger-class="h-8"
             @update:model-value="patch({ protocolMin: $event })"
           />
+          <p class="text-xs text-muted-foreground">
+            <span v-if="seen.length === 0">No client requests recorded yet.</span>
+            <template v-else>
+              Seen from clients:
+              <span v-for="(usage, index) in seen" :key="usage.protocol">
+                <span class="font-mono">{{ usage.protocol }}</span>
+                ×{{ usage.count }}, {{ relativeTime(usage.lastSeenAt) }}{{ index < seen.length - 1 ? " · " : "" }}
+              </span>
+            </template>
+          </p>
         </div>
         <div class="grid gap-2">
           <Label for="rate">Rate limit <span class="font-normal text-muted-foreground">— 0 = off</span></Label>

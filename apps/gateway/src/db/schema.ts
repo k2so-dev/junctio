@@ -73,7 +73,7 @@ export const endpoints = sqliteTable("endpoints", {
   authMode: text("auth_mode", { enum: ["none", "api_key", "oauth", "any"] })
     .notNull()
     .default("api_key"),
-  protocolMin: text("protocol_min").notNull().default("2025-06-18"),
+  protocolMin: text("protocol_min").notNull().default("2026-07-28"),
   rateLimit: text("rate_limit", { mode: "json" }).$type<{ perMinute: number }>().notNull().default({ perMinute: 0 }),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at").notNull().default(now)
@@ -200,6 +200,7 @@ export const requestLog = sqliteTable(
     serverId: text("server_id"),
     method: text("method").notNull(),
     tool: text("tool"),
+    protocol: text("protocol"),
     durationMs: integer("duration_ms").notNull(),
     status: text("status", { enum: ["ok", "error"] }).notNull(),
     errorCode: text("error_code")

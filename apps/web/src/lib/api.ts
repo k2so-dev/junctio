@@ -7,6 +7,7 @@ import type {
   EndpointDto,
   EndpointInput,
   EndpointPatch,
+  EndpointProtocolUsageDto,
   HealthDto,
   LogLineDto,
   NamespaceDto,
@@ -150,7 +151,8 @@ export const api = {
     list: () => request<EndpointDto[]>("GET", "/v1/endpoints"),
     create: (input: EndpointInput) => request<EndpointDto>("POST", "/v1/endpoints", input),
     patch: (id: string, patch: EndpointPatch) => request<EndpointDto>("PATCH", `/v1/endpoints/${id}`, patch),
-    remove: (id: string) => request<void>("DELETE", `/v1/endpoints/${id}`)
+    remove: (id: string) => request<void>("DELETE", `/v1/endpoints/${id}`),
+    protocols: (id: string) => request<EndpointProtocolUsageDto[]>("GET", `/v1/endpoints/${id}/protocols`)
   },
 
   apiKeys: {

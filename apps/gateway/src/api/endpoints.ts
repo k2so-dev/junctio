@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { eq } from "drizzle-orm";
-import { EndpointInput, EndpointPatch } from "@junctio/schema";
+import { and, count, desc, eq, isNotNull, max } from "drizzle-orm";
+import { EndpointInput, EndpointPatch, type EndpointProtocolUsageDto } from "@junctio/schema";
 import type { Core } from "../core.ts";
-import { endpoints, namespaces } from "../db/schema.ts";
+import { endpoints, namespaces, requestLog } from "../db/schema.ts";
 import type { EndpointRow } from "../db/schema.ts";
 import { randomId } from "../crypto.ts";
 import { toEndpointDto } from "./dto.ts";
@@ -53,6 +53,28 @@ export function createEndpointsApi(core: Core): Hono {
     const row = findEndpoint(core, c.req.param("id"));
     if (!row) return notFound(c, "endpoint");
     return c.json(toEndpointDto(core, row));
+  });
+
+  app.get("/:id/protocols", (c) => {
+    const row = findEndpoint(core, c.req.param("id"));
+    if (!row) return notFound(c, "endpoint");
+    const rows = core.db
+      .select({
+        protocol: requestLog.protocol,
+        count: count(),
+        lastSeenAt: max(requestLog.ts)
+      })
+      .from(requestLog)
+      .where(and(eq(requestLog.endpointId, row.id), isNotNull(requestLog.protocol)))
+      .groupBy(requestLog.protocol)
+      .orderBy(desc(max(requestLog.ts)))
+      .all();
+    const items: EndpointProtocolUsageDto[] = rows.map((entry) => ({
+      protocol: entry.protocol ?? "",
+      count: entry.count,
+      lastSeenAt: entry.lastSeenAt ?? 0
+    }));
+    return c.json(items);
   });
 
   app.patch("/:id", async (c) => {

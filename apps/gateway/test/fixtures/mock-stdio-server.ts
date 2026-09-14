@@ -5,10 +5,19 @@ import { z } from "zod";
 const name = Bun.env.MOCK_NAME ?? "mock-stdio";
 const crashAfterMs = Number(Bun.env.MOCK_CRASH_AFTER_MS ?? "0");
 const exitImmediately = Bun.env.MOCK_EXIT_IMMEDIATELY === "1";
+const silentExit = Bun.env.MOCK_SILENT_EXIT === "1";
+const garbageStdout = Bun.env.MOCK_GARBAGE_STDOUT === "1";
+
+if (silentExit) process.exit(1);
 
 if (exitImmediately) {
   process.stderr.write("mock server refusing to start\n");
   process.exit(2);
+}
+
+if (garbageStdout) {
+  process.stdout.write("Usage: mock-server <package>\n");
+  process.exit(3);
 }
 
 const server = new McpServer({ name, version: "1.0.0" });

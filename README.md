@@ -68,7 +68,9 @@ For stdio the `runtime` field is the launcher and everything else is yours: the 
 
 Nothing is added behind your back. The form seeds `-y` for `npx` and `run` for `uv` because those are what you almost always want, but they are ordinary text you can delete. The same goes for flags the gateway has no opinion about: `bunx` honours the package shebang and runs most CLIs under Node, so add `--bun` yourself if you want Bun to execute it.
 
-The environment handed to a child process is built explicitly: the `PATH` from settings, `HOME`, and the variables you configured. Nothing else is inherited, and `JUNCTIO_*` variables are never passed down. That `PATH` defaults to the directories where the gateway found `bun`, `node` and `uv` at first start, plus the system ones; change it in Settings if a runtime lives elsewhere.
+The environment handed to a child process is built explicitly: the `PATH` from settings, `HOME`, `TMPDIR` and the variables you configured. Nothing else is inherited, and `JUNCTIO_*` variables are never passed down. That `PATH` defaults to the directories where the gateway found `bun`, `node` and `uv` at first start, plus the system ones; change it in Settings if a runtime lives elsewhere.
+
+`TMPDIR` matters more than it looks: `bunx` unpacks and executes packages there, so a temporary directory mounted `noexec` makes it exit with status 1 and no output at all. The image points `TMPDIR` at `/cache/tmp` for that reason, and the gateway warns at startup if the directory it ends up with is `noexec`.
 
 For HTTP the gateway speaks Streamable HTTP. The auth mode is `none`, `header` for a static token, or `oauth` for the full client flow.
 

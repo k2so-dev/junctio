@@ -73,8 +73,18 @@ const AUTH_MODES: { value: UpstreamAuthMode; label: string; hint: string }[] = [
 function seedArgs(runtime: RuntimeKind, previous: RuntimeKind) {
   const seed = RUNTIME_SEEDS[runtime] ?? "";
   const stale = RUNTIME_SEEDS[previous] ?? "";
-  if (form.args.trim() === "" || form.args.trim() === stale) form.args = seed;
+  const lines = form.args.split("\n").map((line) => line.trim()).filter((line) => line !== "");
+  if (stale !== "" && lines[0] === stale) lines.shift();
+  if (seed !== "" && lines[0] !== seed) lines.unshift(seed);
+  form.args = lines.join("\n");
 }
+
+const argsWarning = computed(() => {
+  const first = form.args.split("\n").map((line) => line.trim()).find((line) => line !== "");
+  if (!first || form.runtime === "npx" || form.runtime === "custom") return null;
+  if (first !== "-y" && first !== "--yes") return null;
+  return `${form.runtime} has no ${first} flag — only npx does. It would be taken as the package name.`;
+});
 
 function toInput(): ServerInput {
   const env: Record<string, string> = {};
@@ -246,6 +256,7 @@ onMounted(load);
               class="font-mono text-xs"
             />
             <p v-if="fieldErrors.args" class="text-xs text-destructive">{{ fieldErrors.args }}</p>
+            <p v-else-if="argsWarning" class="text-xs text-warning">{{ argsWarning }}</p>
           </div>
 
           <div class="grid gap-2">

@@ -40,6 +40,11 @@ export type SupervisorOptions = {
 };
 
 const HEALTHY_AFTER_MS = 5_000;
+const HINT = "check the arguments the runtime received and that TMPDIR allows execution";
+
+function formatDuration(ms: number): string {
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
 
 type Managed = {
   serverId: string;
@@ -51,6 +56,7 @@ type Managed = {
   lastActivity: number;
   idleTimeoutSec: number;
   stopping: boolean;
+  output: number;
   exited: Promise<void>;
 };
 
@@ -168,7 +174,15 @@ export class ProcessSupervisor {
     this.options.logs.append(serverId, "system", `started: ${argv.join(" ")} (pid ${proc.pid})`);
     logger.info("upstream process started", { pid: proc.pid, argv: argv[0] });
 
-    const transport = new ChildProcessTransport({ stdin: proc.stdin, stdout: proc.stdout });
+    const transport = new ChildProcessTransport({
+      stdin: proc.stdin,
+      stdout: proc.stdout,
+      onUnparsed: (line) => {
+        managed.output += 1;
+        this.options.logs.append(serverId, "stdout", line);
+        logger.debug("upstream wrote a non-protocol line", { line });
+      }
+    });
     const managed: Managed = {
       serverId,
       proc,
@@ -179,17 +193,19 @@ export class ProcessSupervisor {
       lastActivity: Date.now(),
       idleTimeoutSec: spec.idleTimeoutSec,
       stopping: false,
+      output: 0,
       exited: Promise.resolve()
     };
 
-    void this.pipeStderr(serverId, proc.stderr);
+    void this.pipeStderr(managed, proc.stderr);
     managed.exited = this.watchExit(managed, spec);
     this.running.set(serverId, managed);
     this.patchInfo(serverId, { state: "running", pid: proc.pid ?? null, generation });
     return { transport, generation };
   }
 
-  private async pipeStderr(serverId: string, stream: ReadableStream<Uint8Array>): Promise<void> {
+  private async pipeStderr(managed: Managed, stream: ReadableStream<Uint8Array>): Promise<void> {
+    const serverId = managed.serverId;
     const decoder = new TextDecoder();
     let rest = "";
     const logger = this.options.logger.child({ server: serverId });
@@ -203,6 +219,7 @@ export class ProcessSupervisor {
         rest = lines.pop() ?? "";
         for (const line of lines) {
           if (line.trim() === "") continue;
+          managed.output += 1;
           this.options.logs.append(serverId, "stderr", line);
           logger.debug("upstream stderr", { line });
         }
@@ -212,7 +229,10 @@ export class ProcessSupervisor {
     } finally {
       reader.releaseLock();
     }
-    if (rest.trim() !== "") this.options.logs.append(serverId, "stderr", rest);
+    if (rest.trim() !== "") {
+      managed.output += 1;
+      this.options.logs.append(serverId, "stderr", rest);
+    }
   }
 
   private async watchExit(managed: Managed, spec: SpawnSpec): Promise<void> {
@@ -222,8 +242,14 @@ export class ProcessSupervisor {
     if (this.running.get(serverId) === managed) this.running.delete(serverId);
     await managed.transport.close();
     const logger = this.options.logger.child({ server: serverId });
-    const detail = signal ? `signal ${signal}` : `code ${code}`;
-    this.options.logs.append(serverId, "system", `exited with ${detail}`);
+    const lived = Date.now() - managed.startedAt;
+    const detail = `${signal ? `signal ${signal}` : `code ${code}`} after ${formatDuration(lived)}`;
+    const silent = managed.output === 0 && !managed.stopping && !this.shuttingDown;
+    this.options.logs.append(
+      serverId,
+      "system",
+      silent ? `exited with ${detail} without writing anything; ${HINT}` : `exited with ${detail}`
+    );
 
     if (managed.stopping || this.shuttingDown) {
       logger.info("upstream process stopped", { detail });
@@ -235,9 +261,11 @@ export class ProcessSupervisor {
     }
 
     logger.warn("upstream process exited unexpectedly", { detail });
-    const lived = Date.now() - managed.startedAt;
     if (lived >= HEALTHY_AFTER_MS) this.patchInfo(serverId, { consecutiveFailures: 0 });
-    this.recordFailure(serverId, `process exited with ${detail}`);
+    this.recordFailure(
+      serverId,
+      silent ? `process exited with ${detail} without writing anything; ${HINT}` : `process exited with ${detail}`
+    );
     this.options.onExit?.(serverId, generation);
 
     const info = this.getInfo(serverId);

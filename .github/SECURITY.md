@@ -33,7 +33,7 @@ There is no isolation between upstream servers. They share a process namespace, 
 
 ## Deployment advice
 
-The image already runs as a non-root user and the bundled `compose.yml` mounts the root filesystem read-only, writable only at `/data`, `/cache` and `/tmp`. Keep it that way. Put it behind TLS; OAuth will not work otherwise. Do not expose the admin UI to the public internet if you can avoid it. Back up `/data` and store `JUNCTIO_SECRET` somewhere you can recover it, because without it the stored tokens are unrecoverable and every upstream will need a fresh login.
+The image already runs as a non-root user and the bundled `compose.yml` mounts the root filesystem read-only, writable only at `/data`, `/cache` and `/tmp`. Keep it that way. `/tmp` stays `noexec`; package runtimes execute from `/cache/tmp` instead, which is a volume rather than a tmpfs. That is not a sandbox — a stdio upstream is code you chose to run — it only keeps the blast radius of a dropped file smaller. Put it behind TLS; OAuth will not work otherwise. Do not expose the admin UI to the public internet if you can avoid it. Back up `/data` and store `JUNCTIO_SECRET` somewhere you can recover it, because without it the stored tokens are unrecoverable and every upstream will need a fresh login.
 
 ## Reporting
 

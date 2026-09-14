@@ -99,6 +99,29 @@ describe("ProcessSupervisor", () => {
     expect(supervisor.getInfo("s1").state).toBe("stopped");
   }, 30_000);
 
+  test("says so when a process dies without writing anything", async () => {
+    const { supervisor, logs } = makeSupervisor({ env: { MOCK_SILENT_EXIT: "1" } });
+    active = supervisor;
+    const handle = await supervisor.acquire("s1");
+    await handle.transport.close();
+    await Bun.sleep(200);
+    const lines = logs.tail("s1").map((entry) => entry.line);
+    expect(lines.some((line) => /exited with code 1 after \d+ms without writing anything/.test(line))).toBe(true);
+    expect(supervisor.getInfo("s1").lastError).toContain("without writing anything");
+  }, 15_000);
+
+  test("keeps non-protocol stdout in the log", async () => {
+    const { supervisor, logs } = makeSupervisor({ env: { MOCK_GARBAGE_STDOUT: "1" } });
+    active = supervisor;
+    const handle = await supervisor.acquire("s1");
+    await handle.transport.start();
+    await Bun.sleep(300);
+    await handle.transport.close();
+    const entry = logs.tail("s1").find((line) => line.stream === "stdout");
+    expect(entry?.line).toBe("Usage: mock-server <package>");
+    expect(supervisor.getInfo("s1").lastError).not.toContain("without writing anything");
+  }, 15_000);
+
   test("stops the process after the idle timeout", async () => {
     const { supervisor } = makeSupervisor({ idleTimeoutSec: 1 });
     active = supervisor;

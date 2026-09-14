@@ -1,6 +1,6 @@
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
-import { ReadBuffer, serializeMessage } from "@modelcontextprotocol/sdk/shared/stdio.js";
+import { JSONRPCMessageSchema, type JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
+import { serializeMessage } from "@modelcontextprotocol/sdk/shared/stdio.js";
 
 export type StdioSink = {
   write(chunk: Uint8Array): number | Promise<number>;
@@ -10,6 +10,7 @@ export type StdioSink = {
 export type StdioProcess = {
   stdin: StdioSink | null;
   stdout: ReadableStream<Uint8Array>;
+  onUnparsed?: (line: string) => void;
 };
 
 export class ChildProcessTransport implements Transport {
@@ -17,7 +18,8 @@ export class ChildProcessTransport implements Transport {
   onerror?: (error: Error) => void;
   onmessage?: (message: JSONRPCMessage) => void;
 
-  private readonly buffer = new ReadBuffer();
+  private readonly decoder = new TextDecoder();
+  private pending = "";
   private reading?: Promise<void>;
   private closed = false;
 
@@ -34,7 +36,7 @@ export class ChildProcessTransport implements Transport {
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        if (value) this.buffer.append(Buffer.from(value));
+        if (value) this.pending += this.decoder.decode(value, { stream: true });
         this.drain();
       }
     } catch (error) {
@@ -47,14 +49,19 @@ export class ChildProcessTransport implements Transport {
 
   private drain(): void {
     for (;;) {
-      let message: JSONRPCMessage | null;
+      const index = this.pending.indexOf("\n");
+      if (index === -1) return;
+      const line = this.pending.slice(0, index).replace(/\r$/, "");
+      this.pending = this.pending.slice(index + 1);
+      if (line.trim() === "") continue;
+      let message: JSONRPCMessage;
       try {
-        message = this.buffer.readMessage();
+        message = JSONRPCMessageSchema.parse(JSON.parse(line));
       } catch (error) {
+        this.proc.onUnparsed?.(line);
         this.onerror?.(error instanceof Error ? error : new Error(String(error)));
         continue;
       }
-      if (message === null) return;
       this.onmessage?.(message);
     }
   }
@@ -62,7 +69,8 @@ export class ChildProcessTransport implements Transport {
   private handleClose(): void {
     if (this.closed) return;
     this.closed = true;
-    this.buffer.clear();
+    if (this.pending.trim() !== "") this.proc.onUnparsed?.(this.pending.trim());
+    this.pending = "";
     this.onclose?.();
   }
 

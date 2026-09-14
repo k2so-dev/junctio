@@ -4,6 +4,7 @@ import { createCore, databaseFile } from "./core.ts";
 import { createApp } from "./server/app.ts";
 import { servers } from "./db/schema.ts";
 import { pruneRequestLog } from "./server/requestlog.ts";
+import { checkTmpdir } from "./upstream/tmpdir.ts";
 
 export async function serve(): Promise<void> {
   const config = (() => {
@@ -21,6 +22,14 @@ export async function serve(): Promise<void> {
     database: databaseFile(config),
     baseUrl: config.baseUrl
   });
+
+  const tmpdir = checkTmpdir();
+  if (tmpdir.noexec) {
+    core.logger.warn("temporary directory is mounted noexec", {
+      tmpdir: tmpdir.path,
+      hint: "bunx and uvx cannot launch packages from it; point TMPDIR at a writable, exec-capable path"
+    });
+  }
 
   const app = createApp({ core });
 

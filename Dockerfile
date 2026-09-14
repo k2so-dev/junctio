@@ -39,7 +39,7 @@ RUN apt-get update \
   && ln -s /usr/local/bin/bun /usr/local/bin/bunx \
   && groupadd --system --gid 10001 junctio \
   && useradd --system --uid 10001 --gid junctio --home-dir /home/junctio --create-home junctio \
-  && mkdir -p /data /cache/npm /cache/bun /cache/uv \
+  && mkdir -p /data /cache/npm /cache/bun /cache/uv /cache/tmp \
   && chown -R junctio:junctio /data /cache
 
 WORKDIR /app
@@ -63,7 +63,8 @@ ENV NODE_ENV=production \
     NPM_CONFIG_CACHE=/cache/npm \
     BUN_INSTALL_CACHE_DIR=/cache/bun \
     UV_CACHE_DIR=/cache/uv \
-    XDG_CACHE_HOME=/cache
+    XDG_CACHE_HOME=/cache \
+    TMPDIR=/cache/tmp
 
 VOLUME ["/data", "/cache"]
 EXPOSE 3000

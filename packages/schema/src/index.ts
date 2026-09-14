@@ -1,4 +1,5 @@
 export * from "./server.ts";
+export * from "./dockerargs.ts";
 export * from "./namespace.ts";
 export * from "./endpoint.ts";
 export * from "./apikey.ts";

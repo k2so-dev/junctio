@@ -46,10 +46,26 @@ describe("client config import", () => {
     expect(entry.draft?.args).toEqual(["/usr/local/bin/my-server", "--flag"]);
   });
 
-  test("warns that the image ships no docker", () => {
-    const entry = only(`{"mcpServers":{"pg":{"command":"docker","args":["run","-i","mcp/postgres"]}}}`);
-    expect(entry.draft).not.toBeNull();
-    expect(entry.notes.join(" ")).toContain("docker");
+  test("turns a docker command into the docker runtime", () => {
+    const entry = only(`{"mcpServers":{"pg":{"command":"docker","args":["run","-i","--rm","mcp/postgres"]}}}`);
+    expect(entry.draft?.runtime).toBe("docker");
+    expect(entry.draft?.args).toEqual(["run", "-i", "--rm", "mcp/postgres"]);
+    expect(entry.summary).toBe("docker run -i --rm mcp/postgres");
+    expect(entry.notes).toEqual([]);
+    expect(ServerInput.safeParse(entry.draft).success).toBe(true);
+  });
+
+  test("carries the docker refusals into the notes", () => {
+    const entry = only(`{"mcpServers":{"pg":{"command":"docker","args":["run","-d","-p","5432:5432","mcp/postgres"]}}}`);
+    expect(entry.draft?.runtime).toBe("docker");
+    expect(entry.notes.join(" ")).toContain("stdio");
+    expect(entry.notes.join(" ")).toContain("published port");
+  });
+
+  test("maps podman onto the docker runtime", () => {
+    const entry = only(`{"mcpServers":{"pg":{"command":"podman","args":["run","-i","--rm","mcp/postgres"]}}}`);
+    expect(entry.draft?.runtime).toBe("docker");
+    expect(entry.notes.join(" ")).toContain("docker runtime");
   });
 
   test("blanks placeholders and says what to fill in", () => {

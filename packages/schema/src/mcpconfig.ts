@@ -1,3 +1,4 @@
+import { parseDockerRun } from "./dockerargs.ts";
 import type { RuntimeKind, ServerInput } from "./server.ts";
 
 export type ParsedServer = {
@@ -16,9 +17,9 @@ type RawServer = Record<string, unknown>;
 
 const RUNTIMES: RuntimeKind[] = ["npx", "bunx", "uvx", "uv", "node"];
 
+const CONTAINER = ["docker", "podman"];
+
 const NO_RUNTIME: Record<string, string> = {
-  docker: "the gateway image ships no docker, run the server directly instead",
-  podman: "the gateway image ships no podman, run the server directly instead",
   dotnet: "the gateway image ships no dotnet toolchain",
   deno: "the gateway image ships no deno runtime"
 };
@@ -198,7 +199,8 @@ function httpDraft(key: string, raw: RawServer, url: string, notes: string[]): S
 
 function stdioDraft(key: string, raw: RawServer, command: string, notes: string[]): ServerInput {
   const args = stringList(raw.args);
-  const known = RUNTIMES.find((runtime) => runtime === command);
+  const container = CONTAINER.includes(command);
+  const known = container ? "docker" : RUNTIMES.find((runtime) => runtime === command);
   const env = stringMap(raw.env);
   for (const [name, value] of Object.entries(env)) {
     if (templated(value)) {
@@ -210,6 +212,12 @@ function stdioDraft(key: string, raw: RawServer, command: string, notes: string[
   if (args.length === 0) notes.push("no arguments given, add what this server needs");
   const blocked = NO_RUNTIME[command];
   if (blocked) notes.push(blocked);
+  if (command === "podman") notes.push("mapped to the docker runtime, whatever daemon answers on the socket");
+  if (container) {
+    const parsed = parseDockerRun(args, env);
+    for (const note of parsed.notes) notes.push(note);
+    for (const error of parsed.errors) notes.push(error);
+  }
   const cwd = typeof raw.cwd === "string" && raw.cwd !== "" ? raw.cwd : null;
   return {
     ...baseDraft(cleanName(key)),

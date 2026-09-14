@@ -7,7 +7,7 @@ export const servers = sqliteTable("servers", {
   id: text("id").primaryKey(),
   name: text("name").notNull().unique(),
   transport: text("transport", { enum: ["stdio", "http"] }).notNull(),
-  runtime: text("runtime", { enum: ["node", "npx", "bunx", "uvx", "uv", "custom"] })
+  runtime: text("runtime", { enum: ["node", "npx", "bunx", "uvx", "uv", "docker", "custom"] })
     .notNull()
     .default("custom"),
   args: text("args", { mode: "json" }).$type<string[]>().notNull().default([]),

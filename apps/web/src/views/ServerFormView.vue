@@ -63,6 +63,7 @@ const ARG_PLACEHOLDERS: Record<RuntimeKind, string> = {
   uvx: "mcp-server-fetch",
   node: "/data/server.js",
   uv: "run\nmain.py",
+  docker: "run\n-i\n--rm\n-e\nGITHUB_PERSONAL_ACCESS_TOKEN\nghcr.io/github/github-mcp-server",
   custom: "/usr/local/bin/my-server\n--flag"
 };
 

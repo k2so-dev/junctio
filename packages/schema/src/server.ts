@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { parseDockerRun } from "./dockerargs.ts";
 
-export const runtimeKinds = ["node", "npx", "bunx", "uvx", "uv", "custom"] as const;
+export const runtimeKinds = ["node", "npx", "bunx", "uvx", "uv", "docker", "custom"] as const;
 export const RuntimeKind = z.enum(runtimeKinds);
 export type RuntimeKind = z.infer<typeof RuntimeKind>;
 
@@ -50,6 +51,10 @@ export const ServerInput = z
     if (v.transport === "stdio") {
       if (v.args.every((part) => part.trim() === "")) {
         ctx.addIssue({ code: "custom", path: ["args"], message: "arguments are required for stdio" });
+      } else if (v.runtime === "docker") {
+        for (const message of parseDockerRun(v.args, v.env).errors) {
+          ctx.addIssue({ code: "custom", path: ["args"], message });
+        }
       }
       if (v.authMode !== "none") {
         ctx.addIssue({ code: "custom", path: ["authMode"], message: "stdio supports auth mode none only" });

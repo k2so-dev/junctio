@@ -12,7 +12,10 @@ export const NamespaceInput = z.object({
 });
 export type NamespaceInput = z.infer<typeof NamespaceInput>;
 
-export const NamespacePatch = NamespaceInput.partial();
+export const NamespacePatch = z.object({
+  name: slugLike.optional(),
+  description: z.string().max(500).nullable().optional()
+});
 export type NamespacePatch = z.infer<typeof NamespacePatch>;
 
 export const NamespaceServerInput = z.object({

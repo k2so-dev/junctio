@@ -332,6 +332,20 @@ describe("namespaces api", () => {
     expect(after.servers.find((member) => member.serverId === second.id)?.prefix).toBe("two");
   });
 
+  test("renaming a namespace keeps its description", async () => {
+    const namespace = await json<{ id: string }>(
+      await api("/v1/namespaces", {
+        method: "POST",
+        body: JSON.stringify({ name: "team", description: "the coding stack" })
+      })
+    );
+    const renamed = await json<{ name: string; description: string | null }>(
+      await api(`/v1/namespaces/${namespace.id}`, { method: "PATCH", body: JSON.stringify({ name: "crew" }) })
+    );
+    expect(renamed.name).toBe("crew");
+    expect(renamed.description).toBe("the coding stack");
+  });
+
   test("refuses a tool override for a server outside the namespace", async () => {
     const server = await createStdioServer("alpha");
     const namespace = await json<{ id: string }>(
@@ -403,6 +417,63 @@ describe("endpoints and keys api", () => {
     expect(listed[0]?.token).toBeUndefined();
   });
 
+  test("a patch leaves every field it does not name alone", async () => {
+    const namespace = await json<{ id: string }>(
+      await api("/v1/namespaces", { method: "POST", body: JSON.stringify({ name: "team" }) })
+    );
+    const endpoint = await json<{ id: string; protocolMin: string }>(
+      await api("/v1/endpoints", {
+        method: "POST",
+        body: JSON.stringify({
+          slug: "team",
+          namespaceId: namespace.id,
+          authMode: "oauth",
+          protocolMin: "2025-11-25",
+          rateLimit: { perMinute: 60 },
+          enabled: false
+        })
+      })
+    );
+
+    const afterProtocol = await json<{
+      authMode: string;
+      protocolMin: string;
+      rateLimit: { perMinute: number };
+      enabled: boolean;
+    }>(
+      await api(`/v1/endpoints/${endpoint.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ protocolMin: "2026-07-28" })
+      })
+    );
+    expect(afterProtocol.protocolMin).toBe("2026-07-28");
+    expect(afterProtocol.authMode).toBe("oauth");
+    expect(afterProtocol.rateLimit.perMinute).toBe(60);
+    expect(afterProtocol.enabled).toBe(false);
+
+    const afterAuth = await json<{ authMode: string; protocolMin: string }>(
+      await api(`/v1/endpoints/${endpoint.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ authMode: "any" })
+      })
+    );
+    expect(afterAuth.authMode).toBe("any");
+    expect(afterAuth.protocolMin).toBe("2026-07-28");
+  });
+
+  test("a new endpoint speaks the newest revision only", async () => {
+    const namespace = await json<{ id: string }>(
+      await api("/v1/namespaces", { method: "POST", body: JSON.stringify({ name: "team" }) })
+    );
+    const endpoint = await json<{ protocolMin: string }>(
+      await api("/v1/endpoints", {
+        method: "POST",
+        body: JSON.stringify({ slug: "team", namespaceId: namespace.id })
+      })
+    );
+    expect(endpoint.protocolMin).toBe("2026-07-28");
+  });
+
   test("refuses to move an endpoint to a missing namespace", async () => {
     const namespace = await json<{ id: string }>(
       await api("/v1/namespaces", { method: "POST", body: JSON.stringify({ name: "team" }) })
@@ -461,7 +532,7 @@ describe("settings and request log", () => {
     );
 
     const { connectClient } = await import("../helpers.ts");
-    const client = await connectClient(`${harness.url}/mcp/team`, null);
+    const client = await connectClient(`${harness.url}/mcp/team`, null, { pin: "2026-07-28" });
     await client.listTools();
     await client.callTool({ name: "alpha__echo", arguments: { message: "logged" } });
     await client.close();

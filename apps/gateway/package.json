@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "bin": {
+    "junctio": "./src/cli/index.ts"
+  },
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
+    "dev": "bun --watch src/cli/index.ts serve",
+    "start": "bun src/cli/index.ts serve",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate"

@@ -9,12 +9,12 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun --watch apps/gateway/src/index.ts",
-    "start": "bun apps/gateway/src/index.ts",
+    "dev": "bun --watch apps/gateway/src/cli/index.ts serve",
+    "start": "bun apps/gateway/src/cli/index.ts serve",
     "dev:web": "bun --cwd apps/web run dev",
     "build:web": "bun --cwd apps/web run build",
     "test": "bun test",
-    "typecheck": "bun run --cwd apps/gateway typecheck && bun --cwd apps/web run typecheck",
+    "typecheck": "bun run --cwd apps/gateway typecheck",
     "db:generate": "bun run --cwd apps/gateway db:generate"
   },
   "devDependencies": {

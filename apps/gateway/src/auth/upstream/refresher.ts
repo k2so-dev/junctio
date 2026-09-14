@@ -1,6 +1,9 @@
 import { eq } from "drizzle-orm";
-import { refreshAuthorization } from "@modelcontextprotocol/sdk/client/auth.js";
-import type { AuthorizationServerMetadata, OAuthClientInformationMixed } from "@modelcontextprotocol/sdk/shared/auth.js";
+import {
+  refreshAuthorization,
+  type AuthorizationServerMetadata,
+  type OAuthClientInformationMixed
+} from "@modelcontextprotocol/client";
 import type { OAuthStatus } from "@junctio/schema";
 import type { Db } from "../../db/index.ts";
 import { servers } from "../../db/schema.ts";

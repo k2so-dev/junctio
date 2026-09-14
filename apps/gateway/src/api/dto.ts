@@ -96,6 +96,7 @@ export async function toServerDto(core: Core, row: ServerRow): Promise<ServerDto
     restarts: info.restarts,
     lastError: info.lastError ?? core.pool.getLastError(row.id),
     toolCount: catalog ? catalog.tools.length : null,
+    protocolVersion: core.pool.negotiated(row.id)?.protocolVersion ?? null,
     commandPreview: core.registry.preview(row),
     oauth
   };

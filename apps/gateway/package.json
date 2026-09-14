@@ -17,7 +17,10 @@
   "dependencies": {
     "@hono/mcp": "0.3.2",
     "@junctio/schema": "workspace:*",
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/core": "2.0.0",
     "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/server": "2.0.0",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.7",
     "jose": "^6.1.0",

@@ -66,6 +66,13 @@ server.registerPrompt(
   ({ who }) => ({ messages: [{ role: "user", content: { type: "text", text: `Hello ${who}` } }] })
 );
 
+if (Bun.env.MOCK_EXIT_ON_PROBE === "1") {
+  server.server.fallbackRequestHandler = async (request) => {
+    if (request.method === "server/discover") process.exit(4);
+    throw new Error(`unknown method ${request.method}`);
+  };
+}
+
 process.stderr.write(`mock server ${name} ready\n`);
 
 if (crashAfterMs > 0) {

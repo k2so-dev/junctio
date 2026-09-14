@@ -3,9 +3,10 @@ import {
   discoverOAuthServerInfo,
   exchangeAuthorization,
   registerClient,
-  startAuthorization
-} from "@modelcontextprotocol/sdk/client/auth.js";
-import type { AuthorizationServerMetadata, OAuthClientInformationMixed } from "@modelcontextprotocol/sdk/shared/auth.js";
+  startAuthorization,
+  type AuthorizationServerMetadata,
+  type OAuthClientInformationMixed
+} from "@modelcontextprotocol/client";
 import type { Db } from "../../db/index.ts";
 import { oauthStates, servers } from "../../db/schema.ts";
 import type { Logger } from "../../log.ts";
@@ -122,7 +123,7 @@ export class UpstreamOauthFlow {
     return authorizationUrl.toString();
   }
 
-  async complete(serverId: string, code: string, state: string): Promise<void> {
+  async complete(serverId: string, code: string, state: string, iss: string | null = null): Promise<void> {
     const pending = this.options.db.select().from(oauthStates).where(eq(oauthStates.state, state)).get();
     if (!pending || pending.serverId !== serverId) throw new Error("unknown or expired authorization state");
     this.options.db.delete(oauthStates).where(eq(oauthStates.state, state)).run();
@@ -139,6 +140,7 @@ export class UpstreamOauthFlow {
         ...(stored.client.clientSecret ? { client_secret: stored.client.clientSecret } : {})
       } as OAuthClientInformationMixed,
       authorizationCode: code,
+      ...(iss ? { iss } : {}),
       codeVerifier: pending.codeVerifier,
       redirectUri: pending.redirectUri,
       resource: pending.resource ? new URL(pending.resource) : undefined,

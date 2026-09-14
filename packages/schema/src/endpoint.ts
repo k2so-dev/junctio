@@ -4,7 +4,7 @@ export const endpointAuthModes = ["none", "api_key", "oauth", "any"] as const;
 export const EndpointAuthMode = z.enum(endpointAuthModes);
 export type EndpointAuthMode = z.infer<typeof EndpointAuthMode>;
 
-export const protocolVersions = ["2025-06-18", "2025-11-25"] as const;
+export const protocolVersions = ["2025-06-18", "2025-11-25", "2026-07-28"] as const;
 export const ProtocolVersion = z.enum(protocolVersions);
 export type ProtocolVersion = z.infer<typeof ProtocolVersion>;
 

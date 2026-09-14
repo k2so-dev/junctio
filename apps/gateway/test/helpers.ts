@@ -1,8 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { Client, StreamableHTTPClientTransport, type VersionNegotiationMode } from "@modelcontextprotocol/client";
 import { loadConfig, type Config } from "../src/config.ts";
 import { createCore, type Core } from "../src/core.ts";
 import { createApp } from "../src/server/app.ts";
@@ -75,7 +74,7 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
 
 export function seedStdioServer(
   core: Core,
-  options: { name?: string; env?: Record<string, string>; idleTimeoutSec?: number } = {}
+  options: { name?: string; env?: Record<string, string>; idleTimeoutSec?: number; fixture?: string } = {}
 ): string {
   const id = randomId();
   core.db
@@ -85,7 +84,7 @@ export function seedStdioServer(
       name: options.name ?? "mock",
       transport: "stdio",
       runtime: "custom",
-      args: ["bun", MOCK_STDIO],
+      args: ["bun", options.fixture ?? MOCK_STDIO],
       env: {
         PATH: Bun.env.PATH ?? "/usr/bin",
         HOME: Bun.env.HOME ?? "/tmp",
@@ -147,7 +146,7 @@ export function seedNamespace(core: Core, name: string, members: { serverId: str
 
 export function seedEndpoint(
   core: Core,
-  options: { slug: string; namespaceId: string; authMode?: "none" | "api_key" | "oauth" | "any" }
+  options: { slug: string; namespaceId: string; authMode?: "none" | "api_key" | "oauth" | "any"; protocolMin?: string }
 ): string {
   const id = randomId();
   core.db
@@ -157,7 +156,7 @@ export function seedEndpoint(
       slug: options.slug,
       namespaceId: options.namespaceId,
       authMode: options.authMode ?? "api_key",
-      protocolMin: "2025-06-18",
+      protocolMin: options.protocolMin ?? "2025-06-18",
       rateLimit: { perMinute: 0 },
       enabled: true,
       createdAt: Date.now()
@@ -175,11 +174,17 @@ export function keyCount(core: Core): number {
   return core.db.select().from(apiKeys).all().length;
 }
 
-export async function connectClient(url: string, token: string | null): Promise<Client> {
-  const client = new Client({ name: "test-client", version: "1.0.0" }, { capabilities: {} });
+export async function connectClient(
+  url: string,
+  token: string | null,
+  mode: VersionNegotiationMode = "legacy"
+): Promise<Client> {
+  const client = new Client({ name: "test-client", version: "1.0.0" }, { capabilities: {}, versionNegotiation: { mode } });
   const transport = new StreamableHTTPClientTransport(new URL(url), {
     requestInit: token ? { headers: { authorization: `Bearer ${token}` } } : undefined
   });
   await client.connect(transport);
   return client;
 }
+
+export const MOCK_STDIO_MODERN = new URL("./fixtures/mock-stdio-modern.ts", import.meta.url).pathname;

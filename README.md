@@ -112,7 +112,11 @@ After that:
 
 ## Protocol
 
-Streamable HTTP, stateless by default: no `Mcp-Session-Id`, no session state to lose across restarts. Protocol versions follow the pinned SDK, currently `2025-06-18` and `2025-11-25`. Each endpoint declares the oldest version it accepts and refuses anything below it, on the `initialize` body and on the `MCP-Protocol-Version` header of later requests. Legacy SSE is not exposed; it is only tolerated when reading from an old upstream. `Origin` is checked on every POST. JSON-RPC batching is not supported, matching the specification.
+Streamable HTTP, stateless: no `Mcp-Session-Id`, no session state to lose across restarts. The gateway speaks both protocol eras on the same URL. A `2026-07-28` client sends its version and capabilities in `_meta` on every request and never calls `initialize`; a `2025-11-25` or `2025-06-18` client gets the classic handshake, served per request. Each endpoint declares the oldest revision it accepts: pick `2026-07-28` to refuse the handshake era entirely, which is what a modern-only client fleet wants. The check runs on the `initialize` body and on the `MCP-Protocol-Version` header.
+
+Upstreams are negotiated the same way. The gateway probes each server once with `server/discover`, talks `2026-07-28` to servers that answer, and falls back to `initialize` for everything else. A stdio server that dies on the probe is respawned and spoken to as legacy from then on; the verdict is cached for a day and dropped when the server config changes. The negotiated revision is shown on the server page and in the connection test.
+
+Legacy SSE is not exposed; it is only tolerated when reading from an old upstream. `Origin` is checked on every POST. JSON-RPC batching is not supported, matching the specification.
 
 ## Development
 

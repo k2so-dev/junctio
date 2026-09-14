@@ -1,5 +1,4 @@
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { FetchLike } from "@modelcontextprotocol/sdk/shared/transport.js";
+import { StreamableHTTPClientTransport, type FetchLike } from "@modelcontextprotocol/client";
 import type { Logger } from "../log.ts";
 import type { ResolvedServer, UpstreamAuth } from "./types.ts";
 

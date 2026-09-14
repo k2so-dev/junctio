@@ -1,14 +1,17 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
-  PromptListChangedNotificationSchema,
-  ResourceListChangedNotificationSchema,
-  ToolListChangedNotificationSchema,
+  Client,
+  SdkError,
+  SdkErrorCode,
+  type McpSubscription,
+  type PriorDiscovery,
   type Prompt,
+  type ProtocolEra,
   type Resource,
   type ServerCapabilities,
-  type Tool
-} from "@modelcontextprotocol/sdk/types.js";
+  type SubscriptionFilter,
+  type Tool,
+  type Transport
+} from "@modelcontextprotocol/client";
 import type { Logger } from "../log.ts";
 import { VERSION } from "../config.ts";
 import type { ProcessSupervisor } from "./supervisor.ts";
@@ -25,6 +28,11 @@ export type Catalog = {
   fetchedAt: number;
 };
 
+export type Negotiated = {
+  era: ProtocolEra;
+  protocolVersion: string | null;
+};
+
 type Entry = {
   serverId: string;
   client: Client;
@@ -32,6 +40,12 @@ type Entry = {
   generation: number;
   catalog: Catalog | null;
   closing: boolean;
+  subscription: McpSubscription | null;
+};
+
+type Verdict = {
+  prior: PriorDiscovery;
+  storedAt: number;
 };
 
 export type PoolOptions = {
@@ -42,6 +56,8 @@ export type PoolOptions = {
   logs: LogRegistry;
   listTimeoutMs?: number;
   callTimeoutMs?: number;
+  probeTimeoutMs?: number;
+  verdictTtlMs?: number;
 };
 
 const EMPTY_CATALOG: Catalog = {
@@ -52,16 +68,33 @@ const EMPTY_CATALOG: Catalog = {
   fetchedAt: 0
 };
 
+function isEraFailure(error: unknown): boolean {
+  return SdkError.isInstance(error) && error.code === SdkErrorCode.EraNegotiationFailed;
+}
+
+function listenFilter(capabilities: ServerCapabilities | undefined): SubscriptionFilter | null {
+  const filter: SubscriptionFilter = {};
+  if (capabilities?.tools?.listChanged) filter.toolsListChanged = true;
+  if (capabilities?.resources?.listChanged) filter.resourcesListChanged = true;
+  if (capabilities?.prompts?.listChanged) filter.promptsListChanged = true;
+  return Object.keys(filter).length > 0 ? filter : null;
+}
+
 export class UpstreamPool {
   private readonly entries = new Map<string, Entry>();
   private readonly connecting = new Map<string, Promise<Entry>>();
   private readonly lastError = new Map<string, string>();
+  private readonly verdicts = new Map<string, Verdict>();
   readonly listTimeoutMs: number;
   readonly callTimeoutMs: number;
+  readonly probeTimeoutMs: number;
+  readonly verdictTtlMs: number;
 
   constructor(private readonly options: PoolOptions) {
     this.listTimeoutMs = options.listTimeoutMs ?? 5_000;
     this.callTimeoutMs = options.callTimeoutMs ?? 120_000;
+    this.probeTimeoutMs = options.probeTimeoutMs ?? 3_000;
+    this.verdictTtlMs = options.verdictTtlMs ?? 24 * 60 * 60_000;
   }
 
   getLastError(serverId: string): string | null {
@@ -72,8 +105,17 @@ export class UpstreamPool {
     return this.entries.get(serverId)?.catalog ?? null;
   }
 
+  negotiated(serverId: string): Negotiated | null {
+    const entry = this.entries.get(serverId);
+    if (!entry) return null;
+    const era = entry.client.getProtocolEra();
+    if (!era) return null;
+    return { era, protocolVersion: entry.client.getNegotiatedProtocolVersion() ?? null };
+  }
+
   async invalidate(serverId: string, reason = "config changed"): Promise<void> {
     this.options.registry.invalidate(serverId);
+    this.verdicts.delete(serverId);
     const entry = this.entries.get(serverId);
     if (!entry) return;
     this.entries.delete(serverId);
@@ -94,49 +136,123 @@ export class UpstreamPool {
     void entry.client.close().catch(() => undefined);
   }
 
-  private async connect(serverId: string): Promise<Entry> {
+  private prior(serverId: string): PriorDiscovery | undefined {
+    const verdict = this.verdicts.get(serverId);
+    if (!verdict) return undefined;
+    if (Date.now() - verdict.storedAt > this.verdictTtlMs) {
+      this.verdicts.delete(serverId);
+      return undefined;
+    }
+    return verdict.prior;
+  }
+
+  private remember(serverId: string, client: Client): void {
+    const discover = client.getDiscoverResult();
+    this.verdicts.set(serverId, {
+      prior: discover ? { kind: "modern", discover } : { kind: "legacy" },
+      storedAt: Date.now()
+    });
+  }
+
+  private async openTransport(serverId: string): Promise<{ transport: Transport; generation: number }> {
     const resolved = await this.options.registry.resolve(serverId);
     if (!resolved) throw new UpstreamError("server not found", "not_found", serverId);
     if (!resolved.row.enabled) throw new UpstreamError("server is disabled", "disabled", serverId);
-
-    let transport: Transport;
-    let generation = 0;
     if (resolved.row.transport === "stdio") {
       const handle = await this.options.supervisor.acquire(serverId);
-      transport = handle.transport;
-      generation = handle.generation;
-    } else {
-      transport = createHttpTransport({
-        server: resolved,
-        auth: this.options.auth,
-        logger: this.options.logger,
-        onUnauthorized: () => {
-          this.options.logs.append(serverId, "system", "upstream rejected the token");
-          this.options.auth.markNeedsReauth?.(serverId, "upstream returned 401 after a refresh attempt");
-        }
-      });
+      return { transport: handle.transport, generation: handle.generation };
     }
+    const transport = createHttpTransport({
+      server: resolved,
+      auth: this.options.auth,
+      logger: this.options.logger,
+      onUnauthorized: () => {
+        this.options.logs.append(serverId, "system", "upstream rejected the token");
+        this.options.auth.markNeedsReauth?.(serverId, "upstream returned 401 after a refresh attempt");
+      }
+    });
+    return { transport, generation: 0 };
+  }
 
-    const client = new Client({ name: "junctio", version: VERSION }, { capabilities: {} });
-    client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
+  private buildClient(serverId: string): Client {
+    const client = new Client(
+      { name: "junctio", version: VERSION },
+      {
+        capabilities: {},
+        versionNegotiation: { mode: "auto", probe: { timeoutMs: this.probeTimeoutMs } }
+      }
+    );
+    client.setNotificationHandler("notifications/tools/list_changed", async () => {
       this.options.logger.debug("upstream tool list changed", { server: serverId });
       this.invalidateCatalog(serverId);
     });
-    client.setNotificationHandler(ResourceListChangedNotificationSchema, async () => {
+    client.setNotificationHandler("notifications/resources/list_changed", async () => {
       this.invalidateCatalog(serverId);
     });
-    client.setNotificationHandler(PromptListChangedNotificationSchema, async () => {
+    client.setNotificationHandler("notifications/prompts/list_changed", async () => {
       this.invalidateCatalog(serverId);
     });
     client.onclose = () => {
       const current = this.entries.get(serverId);
       if (current?.client === client) this.entries.delete(serverId);
     };
+    return client;
+  }
 
-    await client.connect(transport, { timeout: this.listTimeoutMs * 2 });
-    const entry: Entry = { serverId, client, transport, generation, catalog: null, closing: false };
+  private async subscribe(serverId: string, client: Client): Promise<McpSubscription | null> {
+    if (client.getProtocolEra() !== "modern") return null;
+    const filter = listenFilter(client.getServerCapabilities());
+    if (!filter) return null;
+    try {
+      return await client.listen(filter, { timeout: this.listTimeoutMs });
+    } catch (error) {
+      this.options.logger.debug("upstream change stream unavailable", { server: serverId, error: String(error) });
+      return null;
+    }
+  }
+
+  private probeCasualty(serverId: string, generation: number, error: unknown): boolean {
+    if (isEraFailure(error)) return true;
+    if (generation === 0) return false;
+    const info = this.options.supervisor.getInfo(serverId);
+    return !this.options.supervisor.isRunning(serverId) || info.generation !== generation;
+  }
+
+  private async connect(serverId: string): Promise<Entry> {
+    const timeout = this.listTimeoutMs * 2;
+    let prior = this.prior(serverId);
+    let { transport, generation } = await this.openTransport(serverId);
+    let client = this.buildClient(serverId);
+    try {
+      await client.connect(transport, { timeout, ...(prior ? { prior } : {}) });
+    } catch (error) {
+      if (prior || !this.probeCasualty(serverId, generation, error)) throw error;
+      this.options.logger.info("upstream did not survive the protocol probe, assuming legacy", {
+        server: serverId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      this.options.logs.append(serverId, "system", "did not answer the 2026-07-28 probe, falling back to initialize");
+      await client.close().catch(() => undefined);
+      prior = { kind: "legacy" };
+      this.verdicts.set(serverId, { prior, storedAt: Date.now() });
+      if (generation !== 0) {
+        await this.options.supervisor.stop(serverId).catch(() => undefined);
+        this.options.supervisor.reset(serverId);
+      }
+      ({ transport, generation } = await this.openTransport(serverId));
+      client = this.buildClient(serverId);
+      await client.connect(transport, { timeout, prior });
+    }
+    if (!prior) this.remember(serverId, client);
+    const subscription = await this.subscribe(serverId, client);
+    const entry: Entry = { serverId, client, transport, generation, catalog: null, closing: false, subscription };
     this.entries.set(serverId, entry);
     this.lastError.delete(serverId);
+    this.options.logger.debug("upstream connected", {
+      server: serverId,
+      era: client.getProtocolEra(),
+      protocol: client.getNegotiatedProtocolVersion()
+    });
     return entry;
   }
 
@@ -160,6 +276,9 @@ export class UpstreamPool {
   }
 
   private isRecoverable(error: unknown): boolean {
+    if (SdkError.isInstance(error)) {
+      return error.code === SdkErrorCode.ConnectionClosed || error.code === SdkErrorCode.NotConnected;
+    }
     const message = error instanceof Error ? error.message : String(error);
     return /404|session|not connected|closed|EPIPE|terminated/i.test(message);
   }

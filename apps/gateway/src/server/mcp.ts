@@ -1,20 +1,17 @@
 import { Hono } from "hono";
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { eq } from "drizzle-orm";
 import {
-  CallToolRequestSchema,
-  GetPromptRequestSchema,
-  ListPromptsRequestSchema,
-  ListResourceTemplatesRequestSchema,
-  ListResourcesRequestSchema,
-  ListToolsRequestSchema,
-  ReadResourceRequestSchema,
-  McpError,
-  ErrorCode
-} from "@modelcontextprotocol/sdk/types.js";
+  createMcpHandler,
+  isLegacyRequest,
+  ProtocolError,
+  ProtocolErrorCode,
+  Server,
+  WebStandardStreamableHTTPServerTransport,
+  type McpHttpHandler
+} from "@modelcontextprotocol/server";
 import type { Core } from "../core.ts";
 import { VERSION } from "../config.ts";
-import type { EndpointRow } from "../db/schema.ts";
+import { endpoints, type EndpointRow } from "../db/schema.ts";
 import { authenticateEndpoint, challengeHeader, endpointBySlug, type JwtVerifier } from "../auth/downstream/middleware.ts";
 import { recordRequest } from "./requestlog.ts";
 import { checkOrigin } from "./origin.ts";
@@ -27,20 +24,39 @@ export type McpRouteOptions = {
 };
 
 const LEGACY_PROTOCOL = "2025-03-26";
+const MODERN_PROTOCOL = "2026-07-28";
 
-async function requestedProtocol(request: Request): Promise<string | null> {
+async function readBody(request: Request): Promise<unknown> {
+  try {
+    return await request.clone().json();
+  } catch {
+    return undefined;
+  }
+}
+
+function requestedProtocol(request: Request, body: unknown): string | null {
   const header = request.headers.get("mcp-protocol-version");
   if (header) return header.trim();
+  const message = (Array.isArray(body) ? body[0] : body) as
+    | { method?: unknown; params?: { protocolVersion?: unknown } }
+    | undefined;
+  if (message?.method !== "initialize") return null;
+  const version = message.params?.protocolVersion;
+  return typeof version === "string" ? version : LEGACY_PROTOCOL;
+}
+
+async function serveLegacy(core: Core, endpoint: EndpointRow, request: Request): Promise<Response> {
+  const server = buildServer(core, endpoint);
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true
+  });
   try {
-    const body: unknown = await request.clone().json();
-    const message = (Array.isArray(body) ? body[0] : body) as
-      | { method?: unknown; params?: { protocolVersion?: unknown } }
-      | undefined;
-    if (message?.method !== "initialize") return null;
-    const version = message.params?.protocolVersion;
-    return typeof version === "string" ? version : LEGACY_PROTOCOL;
-  } catch {
-    return null;
+    await server.connect(transport);
+    return await transport.handleRequest(request);
+  } finally {
+    void transport.close().catch(() => undefined);
+    void server.close().catch(() => undefined);
   }
 }
 
@@ -59,7 +75,7 @@ function buildServer(core: Core, endpoint: EndpointRow): Server {
   const { aggregator } = core;
   const namespaceId = endpoint.namespaceId;
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
+  server.setRequestHandler("tools/list", async () => {
     const started = Date.now();
     const tools = await aggregator.listTools(namespaceId);
     recordRequest(core, {
@@ -74,7 +90,7 @@ function buildServer(core: Core, endpoint: EndpointRow): Server {
     return { tools: tools.map((item) => item.tool) };
   });
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler("tools/call", async (request) => {
     const started = Date.now();
     const name = request.params.name;
     try {
@@ -105,25 +121,25 @@ function buildServer(core: Core, endpoint: EndpointRow): Server {
         errorCode: code
       });
       if (error instanceof UpstreamError && error.code === "unknown_tool") {
-        throw new McpError(ErrorCode.InvalidParams, error.message);
+        throw new ProtocolError(ProtocolErrorCode.InvalidParams, error.message);
       }
       throw error;
     }
   });
 
-  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+  server.setRequestHandler("resources/list", async () => ({
     resources: await aggregator.listResources(namespaceId)
   }));
 
-  server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({
+  server.setRequestHandler("resources/templates/list", async () => ({
     resourceTemplates: await aggregator.listResourceTemplates(namespaceId)
   }));
 
-  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+  server.setRequestHandler("prompts/list", async () => ({
     prompts: await aggregator.listPrompts(namespaceId)
   }));
 
-  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  server.setRequestHandler("prompts/get", async (request) => {
     const { result } = await aggregator.getPrompt(
       namespaceId,
       request.params.name,
@@ -132,7 +148,7 @@ function buildServer(core: Core, endpoint: EndpointRow): Server {
     return result;
   });
 
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  server.setRequestHandler("resources/read", async (request) => {
     const { result } = await aggregator.readResource(namespaceId, request.params.uri);
     return result;
   });
@@ -144,6 +160,25 @@ export function createMcpRoute(options: McpRouteOptions): Hono {
   const { core } = options;
   const app = new Hono();
   const limiter = new EndpointLimiter();
+  const handlers = new Map<string, McpHttpHandler>();
+
+  const modernHandler = (endpoint: EndpointRow): McpHttpHandler => {
+    const existing = handlers.get(endpoint.id);
+    if (existing) return existing;
+    const handler = createMcpHandler(
+      () => {
+        const current = core.db.select().from(endpoints).where(eq(endpoints.id, endpoint.id)).get();
+        if (!current || !current.enabled) throw new Error("endpoint is gone");
+        return buildServer(core, current);
+      },
+      {
+        legacy: "reject",
+        onerror: (error) => core.logger.error("mcp request failed", { endpoint: endpoint.slug, error: String(error) })
+      }
+    );
+    handlers.set(endpoint.id, handler);
+    return handler;
+  };
 
   app.all("/:slug", async (c) => {
     const request = c.req.raw;
@@ -179,7 +214,8 @@ export function createMcpRoute(options: McpRouteOptions): Hono {
       });
     }
 
-    const protocol = await requestedProtocol(request);
+    const body = await readBody(request);
+    const protocol = requestedProtocol(request, body);
     if (protocol !== null && protocol < endpoint.protocolMin) {
       return jsonRpcError(
         400,
@@ -188,20 +224,14 @@ export function createMcpRoute(options: McpRouteOptions): Hono {
       );
     }
 
-    const server = buildServer(core, endpoint);
-    const transport = new WebStandardStreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      enableJsonResponse: true
-    });
     try {
-      await server.connect(transport);
-      return await transport.handleRequest(request);
+      if (endpoint.protocolMin < MODERN_PROTOCOL && (await isLegacyRequest(request, body))) {
+        return await serveLegacy(core, endpoint, request);
+      }
+      return await modernHandler(endpoint).fetch(request, body === undefined ? undefined : { parsedBody: body });
     } catch (error) {
       core.logger.error("mcp request failed", { endpoint: slug, error: String(error) });
       return jsonRpcError(500, -32603, "internal error");
-    } finally {
-      void transport.close().catch(() => undefined);
-      void server.close().catch(() => undefined);
     }
   });
 

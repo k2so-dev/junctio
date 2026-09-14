@@ -5,9 +5,9 @@ import type {
   Prompt,
   ReadResourceResult,
   Resource,
-  ResourceTemplate,
+  ResourceTemplateType,
   Tool
-} from "@modelcontextprotocol/sdk/types.js";
+} from "@modelcontextprotocol/client";
 import type { Db } from "../db/index.ts";
 import { namespaceServers, namespaces, servers, toolOverrides } from "../db/schema.ts";
 import type { ToolOverrideRow } from "../db/schema.ts";
@@ -151,9 +151,9 @@ export class Aggregator {
   ): Promise<{ result: CallToolResult; serverId: string; toolName: string }> {
     const { serverId, toolName } = this.resolveTool(namespaceId, exposed);
     const result = await this.pool.withClient(serverId, (client) =>
-      client.callTool({ name: toolName, arguments: args }, undefined, { timeout: this.pool.callTimeoutMs })
+      client.callTool({ name: toolName, arguments: args }, { timeout: this.pool.callTimeoutMs })
     );
-    return { result: result as CallToolResult, serverId, toolName };
+    return { result, serverId, toolName };
   }
 
   async listResources(namespaceId: string): Promise<Resource[]> {
@@ -171,7 +171,7 @@ export class Aggregator {
     return out;
   }
 
-  async listResourceTemplates(_namespaceId: string): Promise<ResourceTemplate[]> {
+  async listResourceTemplates(_namespaceId: string): Promise<ResourceTemplateType[]> {
     return [];
   }
 

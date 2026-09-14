@@ -2,16 +2,18 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 
 export type MockHttpMcpOptions = {
   name?: string;
   issuer: string | null;
   requireAuth?: boolean;
+  modern?: boolean;
 };
 
 export type MockHttpMcp = {
   url: string;
-  counts: { requests: number; unauthorized: number; toolCalls: number };
+  counts: { requests: number; unauthorized: number; toolCalls: number; eras: { legacy: number; modern: number } };
   seenTokens: string[];
   stop(): Promise<void>;
 };
@@ -19,12 +21,12 @@ export type MockHttpMcp = {
 export async function startMockHttpMcp(options: MockHttpMcpOptions): Promise<MockHttpMcp> {
   const name = options.name ?? "remote";
   const requireAuth = options.requireAuth ?? true;
-  const counts = { requests: 0, unauthorized: 0, toolCalls: 0 };
+  const counts = { requests: 0, unauthorized: 0, toolCalls: 0, eras: { legacy: 0, modern: 0 } };
   const seenTokens: string[] = [];
   const jwks = options.issuer ? createRemoteJWKSet(new URL(`${options.issuer}/jwks.json`)) : null;
   let selfUrl = "";
 
-  function buildServer(): Server {
+  function buildLegacyServer(): Server {
     const server = new Server({ name, version: "1.0.0" }, { capabilities: { tools: {} } });
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
@@ -41,6 +43,18 @@ export async function startMockHttpMcp(options: MockHttpMcpOptions): Promise<Moc
     });
     return server;
   }
+
+  const modernHandler = options.modern
+    ? createMcpHandler(({ era }) => {
+        counts.eras[era] += 1;
+        const server = new McpServer({ name, version: "2.0.0" });
+        server.registerTool("ping", { description: "Returns pong" }, async () => {
+          counts.toolCalls += 1;
+          return { content: [{ type: "text", text: `pong (${era})` }] };
+        });
+        return server;
+      })
+    : null;
 
   function unauthorized(): Response {
     counts.unauthorized += 1;
@@ -82,7 +96,9 @@ export async function startMockHttpMcp(options: MockHttpMcpOptions): Promise<Moc
         }
       }
 
-      const server = buildServer();
+      if (modernHandler) return modernHandler.fetch(request);
+
+      const server = buildLegacyServer();
       const transport = new WebStandardStreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse: true
@@ -104,6 +120,7 @@ export async function startMockHttpMcp(options: MockHttpMcpOptions): Promise<Moc
     counts,
     seenTokens,
     async stop() {
+      await modernHandler?.close();
       await httpServer.stop(true);
     }
   };

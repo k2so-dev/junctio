@@ -93,7 +93,8 @@ const stats = computed(() => {
     { label: "Status", value: statusMeta(current.status).label },
     { label: "PID", value: current.pid === null ? "—" : String(current.pid) },
     { label: "Restarts", value: String(current.restarts) },
-    { label: "Tools", value: current.toolCount === null ? "—" : String(current.toolCount) }
+    { label: "Tools", value: current.toolCount === null ? "—" : String(current.toolCount) },
+    { label: "Protocol", value: current.protocolVersion ?? "—" }
   ];
 });
 
@@ -116,7 +117,8 @@ async function test() {
     const result = await api.servers.test(id.value);
     if (result.ok) {
       const info = result.serverInfo ? `${result.serverInfo.name} ${result.serverInfo.version}` : "connected";
-      toast.success(`${info} · ${result.toolCount} tools · ${result.durationMs}ms`);
+      const protocol = result.protocolVersion ? ` · ${result.protocolVersion}` : "";
+      toast.success(`${info}${protocol} · ${result.toolCount} tools · ${result.durationMs}ms`);
     } else {
       toast.error(result.error ?? "Connection failed");
     }

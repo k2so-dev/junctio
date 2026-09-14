@@ -1,6 +1,4 @@
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { JSONRPCMessageSchema, type JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
-import { serializeMessage } from "@modelcontextprotocol/sdk/shared/stdio.js";
+import { parseJSONRPCMessage, serializeMessage, type JSONRPCMessage, type Transport } from "@modelcontextprotocol/client";
 
 export type StdioSink = {
   write(chunk: Uint8Array): number | Promise<number>;
@@ -56,7 +54,7 @@ export class ChildProcessTransport implements Transport {
       if (line.trim() === "") continue;
       let message: JSONRPCMessage;
       try {
-        message = JSONRPCMessageSchema.parse(JSON.parse(line));
+        message = parseJSONRPCMessage(JSON.parse(line));
       } catch (error) {
         this.proc.onUnparsed?.(line);
         this.onerror?.(error instanceof Error ? error : new Error(String(error)));

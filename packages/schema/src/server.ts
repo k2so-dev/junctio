@@ -111,6 +111,7 @@ export const ServerDto = z.object({
   restarts: z.number(),
   lastError: z.string().nullable(),
   toolCount: z.number().nullable(),
+  protocolVersion: z.string().nullable(),
   commandPreview: z.string(),
   oauth: ServerOAuthInfo.nullable()
 });

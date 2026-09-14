@@ -45,7 +45,8 @@ const KEY_PLACEHOLDER = "<your-api-key>";
 
 const PROTOCOLS: SelectOption<ProtocolVersion>[] = [
   { value: "2025-06-18", label: "2025-06-18", hint: "Every current client", mono: true },
-  { value: "2025-11-25", label: "2025-11-25", hint: "Newest the gateway speaks", mono: true }
+  { value: "2025-11-25", label: "2025-11-25", hint: "Last revision with the initialize handshake", mono: true },
+  { value: "2026-07-28", label: "2026-07-28", hint: "Stateless era only; refuses older clients", mono: true }
 ];
 
 const AUTH_MODES: { value: EndpointAuthMode; label: string; hint: string }[] = [

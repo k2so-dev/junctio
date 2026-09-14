@@ -223,7 +223,7 @@ export function createServersApi(core: Core): Hono {
         ok: true,
         durationMs: Date.now() - started,
         serverInfo: info ? { name: info.name, version: info.version } : null,
-        protocolVersion: null,
+        protocolVersion: client.getNegotiatedProtocolVersion() ?? null,
         toolCount: catalog.tools.length,
         error: null
       };

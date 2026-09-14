@@ -22,7 +22,7 @@ export function createUpstreamOauthRoute(core: Core): Hono {
     if (!flow) return c.html(page("Authorization failed", "JUNCTIO_BASE_URL is not configured"), 500);
 
     try {
-      await flow.complete(serverId, code, state);
+      await flow.complete(serverId, code, state, url.searchParams.get("iss"));
       await core.pool.invalidate(serverId, "upstream authorization completed");
       return c.html(page("Connected", "You can close this tab and return to Junctio."));
     } catch (err) {

@@ -2,53 +2,43 @@ import { describe, expect, test } from "bun:test";
 import { buildArgv, buildChildEnv, previewCommand } from "../../src/upstream/command.ts";
 
 describe("buildArgv", () => {
-  test("npx adds the yes flag", () => {
-    expect(buildArgv({ runtime: "npx", command: "@scope/pkg", args: ["--flag"] })).toEqual([
+  test("prefixes the arguments with the runtime", () => {
+    expect(buildArgv({ runtime: "npx", args: ["-y", "@scope/pkg", "--flag"] })).toEqual([
       "npx",
       "-y",
       "@scope/pkg",
       "--flag"
     ]);
-  });
-
-  test("bunx does not add the yes flag", () => {
-    expect(buildArgv({ runtime: "bunx", command: "pkg", args: [] })).toEqual(["bunx", "pkg"]);
-  });
-
-  test("uvx passes the package through", () => {
-    expect(buildArgv({ runtime: "uvx", command: "mcp-server-git", args: ["--repo", "."] })).toEqual([
+    expect(buildArgv({ runtime: "bunx", args: ["pkg"] })).toEqual(["bunx", "pkg"]);
+    expect(buildArgv({ runtime: "uvx", args: ["mcp-server-git", "--repo", "."] })).toEqual([
       "uvx",
       "mcp-server-git",
       "--repo",
       "."
     ]);
+    expect(buildArgv({ runtime: "uv", args: ["run", "main.py"] })).toEqual(["uv", "run", "main.py"]);
   });
 
-  test("node runs a script", () => {
-    expect(buildArgv({ runtime: "node", command: "server.js", args: ["--port", "1"] })).toEqual([
-      "node",
-      "server.js",
-      "--port",
-      "1"
-    ]);
+  test("adds nothing on its own", () => {
+    expect(buildArgv({ runtime: "npx", args: ["pkg"] })).toEqual(["npx", "pkg"]);
   });
 
-  test("uv runs with the run subcommand", () => {
-    expect(buildArgv({ runtime: "uv", command: "", args: ["main.py"] })).toEqual(["uv", "run", "main.py"]);
+  test("custom takes the executable from the first argument", () => {
+    expect(buildArgv({ runtime: "custom", args: ["/usr/bin/thing", "a"] })).toEqual(["/usr/bin/thing", "a"]);
   });
 
-  test("custom keeps the command as is", () => {
-    expect(buildArgv({ runtime: "custom", command: "/usr/bin/thing", args: ["a"] })).toEqual(["/usr/bin/thing", "a"]);
+  test("drops blank arguments", () => {
+    expect(buildArgv({ runtime: "node", args: ["", " ", "server.js"] })).toEqual(["node", "server.js"]);
   });
 });
 
 describe("previewCommand", () => {
   test("quotes arguments with spaces", () => {
-    expect(previewCommand({ runtime: "custom", command: "cmd", args: ["two words"] })).toBe("cmd 'two words'");
+    expect(previewCommand({ runtime: "custom", args: ["cmd", "two words"] })).toBe("cmd 'two words'");
   });
 
   test("renders a npx invocation", () => {
-    expect(previewCommand({ runtime: "npx", command: "@modelcontextprotocol/server-everything", args: [] })).toBe(
+    expect(previewCommand({ runtime: "npx", args: ["-y", "@modelcontextprotocol/server-everything"] })).toBe(
       "npx -y @modelcontextprotocol/server-everything"
     );
   });

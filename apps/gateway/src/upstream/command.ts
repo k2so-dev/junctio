@@ -2,27 +2,13 @@ import type { RuntimeKind } from "@junctio/schema";
 
 export type CommandSpec = {
   runtime: RuntimeKind;
-  command: string;
   args: string[];
 };
 
 export function buildArgv(spec: CommandSpec): string[] {
-  const command = spec.command.trim();
-  const args = spec.args;
-  switch (spec.runtime) {
-    case "npx":
-      return ["npx", "-y", command, ...args];
-    case "bunx":
-      return ["bunx", command, ...args];
-    case "uvx":
-      return ["uvx", command, ...args];
-    case "node":
-      return ["node", command, ...args];
-    case "uv":
-      return ["uv", "run", ...args];
-    case "custom":
-      return [command, ...args];
-  }
+  const args = spec.args.map((part) => part.trim()).filter((part) => part !== "");
+  if (spec.runtime === "custom") return args;
+  return [spec.runtime, ...args];
 }
 
 function quote(part: string): string {
@@ -31,7 +17,7 @@ function quote(part: string): string {
 }
 
 export function previewCommand(spec: CommandSpec): string {
-  return buildArgv(spec).filter((part) => part !== "").map(quote).join(" ");
+  return buildArgv(spec).map(quote).join(" ");
 }
 
 export type ChildEnvOptions = {

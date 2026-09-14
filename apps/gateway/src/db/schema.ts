@@ -10,7 +10,6 @@ export const servers = sqliteTable("servers", {
   runtime: text("runtime", { enum: ["node", "npx", "bunx", "uvx", "uv", "custom"] })
     .notNull()
     .default("custom"),
-  command: text("command").notNull().default(""),
   args: text("args", { mode: "json" }).$type<string[]>().notNull().default([]),
   env: text("env", { mode: "json" }).$type<Record<string, string>>().notNull().default({}),
   cwd: text("cwd"),

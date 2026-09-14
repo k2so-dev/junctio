@@ -12,7 +12,6 @@ import { buildArgv, previewCommand } from "../upstream/command.ts";
 const CONNECTION_FIELDS = [
   "transport",
   "runtime",
-  "command",
   "args",
   "env",
   "cwd",
@@ -60,12 +59,8 @@ export function createServersApi(core: Core): Hono {
     const parsed = ServerInput.safeParse(body);
     if (!parsed.success) return badRequest(c, parsed.error);
     return c.json({
-      preview: previewCommand({
-        runtime: parsed.data.runtime,
-        command: parsed.data.command,
-        args: parsed.data.args
-      }),
-      argv: buildArgv({ runtime: parsed.data.runtime, command: parsed.data.command, args: parsed.data.args })
+      preview: previewCommand({ runtime: parsed.data.runtime, args: parsed.data.args }),
+      argv: buildArgv({ runtime: parsed.data.runtime, args: parsed.data.args })
     });
   });
 
@@ -84,7 +79,6 @@ export function createServersApi(core: Core): Hono {
         name: input.name,
         transport: input.transport,
         runtime: input.runtime,
-        command: input.command,
         args: input.args,
         env: input.env,
         cwd: input.cwd,
@@ -130,7 +124,6 @@ export function createServersApi(core: Core): Hono {
         ...(patch.name !== undefined ? { name: patch.name } : {}),
         ...(patch.transport !== undefined ? { transport: patch.transport } : {}),
         ...(patch.runtime !== undefined ? { runtime: patch.runtime } : {}),
-        ...(patch.command !== undefined ? { command: patch.command } : {}),
         ...(patch.args !== undefined ? { args: patch.args } : {}),
         ...(patch.env !== undefined ? { env: patch.env } : {}),
         ...(patch.cwd !== undefined ? { cwd: patch.cwd } : {}),

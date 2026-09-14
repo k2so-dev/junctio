@@ -27,7 +27,6 @@ const form = reactive({
   name: "",
   transport: "stdio" as "stdio" | "http",
   runtime: "npx" as RuntimeKind,
-  command: "",
   args: "",
   env: [] as { key: string; value: string }[],
   cwd: "",
@@ -46,13 +45,24 @@ const loading = ref(false);
 const fieldErrors = ref<Record<string, string>>({});
 
 const RUNTIMES = [
-  { value: "npx" as const, label: "npx", hint: "npx -y <package>" },
-  { value: "bunx" as const, label: "bunx", hint: "bunx <package>" },
-  { value: "uvx" as const, label: "uvx", hint: "uvx <package>" },
-  { value: "node" as const, label: "node", hint: "node <script>" },
-  { value: "uv" as const, label: "uv run", hint: "uv run <args>" },
-  { value: "custom" as const, label: "custom", hint: "<command> <args>" }
+  { value: "npx" as const, label: "npx", hint: "npx <args>" },
+  { value: "bunx" as const, label: "bunx", hint: "bunx <args>" },
+  { value: "uvx" as const, label: "uvx", hint: "uvx <args>" },
+  { value: "node" as const, label: "node", hint: "node <args>" },
+  { value: "uv" as const, label: "uv", hint: "uv <args>" },
+  { value: "custom" as const, label: "custom", hint: "<executable> <args>" }
 ];
+
+const RUNTIME_SEEDS: Partial<Record<RuntimeKind, string>> = { npx: "-y", uv: "run" };
+
+const ARG_PLACEHOLDERS: Record<RuntimeKind, string> = {
+  npx: "-y\n@modelcontextprotocol/server-filesystem\n/data",
+  bunx: "mcp-server\n--flag",
+  uvx: "mcp-server-fetch",
+  node: "/data/server.js",
+  uv: "run\nmain.py",
+  custom: "/usr/local/bin/my-server\n--flag"
+};
 
 const AUTH_MODES: { value: UpstreamAuthMode; label: string; hint: string }[] = [
   { value: "none", label: "None", hint: "Public server, no credentials." },
@@ -60,20 +70,11 @@ const AUTH_MODES: { value: UpstreamAuthMode; label: string; hint: string }[] = [
   { value: "oauth", label: "OAuth", hint: "Discovery, DCR and automatic refresh." }
 ];
 
-const commandLabel = computed(() => {
-  if (form.runtime === "node") return "Script";
-  if (form.runtime === "custom") return "Executable";
-  if (form.runtime === "uv") return "Command";
-  return "Package";
-});
-
-const commandPlaceholder = computed(() => {
-  if (form.runtime === "node") return "/data/server.js";
-  if (form.runtime === "custom") return "/usr/local/bin/my-server";
-  if (form.runtime === "uv") return "leave empty, pass args below";
-  if (form.runtime === "uvx") return "mcp-server-fetch";
-  return "@modelcontextprotocol/server-filesystem";
-});
+function seedArgs(runtime: RuntimeKind, previous: RuntimeKind) {
+  const seed = RUNTIME_SEEDS[runtime] ?? "";
+  const stale = RUNTIME_SEEDS[previous] ?? "";
+  if (form.args.trim() === "" || form.args.trim() === stale) form.args = seed;
+}
 
 function toInput(): ServerInput {
   const env: Record<string, string> = {};
@@ -86,7 +87,6 @@ function toInput(): ServerInput {
     name: form.name,
     transport: form.transport,
     runtime: form.transport === "http" ? "custom" : form.runtime,
-    command: form.transport === "http" ? "" : form.command,
     args: form.args.split("\n").map((line) => line.trim()).filter((line) => line !== ""),
     env,
     cwd: form.cwd.trim() === "" ? null : form.cwd.trim(),
@@ -114,7 +114,12 @@ async function refreshPreview() {
 }
 
 watch(
-  () => [form.transport, form.runtime, form.command, form.args, form.url] as const,
+  () => form.runtime,
+  (runtime, previous) => seedArgs(runtime, previous)
+);
+
+watch(
+  () => [form.transport, form.runtime, form.args, form.url] as const,
   () => void refreshPreview(),
   { immediate: false }
 );
@@ -129,6 +134,7 @@ function removeEnv(index: number) {
 
 async function load() {
   if (!id.value) {
+    form.args = RUNTIME_SEEDS[form.runtime] ?? "";
     addEnv();
     void refreshPreview();
     return;
@@ -139,7 +145,6 @@ async function load() {
     form.name = server.name;
     form.transport = server.transport;
     form.runtime = server.runtime;
-    form.command = server.command;
     form.args = server.args.join("\n");
     form.env = Object.entries(server.env).map(([key, value]) => ({ key, value }));
     if (form.env.length === 0) addEnv();
@@ -223,24 +228,24 @@ onMounted(load);
         </div>
 
         <template v-if="form.transport === 'stdio'">
-          <div class="grid gap-3 sm:grid-cols-[170px_minmax(0,1fr)]">
-            <div class="grid gap-2">
-              <Label>Runtime</Label>
-              <SearchSelect v-model="form.runtime" :options="RUNTIMES" />
-            </div>
-            <div class="grid gap-2">
-              <Label for="command">{{ commandLabel }}</Label>
-              <Input id="command" v-model="form.command" :placeholder="commandPlaceholder" class="font-mono text-xs" />
-            </div>
+          <div class="grid gap-2 sm:max-w-[220px]">
+            <Label>Runtime</Label>
+            <SearchSelect v-model="form.runtime" :options="RUNTIMES" />
           </div>
-          <p v-if="fieldErrors.command" class="-mt-2 text-xs text-destructive">{{ fieldErrors.command }}</p>
 
           <div class="grid gap-2">
             <Label for="args">
               Arguments
               <span class="font-normal text-muted-foreground">— one per line</span>
             </Label>
-            <Textarea id="args" v-model="form.args" rows="3" placeholder="/data" class="font-mono text-xs" />
+            <Textarea
+              id="args"
+              v-model="form.args"
+              rows="4"
+              :placeholder="ARG_PLACEHOLDERS[form.runtime]"
+              class="font-mono text-xs"
+            />
+            <p v-if="fieldErrors.args" class="text-xs text-destructive">{{ fieldErrors.args }}</p>
           </div>
 
           <div class="grid gap-2">

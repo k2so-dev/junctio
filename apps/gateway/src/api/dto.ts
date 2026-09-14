@@ -80,7 +80,6 @@ export async function toServerDto(core: Core, row: ServerRow): Promise<ServerDto
     name: row.name,
     transport: row.transport,
     runtime: row.runtime,
-    command: row.command,
     args: row.args,
     env: row.env,
     cwd: row.cwd,

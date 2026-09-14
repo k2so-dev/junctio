@@ -15,6 +15,13 @@
       "when": 1789403168192,
       "tag": "0001_rare_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789405148427,
+      "tag": "0002_vengeful_machine_man",
+      "breakpoints": true
     }
   ]
 }

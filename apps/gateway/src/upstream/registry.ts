@@ -40,7 +40,7 @@ export class ServerRegistry {
     const row = this.row(serverId);
     if (!row || row.transport !== "stdio") return null;
     return {
-      argv: buildArgv({ runtime: row.runtime, command: row.command, args: row.args }),
+      argv: buildArgv({ runtime: row.runtime, args: row.args }),
       cwd: row.cwd,
       env: buildChildEnv({
         env: row.env,
@@ -54,6 +54,6 @@ export class ServerRegistry {
 
   preview(row: ServerRow): string {
     if (row.transport === "http") return row.url ?? "";
-    return previewCommand({ runtime: row.runtime, command: row.command, args: row.args });
+    return previewCommand({ runtime: row.runtime, args: row.args });
   }
 }

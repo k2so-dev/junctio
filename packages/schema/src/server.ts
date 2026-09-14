@@ -35,7 +35,6 @@ export const ServerInput = z
     name,
     transport: TransportKind,
     runtime: RuntimeKind.default("custom"),
-    command: z.string().default(""),
     args: z.array(z.string()).default([]),
     env: z.record(z.string(), z.string()).default({}),
     cwd: z.string().nullable().default(null),
@@ -49,8 +48,8 @@ export const ServerInput = z
   })
   .superRefine((v, ctx) => {
     if (v.transport === "stdio") {
-      if (v.runtime !== "uv" && v.command.trim() === "") {
-        ctx.addIssue({ code: "custom", path: ["command"], message: "command is required for stdio" });
+      if (v.args.every((part) => part.trim() === "")) {
+        ctx.addIssue({ code: "custom", path: ["args"], message: "arguments are required for stdio" });
       }
       if (v.authMode !== "none") {
         ctx.addIssue({ code: "custom", path: ["authMode"], message: "stdio supports auth mode none only" });
@@ -65,7 +64,6 @@ export const ServerPatch = z.object({
   name: name.optional(),
   transport: TransportKind.optional(),
   runtime: RuntimeKind.optional(),
-  command: z.string().optional(),
   args: z.array(z.string()).optional(),
   env: z.record(z.string(), z.string()).optional(),
   cwd: z.string().nullable().optional(),
@@ -97,7 +95,6 @@ export const ServerDto = z.object({
   name: z.string(),
   transport: TransportKind,
   runtime: RuntimeKind,
-  command: z.string(),
   args: z.array(z.string()),
   env: z.record(z.string(), z.string()),
   cwd: z.string().nullable(),

@@ -58,18 +58,17 @@ claude mcp add --transport http junctio https://mcp.example.com/mcp/main \
 
 A server is either `stdio` or `http`.
 
-For stdio the `runtime` field decides how the command is assembled:
+For stdio the `runtime` field is the launcher and everything else is yours: the arguments you type are passed through in order, one per line. `custom` takes the executable from the first argument.
 
-| Runtime | Resulting command |
-|---|---|
-| `npx` | `npx -y <package> <args>` |
-| `bunx` | `bunx <package> <args>` |
-| `uvx` | `uvx <package> <args>` |
-| `node` | `node <script> <args>` |
-| `uv` | `uv run <args>` |
-| `custom` | `<command> <args>` |
+| Runtime | Arguments | Resulting command |
+|---|---|---|
+| `npx` | `-y`, `@scope/pkg`, `/data` | `npx -y @scope/pkg /data` |
+| `uv` | `run`, `main.py` | `uv run main.py` |
+| `custom` | `/usr/local/bin/srv`, `--flag` | `/usr/local/bin/srv --flag` |
 
-There is no aliasing between runtimes. The environment handed to a child process is built explicitly: the `PATH` from settings, `HOME`, and the variables you configured. Nothing else is inherited, and `JUNCTIO_*` variables are never passed down.
+Nothing is added behind your back. The form seeds `-y` for `npx` and `run` for `uv` because those are what you almost always want, but they are ordinary text you can delete. The same goes for flags the gateway has no opinion about: `bunx` honours the package shebang and runs most CLIs under Node, so add `--bun` yourself if you want Bun to execute it.
+
+The environment handed to a child process is built explicitly: the `PATH` from settings, `HOME`, and the variables you configured. Nothing else is inherited, and `JUNCTIO_*` variables are never passed down. That `PATH` defaults to the directories where the gateway found `bun`, `node` and `uv` at first start, plus the system ones; change it in Settings if a runtime lives elsewhere.
 
 For HTTP the gateway speaks Streamable HTTP. The auth mode is `none`, `header` for a static token, or `oauth` for the full client flow.
 

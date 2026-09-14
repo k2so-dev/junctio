@@ -85,8 +85,7 @@ export function seedStdioServer(
       name: options.name ?? "mock",
       transport: "stdio",
       runtime: "custom",
-      command: "bun",
-      args: [MOCK_STDIO],
+      args: ["bun", MOCK_STDIO],
       env: {
         PATH: Bun.env.PATH ?? "/usr/bin",
         HOME: Bun.env.HOME ?? "/tmp",
@@ -117,7 +116,6 @@ export function seedHttpServer(core: Core, options: { name: string; url: string;
       name: options.name,
       transport: "http",
       runtime: "custom",
-      command: "",
       args: [],
       env: {},
       cwd: null,

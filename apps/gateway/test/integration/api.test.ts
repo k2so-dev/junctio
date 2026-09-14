@@ -35,8 +35,7 @@ async function createStdioServer(name = "mock") {
       name,
       transport: "stdio",
       runtime: "custom",
-      command: "bun",
-      args: [MOCK_STDIO],
+      args: ["bun", MOCK_STDIO],
       env: { PATH: Bun.env.PATH, HOME: Bun.env.HOME, MOCK_NAME: name }
     })
   });
@@ -119,7 +118,7 @@ describe("servers api", () => {
     await createStdioServer("dup");
     const response = await api("/v1/servers", {
       method: "POST",
-      body: JSON.stringify({ name: "dup", transport: "stdio", runtime: "custom", command: "bun" })
+      body: JSON.stringify({ name: "dup", transport: "stdio", runtime: "custom", args: ["bun"] })
     });
     expect(response.status).toBe(409);
   });
@@ -127,7 +126,7 @@ describe("servers api", () => {
   test("rejects an invalid payload", async () => {
     const response = await api("/v1/servers", {
       method: "POST",
-      body: JSON.stringify({ name: "bad name!", transport: "stdio", command: "x" })
+      body: JSON.stringify({ name: "bad name!", transport: "stdio", args: ["x"] })
     });
     expect(response.status).toBe(400);
     const body = await json<{ error: string; details: unknown[] }>(response);
@@ -150,7 +149,7 @@ describe("servers api", () => {
         name: "everything",
         transport: "stdio",
         runtime: "npx",
-        command: "@modelcontextprotocol/server-everything"
+        args: ["-y", "@modelcontextprotocol/server-everything"]
       })
     });
     const body = await json<{ preview: string; argv: string[] }>(response);
@@ -237,8 +236,7 @@ describe("servers api", () => {
           name: "broken",
           transport: "stdio",
           runtime: "custom",
-          command: "bun",
-          args: [MOCK_STDIO],
+          args: ["bun", MOCK_STDIO],
           env: { PATH: Bun.env.PATH, HOME: Bun.env.HOME, MOCK_EXIT_IMMEDIATELY: "1" }
         })
       })

@@ -3,6 +3,7 @@ import type { OAuthClientDto } from "@junctio/schema";
 import { Loader2 } from "@lucide/vue";
 import { computed, onMounted, reactive, ref } from "vue";
 import { toast } from "vue-sonner";
+import CodeBlock from "@/components/CodeBlock.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, api } from "@/lib/api";
+import { CLIENTS } from "@/lib/clients";
 import { relativeTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { useSession } from "@/stores/session";
+
+const ADMIN_SLUG = "junctio-admin";
+const ADMIN_ENV_KEY = "JUNCTIO_ADMIN_TOKEN";
+const ADMIN_TOKEN = `$${ADMIN_ENV_KEY}`;
 
 const { settings, refreshSettings } = useSession();
 
@@ -19,8 +26,11 @@ const draft = reactive({
   toolSeparator: "__",
   runtimePath: "",
   apiKeyQueryParam: false,
-  requestLogRetentionDays: 7
+  requestLogRetentionDays: 7,
+  adminMcp: false
 });
+
+const adminClient = ref("claude-code");
 
 const busy = ref(false);
 const clients = ref<OAuthClientDto[]>([]);
@@ -52,8 +62,24 @@ const dirty = computed(() => {
     draft.toolSeparator !== current.toolSeparator ||
     draft.runtimePath !== current.runtimePath ||
     draft.apiKeyQueryParam !== current.apiKeyQueryParam ||
-    draft.requestLogRetentionDays !== current.requestLogRetentionDays
+    draft.requestLogRetentionDays !== current.requestLogRetentionDays ||
+    draft.adminMcp !== current.adminMcp
   );
+});
+
+const adminGuide = computed(() => {
+  const current = settings.value;
+  const spec = CLIENTS.find((item) => item.value === adminClient.value);
+  if (!current || !spec) return null;
+  const kind = spec.prefers === "oauth" && builtinAs.value ? "oauth" : "key";
+  return spec.build({
+    url: current.adminMcpUrl,
+    slug: ADMIN_SLUG,
+    kind,
+    token: ADMIN_TOKEN,
+    queryUrl: null,
+    envKey: ADMIN_ENV_KEY
+  });
 });
 
 function reset() {
@@ -63,6 +89,7 @@ function reset() {
   draft.runtimePath = current.runtimePath;
   draft.apiKeyQueryParam = current.apiKeyQueryParam;
   draft.requestLogRetentionDays = current.requestLogRetentionDays;
+  draft.adminMcp = current.adminMcp;
 }
 
 async function save() {
@@ -193,6 +220,80 @@ onMounted(async () => {
         </div>
       </section>
     </div>
+
+    <section class="max-w-5xl overflow-hidden rounded-lg border bg-card">
+      <header class="flex items-baseline justify-between border-b px-3.5 py-2.5">
+        <span class="font-medium">Management MCP</span>
+        <span class="text-xs text-muted-foreground">let an agent run this gateway</span>
+      </header>
+      <div class="flex flex-col gap-3 px-3.5 py-3">
+        <div class="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-3">
+          <Label for="admin-mcp">Expose /mcp/_admin</Label>
+          <Switch id="admin-mcp" v-model="draft.adminMcp" />
+        </div>
+        <p class="text-xs leading-relaxed text-muted-foreground">
+          Off by default. Turned on, this gateway publishes an MCP server of its own that can add, edit and delete
+          servers, namespaces and endpoints, install from the registry and read the logs. It cannot issue or revoke API
+          keys, and it cannot switch itself off — that stays here. Every call lands in the request log without an
+          endpoint.
+        </p>
+        <p class="text-xs leading-relaxed text-warning">
+          An agent holding this can make the gateway run any command on its host. Hand it out the way you would hand out
+          a shell.
+        </p>
+
+        <template v-if="settings?.adminMcp">
+          <div class="border-t pt-3">
+            <div class="font-medium">Connect a client</div>
+            <p class="mt-0.5 text-xs text-muted-foreground">
+              Authenticate with
+              <span class="font-mono text-foreground">JUNCTIO_ADMIN_TOKEN</span>, or, on a client that cannot send
+              headers, with the built-in authorization server, which asks for the admin password before it grants
+              anything.
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="item in CLIENTS"
+              :key="item.value"
+              type="button"
+              :title="item.hint"
+              :class="
+                cn(
+                  'rounded-md border px-2.5 py-1 text-xs transition-colors hover:border-ring',
+                  adminClient === item.value ? 'border-primary bg-accent font-medium' : 'bg-card text-muted-foreground'
+                )
+              "
+              @click="adminClient = item.value"
+            >
+              {{ item.label }}
+            </button>
+          </div>
+
+          <template v-if="adminGuide">
+            <p v-if="adminGuide.blocker" class="rounded-lg border border-warning/50 bg-warning/8 p-3 text-xs leading-relaxed">
+              {{ adminGuide.blocker }}
+            </p>
+            <template v-else>
+              <CodeBlock
+                v-for="block in adminGuide.blocks"
+                :key="block.title"
+                :title="block.title"
+                :code="block.code"
+                copyable
+              />
+              <ul class="flex list-disc flex-col gap-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
+                <li v-for="step in adminGuide.steps" :key="step">{{ step }}</li>
+              </ul>
+            </template>
+          </template>
+        </template>
+        <p v-else-if="draft.adminMcp" class="text-xs text-muted-foreground">
+          Save the change to see how to connect a client.
+        </p>
+      </div>
+    </section>
 
     <section v-if="builtinAs" class="max-w-5xl overflow-hidden rounded-lg border bg-card">
       <header class="flex items-baseline justify-between border-b px-3.5 py-2.5">

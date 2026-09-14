@@ -10,7 +10,7 @@ The promise: **auth does not go stale.** Not between your client and the gateway
 
 ## Status
 
-Early, but the whole path works: gateway, aggregation, API key auth, a built-in OAuth authorization server, upstream OAuth, REST API, web UI, registry browsing and container image. Not published to a registry yet — build it yourself.
+Early, but the whole path works: gateway, aggregation, API key auth, a built-in OAuth authorization server, upstream OAuth, REST API, web UI, registry browsing, a management MCP server and a container image. Not published to a registry yet — build it yourself.
 
 ## Quickstart
 
@@ -44,7 +44,7 @@ claude mcp add --transport http junctio https://mcp.example.com/mcp/main \
 |---|---|---|
 | `JUNCTIO_SECRET` | yes | Key used to encrypt stored tokens and headers. The process refuses to start without it. |
 | `JUNCTIO_BASE_URL` | for OAuth | Public URL of the gateway. Redirect URIs and resource identifiers are built from it. |
-| `JUNCTIO_ADMIN_TOKEN` | no | Bearer token for headless admin access, as an alternative to the password login. |
+| `JUNCTIO_ADMIN_TOKEN` | no | Bearer token for headless admin access, as an alternative to the password login. Also the key to the management MCP server. |
 | `JUNCTIO_OAUTH_ISSUER` | no | Issuer URL of an external identity provider. Leave it empty to use the gateway's own authorization server. |
 | `JUNCTIO_OAUTH_AUDIENCE` | no | Override the expected audience of an external provider. Defaults to the endpoint URL. |
 | `JUNCTIO_DATA_DIR` | no | Where `junctio.db` lives. Defaults to `/data`. |
@@ -118,7 +118,31 @@ Every authorization stops at a consent screen that requires the admin password. 
 
 If you already run Keycloak, Authentik, Auth0 or similar, set `JUNCTIO_OAUTH_ISSUER` instead. The gateway then stops being an authorization server and validates your provider's JWTs against its JWKS, checking that the audience matches the endpoint URL.
 
-Either way the discovery documents under `/.well-known/` are served **only** for endpoints whose auth mode includes OAuth; anything else returns 404. A 401 always carries a correct `WWW-Authenticate` header with the resource metadata URL.
+Either way the discovery documents under `/.well-known/` are served **only** for endpoints whose auth mode includes OAuth, and for the management server below when it is switched on; anything else returns 404. A 401 always carries a correct `WWW-Authenticate` header with the resource metadata URL.
+
+## Management MCP
+
+The gateway can publish an MCP server of its own, at `/mcp/_admin`, so an agent configures it instead of you clicking through the UI. It is **off by default**; the switch is in Settings, and while it is off both the route and its discovery documents answer 404.
+
+Two ways in, no new credentials either way:
+
+- **`JUNCTIO_ADMIN_TOKEN`** as a bearer token, for Claude Code, Codex, Cursor and anything else that sends headers.
+- **The built-in OAuth server**, for claude.ai and Claude Desktop, which cannot. Every authorization still stops at the consent screen that asks for the admin password, so a client only gets in because a human let it. This is unavailable when `JUNCTIO_OAUTH_ISSUER` points at someone else's provider: that provider has no way to ask for your admin password, so the token is the only route left.
+
+API keys of ordinary endpoints are refused here, and a token minted for another endpoint is refused too.
+
+```bash
+claude mcp add --transport http junctio-admin https://mcp.example.com/mcp/_admin \
+  --header "Authorization: Bearer $JUNCTIO_ADMIN_TOKEN"
+```
+
+Forty-two tools, one per action, over the same REST API the web UI uses, so validation and behaviour cannot drift apart: servers (create, edit, start, stop, test, logs, upstream OAuth), namespaces (membership, prefixes, tool overrides, collision checks), endpoints, registry search and install, settings, request log and health. The current state is also readable as resources like `junctio://servers`, which costs an agent less context than a tool call. Destructive tools are annotated as such, so a client can ask before running them.
+
+Three things are deliberately absent. **API keys cannot be issued or revoked**, only listed. **OAuth clients cannot be revoked and consent cannot be granted**, since an agent approving its own authorization would defeat the consent screen. **The management server cannot switch itself off**, or on: passing that field is rejected by the schema.
+
+Every call is written to the request log with no endpoint, so what the agent did is visible next to what your clients did.
+
+**This hands an agent the ability to run arbitrary commands on the host**, because that is what adding a stdio server does. Treat the token like shell access.
 
 ## Auth, upstream
 

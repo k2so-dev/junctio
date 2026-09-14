@@ -10,6 +10,7 @@ export type SnippetContext = {
   kind: AuthKind;
   token: string;
   queryUrl: string | null;
+  envKey?: string;
 };
 
 export type Snippet = { title: string; code: string };
@@ -30,7 +31,11 @@ export type ClientSpec = {
   build(ctx: SnippetContext): ClientGuide;
 };
 
-const ENV_KEY = "JUNCTIO_API_KEY";
+const DEFAULT_ENV_KEY = "JUNCTIO_API_KEY";
+
+function envKey(ctx: SnippetContext): string {
+  return ctx.envKey ?? DEFAULT_ENV_KEY;
+}
 
 function json(value: unknown): string {
   return JSON.stringify(value, null, 2);
@@ -75,7 +80,7 @@ export const CLIENTS: ClientSpec[] = [
       const entry = {
         type: "http",
         url: ctx.url,
-        ...headerEntry(ctx, `Bearer \${${ENV_KEY}}`)
+        ...headerEntry(ctx, `Bearer \${${envKey(ctx)}}`)
       };
       const steps = [
         "Run the command, or put the JSON into .mcp.json at the project root (~/.claude.json for every project).",
@@ -85,7 +90,7 @@ export const CLIENTS: ClientSpec[] = [
       steps.push("claude mcp list, or /mcp inside a session, shows the connection status.");
       const notes =
         ctx.kind === "key"
-          ? [`\${${ENV_KEY}} in .mcp.json is expanded from the environment, so the key stays out of the file. A literal key works too.`]
+          ? [`\${${envKey(ctx)}} in .mcp.json is expanded from the environment, so the key stays out of the file. A literal key works too.`]
           : [];
       return {
         blocks: [
@@ -137,15 +142,15 @@ export const CLIENTS: ClientSpec[] = [
       const add = `codex mcp add ${ctx.slug} --url ${ctx.url}`;
       const terminal =
         ctx.kind === "key"
-          ? `export ${ENV_KEY}="${ctx.token}"\n${add} --bearer-token-env-var ${ENV_KEY}`
+          ? `export ${envKey(ctx)}="${ctx.token}"\n${add} --bearer-token-env-var ${envKey(ctx)}`
           : ctx.kind === "oauth"
             ? `${add}\ncodex mcp login ${ctx.slug}`
             : add;
       const toml = [`[mcp_servers.${ctx.slug}]`, `url = "${ctx.url}"`];
-      if (ctx.kind === "key") toml.push(`bearer_token_env_var = "${ENV_KEY}"`);
+      if (ctx.kind === "key") toml.push(`bearer_token_env_var = "${envKey(ctx)}"`);
       const steps = ["Run the command, or add the table to ~/.codex/config.toml."];
       if (ctx.kind === "key") {
-        steps.push(`Export ${ENV_KEY} in your shell profile; Codex reads it at startup and sends it as the Authorization header.`);
+        steps.push(`Export ${envKey(ctx)} in your shell profile; Codex reads it at startup and sends it as the Authorization header.`);
       }
       if (ctx.kind === "oauth") steps.push("codex mcp login opens the browser; Codex stores the tokens itself.");
       steps.push("codex mcp list shows the configured servers.");
@@ -171,7 +176,7 @@ export const CLIENTS: ClientSpec[] = [
       if (ctx.kind === "oauth") steps.push("Cursor lists the server with Needs login; click it to sign in in the browser.");
       steps.push("Cursor Settings → MCP shows the tools once the server is connected.");
       const notes =
-        ctx.kind === "key" ? [`Use \${env:${ENV_KEY}} as the header value to read the key from the environment instead of the file.`] : [];
+        ctx.kind === "key" ? [`Use \${env:${envKey(ctx)}} as the header value to read the key from the environment instead of the file.`] : [];
       return {
         blocks: [{ title: "mcp.json", code: json({ mcpServers: { [ctx.slug]: entry } }) }],
         steps,
@@ -217,11 +222,11 @@ export const CLIENTS: ClientSpec[] = [
     build(ctx) {
       const add = `gemini mcp add --transport http ${ctx.slug} ${ctx.url}`;
       const terminal = ctx.kind === "key" ? `${add} \\\n  --header "Authorization: Bearer ${ctx.token}"` : add;
-      const entry = { httpUrl: ctx.url, ...headerEntry(ctx, `Bearer $${ENV_KEY}`) };
+      const entry = { httpUrl: ctx.url, ...headerEntry(ctx, `Bearer $${envKey(ctx)}`) };
       const steps = ["Run the command, or add the entry to ~/.gemini/settings.json (.gemini/settings.json with --scope project for one project)."];
       if (ctx.kind === "oauth") steps.push(`Type /mcp auth ${ctx.slug} inside Gemini CLI to sign in; tokens are refreshed automatically.`);
       steps.push("/mcp lists the servers and their tools.");
-      const notes = ctx.kind === "key" ? [`$${ENV_KEY} in settings.json reads the key from the environment.`] : [];
+      const notes = ctx.kind === "key" ? [`$${envKey(ctx)} in settings.json reads the key from the environment.`] : [];
       return {
         blocks: [
           { title: "Terminal", code: terminal },
@@ -241,7 +246,7 @@ export const CLIENTS: ClientSpec[] = [
       const steps = ["Add the entry to ~/.codeium/windsurf/mcp_config.json, or open Windsurf Settings → Cascade → MCP servers."];
       if (ctx.kind === "oauth") steps.push("Windsurf prompts to sign in when the server is enabled.");
       steps.push("Refresh the MCP list in Cascade to load the tools.");
-      const notes = ctx.kind === "key" ? [`\${env:${ENV_KEY}} in the header value reads the key from the environment.`] : [];
+      const notes = ctx.kind === "key" ? [`\${env:${envKey(ctx)}} in the header value reads the key from the environment.`] : [];
       return { blocks: [{ title: "mcp_config.json", code: json({ mcpServers: { [ctx.slug]: entry } }) }], steps, notes };
     }
   },

@@ -15,6 +15,17 @@ import { toast } from "vue-sonner";
 import CodeBlock from "@/components/CodeBlock.vue";
 import EmptyState from "@/components/EmptyState.vue";
 import SearchSelect, { type SelectOption } from "@/components/SearchSelect.vue";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -132,6 +143,15 @@ const seenNote = computed(() => {
   const spoken = ranked.map((usage) => `${usage.protocol} ×${usage.count}`).join(" · ");
   const last = Math.max(...seen.value.map((usage) => usage.lastSeenAt));
   return `Revisions clients spoke here: ${spoken}. Last call ${relativeTime(last)}. An unstated revision means the client sent neither the header nor an initialize version.`;
+});
+
+const refusedNote = computed(() => {
+  const floor = current.value?.protocolMin;
+  if (!floor) return null;
+  const refused = seen.value.filter((usage) => usage.protocol !== UNSTATED && usage.protocol < floor);
+  if (refused.length === 0) return null;
+  const list = refused.map((usage) => `${usage.protocol} ×${usage.count}`).join(", ");
+  return `Turned away for speaking below the minimum: ${list}. Lower Min protocol to let those clients in.`;
 });
 
 const keyWarning = computed(() => {
@@ -298,9 +318,28 @@ onMounted(async () => {
             <component :is="copied ? Check : Copy" />
             {{ copied ? "Copied" : "Copy URL" }}
           </Button>
-          <Button variant="ghost" size="icon" class="text-muted-foreground hover:text-destructive" @click="remove">
-            <Trash2 />
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger as-child>
+              <Button variant="ghost" size="icon" class="text-muted-foreground hover:text-destructive">
+                <Trash2 />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete /mcp/{{ current.slug }}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Every client pointed at this URL stops working, and keys bound to it are left without an endpoint.
+                  The namespace and its servers are untouched. This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction class="bg-destructive text-destructive-foreground" @click="remove">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -349,6 +388,10 @@ onMounted(async () => {
       </div>
 
       <p class="text-xs leading-relaxed text-muted-foreground">{{ seenNote }}</p>
+
+      <p v-if="refusedNote" class="rounded-lg border border-warning/50 bg-warning/8 p-3 text-xs leading-relaxed">
+        {{ refusedNote }}
+      </p>
 
       <div class="grid gap-2">
         <Label>Auth mode</Label>

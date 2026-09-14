@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { endpoints } from "../../src/db/schema.ts";
+import { endpoints, requestLog } from "../../src/db/schema.ts";
 import { seedEndpoint, seedHttpServer, seedNamespace, seedStdioServer, startHarness, type Harness } from "../helpers.ts";
 
 let harness: Harness;
@@ -52,8 +52,13 @@ describe("endpoint protocol floor", () => {
     prepare("team", { protocolMin: "2025-11-25" });
     const response = await post("team", initialize("2025-06-18"));
     expect(response.status).toBe(400);
-    const body = (await response.json()) as { error: { message: string } };
+    const body = (await response.json()) as {
+      error: { code: number; message: string; data: { supported: string[]; requested: string } };
+    };
     expect(body.error.message).toContain("2025-11-25");
+    expect(body.error.code).toBe(-32022);
+    expect(body.error.data.supported).toEqual(["2025-11-25", "2026-07-28"]);
+    expect(body.error.data.requested).toBe("2025-06-18");
   });
 
   test("rejects a follow-up request carrying an older protocol header", async () => {
@@ -62,6 +67,16 @@ describe("endpoint protocol floor", () => {
       "mcp-protocol-version": "2025-06-18"
     });
     expect(response.status).toBe(400);
+  });
+
+  test("logs the refusal so the endpoint page can explain it", async () => {
+    prepare("team", { protocolMin: "2026-07-28" });
+    await post("team", initialize("2025-11-25"));
+    const logged = harness.core.db.select().from(requestLog).all();
+    expect(logged).toHaveLength(1);
+    expect(logged[0]?.protocol).toBe("2025-11-25");
+    expect(logged[0]?.errorCode).toBe("unsupported_protocol");
+    expect(logged[0]?.method).toBe("initialize");
   });
 
   test("authenticates before looking at the protocol", async () => {

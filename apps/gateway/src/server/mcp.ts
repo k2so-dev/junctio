@@ -7,7 +7,7 @@ import {
   Server,
   WebStandardStreamableHTTPServerTransport
 } from "@modelcontextprotocol/server";
-import { latestProtocolVersion } from "@junctio/schema";
+import { latestProtocolVersion, protocolVersions } from "@junctio/schema";
 import type { Core } from "../core.ts";
 import { VERSION } from "../config.ts";
 import type { EndpointRow } from "../db/schema.ts";
@@ -31,6 +31,11 @@ async function readBody(request: Request): Promise<unknown> {
   } catch {
     return undefined;
   }
+}
+
+function requestedMethod(body: unknown): string | null {
+  const message = (Array.isArray(body) ? body[0] : body) as { method?: unknown } | undefined;
+  return typeof message?.method === "string" ? message.method : null;
 }
 
 function requestedProtocol(request: Request, body: unknown): string | null {
@@ -64,11 +69,20 @@ async function serveLegacy(
   }
 }
 
-function jsonRpcError(status: number, code: number, message: string, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify({ jsonrpc: "2.0", error: { code, message }, id: null }), {
-    status,
-    headers: { "content-type": "application/json", ...headers }
-  });
+function jsonRpcError(
+  status: number,
+  code: number,
+  message: string,
+  headers: Record<string, string> = {},
+  data?: unknown
+): Response {
+  return new Response(
+    JSON.stringify({ jsonrpc: "2.0", error: { code, message, ...(data === undefined ? {} : { data }) }, id: null }),
+    {
+      status,
+      headers: { "content-type": "application/json", ...headers }
+    }
+  );
 }
 
 function buildServer(core: Core, endpoint: EndpointRow, protocol: string | null): Server {
@@ -218,10 +232,23 @@ export function createMcpRoute(options: McpRouteOptions): Hono {
     const body = await readBody(request);
     const protocol = requestedProtocol(request, body);
     if (protocol !== null && protocol < endpoint.protocolMin) {
+      const supported = protocolVersions.filter((version) => version >= endpoint.protocolMin);
+      recordRequest(core, {
+        endpointId: endpoint.id,
+        serverId: null,
+        method: requestedMethod(body) ?? "unknown",
+        tool: null,
+        protocol,
+        durationMs: 0,
+        status: "error",
+        errorCode: "unsupported_protocol"
+      });
       return jsonRpcError(
         400,
-        -32000,
-        `endpoint requires protocol version ${endpoint.protocolMin} or newer, client offered ${protocol}`
+        ProtocolErrorCode.UnsupportedProtocolVersion,
+        `endpoint requires protocol version ${endpoint.protocolMin} or newer, client offered ${protocol}`,
+        {},
+        { supported, requested: protocol }
       );
     }
 

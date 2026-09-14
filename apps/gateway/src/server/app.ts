@@ -3,10 +3,11 @@ import { join, normalize } from "node:path";
 import { Hono } from "hono";
 import type { HealthDto } from "@junctio/schema";
 import type { Core } from "../core.ts";
-import { servers } from "../db/schema.ts";
+import { servers, upstreamOauth } from "../db/schema.ts";
 import { createMcpRoute } from "./mcp.ts";
 import { createWellKnownRoute } from "./wellknown.ts";
 import { createUpstreamOauthRoute } from "./oauth.ts";
+import { createApi } from "../api/index.ts";
 import { RemoteJwtVerifier } from "../auth/downstream/jwt.ts";
 
 export type AppOptions = {
@@ -29,16 +30,25 @@ function resolvePublicDir(explicit?: string | null): string | null {
 
 export function buildHealth(core: Core): HealthDto {
   const rows = core.db.select().from(servers).all();
+  const oauthStatus = new Map(core.db.select().from(upstreamOauth).all().map((row) => [row.serverId, row.status]));
   let running = 0;
   let failed = 0;
   let needsReauth = 0;
   for (const row of rows) {
+    if (row.authMode === "oauth") {
+      const status = oauthStatus.get(row.id) ?? "needs_reauth";
+      if (status === "needs_reauth" || status === "no_refresh") needsReauth += 1;
+    }
+    if (row.transport === "http") {
+      if (core.pool.cachedCatalog(row.id)) running += 1;
+      continue;
+    }
     const info = core.supervisor.getInfo(row.id);
     if (info.state === "running") running += 1;
     if (info.state === "failed") failed += 1;
   }
   return {
-    status: failed > 0 ? "degraded" : "ok",
+    status: failed > 0 || needsReauth > 0 ? "degraded" : "ok",
     version: core.config.version,
     uptimeSec: Math.floor((Date.now() - core.startedAt) / 1000),
     servers: { total: rows.length, running, failed, needsReauth }
@@ -57,6 +67,7 @@ export function createApp(options: AppOptions): Hono {
   app.route("/.well-known", createWellKnownRoute({ core, verifier }));
   app.route("/mcp", createMcpRoute({ core, verifier }));
   app.route("/oauth/upstream", createUpstreamOauthRoute(core));
+  app.route("/api", createApi(core));
 
   if (publicDir) {
     app.get("/assets/*", async (c) => {

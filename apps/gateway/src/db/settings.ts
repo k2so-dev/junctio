@@ -1,10 +1,28 @@
 import { eq } from "drizzle-orm";
+import { dirname } from "node:path";
 import type { Db } from "./index.ts";
 import { settings } from "./schema.ts";
 
+const RUNTIME_BINARIES = ["bun", "bunx", "node", "npx", "uv", "uvx"];
+const SYSTEM_PATH = ["/usr/local/bin", "/usr/bin", "/bin"];
+
+export function defaultRuntimePath(): string {
+  const dirs: string[] = [];
+  const add = (dir: string) => {
+    if (!dirs.includes(dir)) dirs.push(dir);
+  };
+  add(dirname(process.execPath));
+  for (const binary of RUNTIME_BINARIES) {
+    const found = Bun.which(binary);
+    if (found) add(dirname(found));
+  }
+  for (const dir of SYSTEM_PATH) add(dir);
+  return dirs.join(":");
+}
+
 export const DEFAULT_SETTINGS = {
   tool_separator: "__",
-  runtime_path: "/usr/local/bin:/usr/bin:/bin",
+  runtime_path: defaultRuntimePath(),
   api_key_query_param: "false",
   request_log_retention_days: "7",
   admin_password_hash: ""

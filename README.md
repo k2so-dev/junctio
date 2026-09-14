@@ -10,11 +10,19 @@ The promise: **auth does not go stale.** Not between your client and the gateway
 
 ## Status
 
-Early. The gateway, aggregation, API key auth, OAuth resource server mode, upstream OAuth and the REST API are implemented and tested. The web UI and the Docker image are in progress.
+Early, but the whole path works: gateway, aggregation, API key auth, OAuth resource server mode, upstream OAuth, REST API, web UI and container image. Not published to a registry yet — build it yourself.
 
 ## Quickstart
 
 ```bash
+docker compose up --build
+```
+
+`JUNCTIO_SECRET` is required; generate one with `openssl rand -hex 32`. Or run it straight from the source tree:
+
+```bash
+bun install
+bun run build:web
 JUNCTIO_SECRET=$(openssl rand -hex 32) JUNCTIO_DATA_DIR=./data bun run start
 ```
 
@@ -40,6 +48,7 @@ claude mcp add --transport http junctio https://mcp.example.com/mcp/main \
 | `JUNCTIO_OAUTH_ISSUER` | no | Issuer URL of your identity provider. Enables OAuth resource server mode. |
 | `JUNCTIO_OAUTH_AUDIENCE` | no | Override the expected audience. Defaults to the endpoint URL. |
 | `JUNCTIO_DATA_DIR` | no | Where `junctio.db` lives. Defaults to `/data`. |
+| `JUNCTIO_PUBLIC_DIR` | no | Directory of the built UI. Defaults to `./public`, then `./apps/web/dist`. |
 | `PORT` / `HOST` | no | Listener. Defaults to `3000` and `0.0.0.0`. |
 | `LOG_LEVEL` | no | `debug`, `info`, `warn` or `error`. Defaults to `info`. |
 
@@ -101,10 +110,14 @@ Streamable HTTP, stateless by default: no `Mcp-Session-Id`, no session state to 
 ```bash
 bun install
 bun test            # unit and integration suites
-bun run typecheck
+bun run typecheck   # tsc for the server, vue-tsc for the web
 bun run dev         # gateway with watch mode
+bun run dev:web     # vite dev server on 5173, proxies /api to 3000
+bun run build:web   # SPA into apps/web/dist, served by the gateway
 bun run db:generate # regenerate drizzle migrations after a schema change
 ```
+
+The UI is Vue 3, Tailwind 4 and shadcn-vue, built as a static SPA. The gateway serves it from `apps/web/dist` unless `JUNCTIO_PUBLIC_DIR` says otherwise.
 
 The test suite covers the things the product claims: upstream refresh under a five second token lifetime with a hundred calls and zero client-visible failures, single-flight collapsing, refresh token rotation, fifty stdio restart cycles with no zombie processes, and 404 on the discovery documents of an API-key-only endpoint.
 

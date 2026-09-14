@@ -21,8 +21,6 @@ const draft = reactive({
 
 const busy = ref(false);
 
-const readOnly = computed(() => settings.value?.configReadOnly ?? false);
-
 const dirty = computed(() => {
   const current = settings.value;
   if (!current) return false;
@@ -71,17 +69,12 @@ onMounted(async () => {
       </template>
       <template #actions>
         <Button variant="outline" size="sm" :disabled="!dirty" @click="reset">Discard</Button>
-        <Button size="sm" :disabled="!dirty || busy || readOnly" @click="save">
+        <Button size="sm" :disabled="!dirty || busy" @click="save">
           <Loader2 v-if="busy" class="animate-spin" />
           Save changes
         </Button>
       </template>
     </PageHeader>
-
-    <p v-if="readOnly" class="rounded-lg border border-warning/50 bg-warning/8 p-3.5 leading-relaxed">
-      <span class="font-medium text-warning">GitOps mode.</span>
-      Configuration is loaded from a file, so this screen is view-only.
-    </p>
 
     <div class="grid max-w-5xl items-start gap-4 lg:grid-cols-2">
       <section class="overflow-hidden rounded-lg border bg-card">
@@ -119,7 +112,7 @@ onMounted(async () => {
         <div class="flex flex-col px-3.5 pb-3">
           <div class="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-3 py-2.5">
             <Label for="path">PATH</Label>
-            <Input id="path" v-model="draft.runtimePath" :disabled="readOnly" class="h-8 font-mono text-xs" />
+            <Input id="path" v-model="draft.runtimePath" class="h-8 font-mono text-xs" />
           </div>
           <p class="pb-1 text-xs leading-relaxed text-muted-foreground">
             The only PATH a child process sees. Nothing else from the gateway environment is inherited.
@@ -135,7 +128,7 @@ onMounted(async () => {
         <div class="flex flex-col px-3.5 pb-3">
           <div class="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-3 border-b py-2.5">
             <Label for="separator">Tool separator</Label>
-            <Input id="separator" v-model="draft.toolSeparator" :disabled="readOnly" class="h-8 w-24 font-mono text-xs" />
+            <Input id="separator" v-model="draft.toolSeparator" class="h-8 w-24 font-mono text-xs" />
           </div>
           <div class="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-3 py-2.5">
             <Label for="retention">Request log retention</Label>
@@ -146,7 +139,7 @@ onMounted(async () => {
                 type="number"
                 min="1"
                 max="365"
-                :disabled="readOnly"
+               
                 class="h-8 w-24 font-mono text-xs"
               />
               <span class="text-muted-foreground">days</span>
@@ -163,7 +156,7 @@ onMounted(async () => {
         <div class="flex flex-col px-3.5 pb-3">
           <div class="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-3 py-2.5">
             <Label for="query-param">API key in query</Label>
-            <Switch id="query-param" v-model="draft.apiKeyQueryParam" :disabled="readOnly" />
+            <Switch id="query-param" v-model="draft.apiKeyQueryParam" />
           </div>
           <p class="pb-1 text-xs leading-relaxed text-muted-foreground">
             Off by default. Turn it on only for a client that cannot send headers — keys in URLs end up in proxy logs.

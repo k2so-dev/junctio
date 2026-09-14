@@ -1,0 +1,24 @@
+services:
+  junctio:
+    image: junctio:local
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      JUNCTIO_SECRET: ${JUNCTIO_SECRET:?set JUNCTIO_SECRET, e.g. openssl rand -hex 32}
+      JUNCTIO_BASE_URL: ${JUNCTIO_BASE_URL:-}
+      JUNCTIO_ADMIN_TOKEN: ${JUNCTIO_ADMIN_TOKEN:-}
+      JUNCTIO_OAUTH_ISSUER: ${JUNCTIO_OAUTH_ISSUER:-}
+      JUNCTIO_OAUTH_AUDIENCE: ${JUNCTIO_OAUTH_AUDIENCE:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - junctio-data:/data
+      - junctio-cache:/cache
+    tmpfs:
+      - /tmp
+    read_only: true
+
+volumes:
+  junctio-data:
+  junctio-cache:

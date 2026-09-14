@@ -18,6 +18,26 @@ describe("config", () => {
     expect(config.baseUrl).toBe("https://mcp.example.com");
   });
 
+  test("treats empty variables as unset", () => {
+    const config = loadConfig({
+      JUNCTIO_SECRET: "a".repeat(32),
+      JUNCTIO_BASE_URL: "",
+      JUNCTIO_ADMIN_TOKEN: "",
+      JUNCTIO_OAUTH_ISSUER: "  ",
+      JUNCTIO_OAUTH_AUDIENCE: ""
+    });
+    expect(config.baseUrl).toBeNull();
+    expect(config.adminToken).toBeNull();
+    expect(config.oauthIssuer).toBeNull();
+    expect(config.oauthAudience).toBeNull();
+  });
+
+  test("rejects a malformed base url", () => {
+    expect(() => loadConfig({ JUNCTIO_SECRET: "a".repeat(32), JUNCTIO_BASE_URL: "not a url" })).toThrow(
+      /JUNCTIO_BASE_URL/
+    );
+  });
+
   test("requireBaseUrl throws when missing", () => {
     const config = loadConfig({ JUNCTIO_SECRET: "a".repeat(32) });
     expect(() => requireBaseUrl(config, "oauth")).toThrow(/JUNCTIO_BASE_URL/);

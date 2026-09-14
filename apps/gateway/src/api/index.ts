@@ -55,8 +55,7 @@ export function createApi(core: Core): Hono {
   app.get("/v1/session", (c) => {
     const session: SessionDto = {
       authenticated: isAdmin(core.db, c.req.raw, core.config.adminToken),
-      needsSetup: needsSetup(core.db),
-      readOnly: core.config.configFile !== null
+      needsSetup: needsSetup(core.db)
     };
     return c.json(session);
   });
@@ -110,14 +109,12 @@ export function createApi(core: Core): Hono {
       apiKeyQueryParam: stored.api_key_query_param === "true",
       requestLogRetentionDays: Number(stored.request_log_retention_days),
       oauthIssuer: core.config.oauthIssuer,
-      configReadOnly: core.config.configFile !== null,
       version: core.config.version
     };
     return c.json(settings);
   });
 
   app.patch("/v1/settings", async (c) => {
-    if (core.config.configFile) return badRequest(c, "configuration is read only in gitops mode");
     const parsed = SettingsPatch.safeParse(await readJson(c));
     if (!parsed.success) return badRequest(c, parsed.error);
     const patch = parsed.data;

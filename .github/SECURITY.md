@@ -31,7 +31,7 @@ There is no isolation between upstream servers. They share a process namespace, 
 
 ## Deployment advice
 
-Run the container as a non-root user with a read-only root filesystem, writable only at `/data`, `/cache` and `/tmp`. Put it behind TLS; OAuth will not work otherwise. Do not expose the admin UI to the public internet if you can avoid it. Back up `/data` and store `JUNCTIO_SECRET` somewhere you can recover it, because without it the stored tokens are unrecoverable and every upstream will need a fresh login.
+The image already runs as a non-root user and the bundled `compose.yml` mounts the root filesystem read-only, writable only at `/data`, `/cache` and `/tmp`. Keep it that way. Put it behind TLS; OAuth will not work otherwise. Do not expose the admin UI to the public internet if you can avoid it. Back up `/data` and store `JUNCTIO_SECRET` somewhere you can recover it, because without it the stored tokens are unrecoverable and every upstream will need a fresh login.
 
 ## Reporting
 

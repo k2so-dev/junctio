@@ -7,7 +7,6 @@ export const SettingsDto = z.object({
   apiKeyQueryParam: z.boolean(),
   requestLogRetentionDays: z.number(),
   oauthIssuer: z.string().nullable(),
-  configReadOnly: z.boolean(),
   version: z.string()
 });
 export type SettingsDto = z.infer<typeof SettingsDto>;
@@ -28,7 +27,6 @@ export type SetupInput = z.infer<typeof SetupInput>;
 
 export const SessionDto = z.object({
   authenticated: z.boolean(),
-  needsSetup: z.boolean(),
-  readOnly: z.boolean()
+  needsSetup: z.boolean()
 });
 export type SessionDto = z.infer<typeof SessionDto>;

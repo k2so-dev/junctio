@@ -12,9 +12,36 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.2
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
+      - run: bun run build:web
       - run: bun test
         env:
           LOG_LEVEL: error
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: junctio:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: smoke test
+        run: |
+          docker run -d --name junctio \
+            --read-only --tmpfs /tmp \
+            -e JUNCTIO_SECRET=$(openssl rand -hex 32) \
+            -p 3000:3000 junctio:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/health > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          docker logs junctio
+          exit 1

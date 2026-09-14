@@ -136,6 +136,14 @@ export class ProcessSupervisor {
     const argv = spec.argv.filter((part) => part !== "");
     if (argv.length === 0) throw new Error("empty command");
 
+    const executable = argv[0] as string;
+    if (!executable.includes("/") && !Bun.which(executable, { PATH: spec.env.PATH ?? "" })) {
+      const message = `${executable} is not in PATH (${spec.env.PATH ?? ""}); adjust PATH in Settings`;
+      this.options.logs.append(serverId, "system", message);
+      this.recordFailure(serverId, message);
+      throw new Error(message);
+    }
+
     this.patchInfo(serverId, { state: "starting", lastError: null });
     const controller = new AbortController();
     const generation = ++this.generationSeq;

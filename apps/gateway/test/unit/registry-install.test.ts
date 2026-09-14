@@ -1,0 +1,96 @@
+import { describe, expect, test } from "bun:test";
+import fixture from "../fixtures/registry-list.json" with { type: "json" };
+import { installOptions, serverKinds, serverName, summarize, uniqueName } from "../../src/registry/install.ts";
+import { registryEntries, type RegistryEntry } from "../../src/registry/types.ts";
+
+const entries = registryEntries(fixture as never);
+
+function entry(name: string): RegistryEntry {
+  const found = entries.find((item) => item.server.name === name);
+  if (!found) throw new Error(`fixture is missing ${name}`);
+  return found;
+}
+
+describe("registry names", () => {
+  test("takes the tail of a reverse dns name", () => {
+    expect(serverName("io.github.j0hanz/filesystem-mcp")).toBe("filesystem-mcp");
+    expect(serverName("com.pulsemcp/remote-filesystem")).toBe("remote-filesystem");
+  });
+
+  test("strips characters a server name may not carry", () => {
+    expect(serverName("ai.smithery/@scope/pkg.name")).toBe("pkg-name");
+    expect(serverName("...")).toBe("server");
+  });
+
+  test("suffixes a name that is already taken", () => {
+    const taken = new Set(["filesystem-mcp", "filesystem-mcp-2"]);
+    expect(uniqueName("filesystem-mcp", taken)).toBe("filesystem-mcp-3");
+    expect(uniqueName("fresh", taken)).toBe("fresh");
+  });
+});
+
+describe("install options", () => {
+  test("turns an npm package into an npx command with its environment", () => {
+    const options = installOptions(entry("com.pulsemcp/remote-filesystem"), "remote-filesystem");
+    expect(options).toHaveLength(1);
+    const option = options[0]!;
+    expect(option.supported).toBe(true);
+    expect(option.kind).toBe("npm");
+    expect(option.draft?.runtime).toBe("npx");
+    expect(option.draft?.args).toEqual(["-y", "-y", "remote-filesystem-mcp-server@0.1.5"]);
+    expect(option.draft?.env.GCS_BUCKET).toBe("");
+    expect(option.inputs.find((input) => input.name === "GCS_BUCKET")?.required).toBe(true);
+    expect(option.inputs.find((input) => input.name === "GCS_PRIVATE_KEY")?.secret).toBe(true);
+  });
+
+  test("keeps positional arguments as placeholders to fill in", () => {
+    const options = installOptions(entry("io.github.j0hanz/filesystem-mcp"), "filesystem-mcp");
+    const npm = options.find((option) => option.kind === "npm");
+    expect(npm?.draft?.args).toEqual(["-y", "@j0hanz/filesystem-mcp@2.2.0", "<allowed_directory>"]);
+  });
+
+  test("turns a pypi package into a uvx command", () => {
+    const options = installOptions(entry("io.github.Oncorporation/filesystem-server"), "filesystem-server");
+    const option = options[0]!;
+    expect(option.kind).toBe("pypi");
+    expect(option.draft?.runtime).toBe("uvx");
+    expect(option.draft?.args).toEqual(["vs-filesystem-mcp-server"]);
+  });
+
+  test("turns a streamable http remote into an http server and keeps the header template", () => {
+    const options = installOptions(entry("ai.smithery/222wcnm-bilistalkermcp"), "bilistalkermcp");
+    const option = options[0]!;
+    expect(option.kind).toBe("remote");
+    expect(option.supported).toBe(true);
+    expect(option.draft?.transport).toBe("http");
+    expect(option.draft?.url).toBe("https://server.smithery.ai/@222wcnm/bilistalkermcp/mcp");
+    expect(option.draft?.authMode).toBe("header");
+    expect(option.draft?.headers.Authorization).toBe("Bearer {smithery_api_key}");
+    expect(option.inputs[0]?.name).toBe("Authorization");
+  });
+
+  test("refuses what the gateway cannot run and says why", () => {
+    const sse = installOptions(entry("io.github.Evozim/chroot-filesystem-jail-mcp"), "chroot")[0]!;
+    expect(sse.supported).toBe(false);
+    expect(sse.reason).toContain("streamable http");
+    expect(sse.draft).toBeNull();
+
+    const oci = installOptions(entry("io.github.j0hanz/filesystem-mcp"), "filesystem-mcp").find(
+      (option) => option.label.startsWith("oci")
+    );
+    expect(oci?.supported).toBe(false);
+    expect(oci?.reason).toContain("container");
+  });
+});
+
+describe("summaries", () => {
+  test("lists the kinds a server ships", () => {
+    expect(serverKinds(entry("io.github.j0hanz/filesystem-mcp")).sort()).toEqual(["npm", "other"]);
+    expect(serverKinds(entry("ai.smithery/222wcnm-bilistalkermcp"))).toEqual(["remote"]);
+  });
+
+  test("marks an entry with no runnable option as not installable", () => {
+    expect(summarize(entry("io.github.Evozim/chroot-filesystem-jail-mcp"), false).installable).toBe(false);
+    expect(summarize(entry("com.pulsemcp/remote-filesystem"), false).installable).toBe(true);
+  });
+});

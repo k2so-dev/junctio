@@ -12,6 +12,7 @@ import { Aggregator } from "./aggregate/aggregator.ts";
 import { type UpstreamAuth } from "./upstream/types.ts";
 import { UpstreamAuthService } from "./auth/upstream/index.ts";
 import { JunctioOAuthProvider } from "./auth/downstream/as/provider.ts";
+import { RegistryClient } from "./registry/client.ts";
 
 export type Core = {
   config: Config;
@@ -26,6 +27,7 @@ export type Core = {
   aggregator: Aggregator;
   upstreamAuth: UpstreamAuthService;
   oauthProvider: JunctioOAuthProvider;
+  registryClient: RegistryClient;
   startedAt: number;
   setUpstreamAuth(auth: UpstreamAuth): void;
   shutdown(): Promise<void>;
@@ -36,6 +38,8 @@ export type CoreOptions = {
   dbFile?: string;
   fetchImpl?: typeof fetch;
   refreshIntervalMs?: number;
+  registryBaseUrl?: string;
+  registryTimeoutMs?: number;
 };
 
 export function databaseFile(config: Config): string {
@@ -89,6 +93,13 @@ export function createCore(options: CoreOptions): Core {
     aggregator,
     upstreamAuth,
     oauthProvider: new JunctioOAuthProvider(db, cipher),
+    registryClient: new RegistryClient({
+      db,
+      logger,
+      ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+      ...(options.registryBaseUrl ? { baseUrl: options.registryBaseUrl } : {}),
+      ...(options.registryTimeoutMs ? { timeoutMs: options.registryTimeoutMs } : {})
+    }),
     startedAt: Date.now(),
     setUpstreamAuth(next) {
       auth = next;

@@ -208,6 +208,17 @@ export const requestLog = sqliteTable(
   (t) => [index("request_log_ts_idx").on(t.ts), index("request_log_endpoint_idx").on(t.endpointId)]
 );
 
+export const registryCache = sqliteTable(
+  "registry_cache",
+  {
+    key: text("key").primaryKey(),
+    body: text("body").notNull(),
+    fetchedAt: integer("fetched_at").notNull().default(now),
+    expiresAt: integer("expires_at").notNull()
+  },
+  (t) => [index("registry_cache_fetched_idx").on(t.fetchedAt)]
+);
+
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull()
@@ -234,3 +245,4 @@ export type OauthClientRow = typeof oauthClients.$inferSelect;
 export type OauthAuthRequestRow = typeof oauthAuthRequests.$inferSelect;
 export type OauthTokenRow = typeof oauthTokens.$inferSelect;
 export type RequestLogRow = typeof requestLog.$inferSelect;
+export type RegistryCacheRow = typeof registryCache.$inferSelect;

@@ -1,3 +1,7 @@
+import { latestProtocolVersion } from "@junctio/schema";
+
+const MODERN_PROTOCOL = latestProtocolVersion;
+
 export type AuthKind = "key" | "oauth" | "none";
 
 export type SnippetContext = {
@@ -278,15 +282,26 @@ export const CLIENTS: ClientSpec[] = [
     label: "curl",
     hint: "Raw request for a quick check",
     build(ctx) {
+      const envelope = {
+        "io.modelcontextprotocol/protocolVersion": MODERN_PROTOCOL,
+        "io.modelcontextprotocol/clientInfo": { name: "curl", version: "1.0.0" },
+        "io.modelcontextprotocol/clientCapabilities": {}
+      };
+      const body = { jsonrpc: "2.0", id: 1, method: "tools/list", params: { _meta: envelope } };
       const lines = [`curl -sS ${ctx.url} \\`];
       if (ctx.kind !== "none") lines.push(`  -H "Authorization: ${bearer(ctx)}" \\`);
       lines.push(
         '  -H "Content-Type: application/json" \\',
         '  -H "Accept: application/json, text/event-stream" \\',
-        '  -H "MCP-Protocol-Version: 2025-11-25" \\',
-        `  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`
+        `  -H "MCP-Protocol-Version: ${MODERN_PROTOCOL}" \\`,
+        '  -H "Mcp-Method: tools/list" \\',
+        `  -d '${JSON.stringify(body)}'`
       );
-      const notes = ["The gateway is stateless: no initialize call or session id is needed."];
+      const notes = [
+        "The gateway is stateless: no initialize call or session id is needed.",
+        "Mcp-Method must name the same method as the body, and the _meta envelope replaces the old handshake.",
+        `Drop both the header and params._meta to talk to the endpoint the 2025 way, if its minimum protocol is below ${MODERN_PROTOCOL}.`
+      ];
       if (ctx.kind === "key") notes.push("X-API-Key: <key> works as an alternative to the Authorization header.");
       if (ctx.kind === "oauth") notes.push("OAuth endpoints need an access token from the sign-in flow; for a quick check switch the endpoint to Either and use an API key.");
       return {

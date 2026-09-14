@@ -227,9 +227,9 @@ export function createMcpRoute(options: McpRouteOptions): Hono {
 
     try {
       if (endpoint.protocolMin < MODERN_PROTOCOL && (await isLegacyRequest(request, body))) {
-        return await serveLegacy(core, endpoint, request, protocol ?? LEGACY_PROTOCOL);
+        return await serveLegacy(core, endpoint, request, protocol);
       }
-      return await serveModern(endpoint, request, body, protocol ?? MODERN_PROTOCOL);
+      return await serveModern(endpoint, request, body, protocol);
     } catch (error) {
       core.logger.error("mcp request failed", { endpoint: slug, error: String(error) });
       return jsonRpcError(500, -32603, "internal error");

@@ -52,6 +52,7 @@ const draft = ref({ slug: "", namespaceId: "" });
 const busy = ref(false);
 
 const KEY_PLACEHOLDER = "<your-api-key>";
+const UNSTATED = "unstated";
 
 const PROTOCOLS: SelectOption<ProtocolVersion>[] = [
   { value: "2026-07-28", label: "2026-07-28", hint: "Modern era only; older clients are refused", mono: true },
@@ -122,6 +123,15 @@ const guide = computed(() => {
   if (!endpoint || !spec) return null;
   const queryUrl = settings.value?.apiKeyQueryParam ? `${endpoint.url}?api_key=${token.value}` : null;
   return spec.build({ url: endpoint.url, slug: endpoint.slug, kind: kind.value, token: token.value, queryUrl });
+});
+
+const seenNote = computed(() => {
+  if (seen.value.length === 0) return "No client has called this endpoint yet.";
+  const rank = (protocol: string) => (protocol === UNSTATED ? "" : protocol);
+  const ranked = [...seen.value].sort((a, b) => rank(b.protocol).localeCompare(rank(a.protocol)));
+  const spoken = ranked.map((usage) => `${usage.protocol} ×${usage.count}`).join(" · ");
+  const last = Math.max(...seen.value.map((usage) => usage.lastSeenAt));
+  return `Revisions clients spoke here: ${spoken}. Last call ${relativeTime(last)}. An unstated revision means the client sent neither the header nor an initialize version.`;
 });
 
 const keyWarning = computed(() => {
@@ -321,16 +331,6 @@ onMounted(async () => {
             trigger-class="h-8"
             @update:model-value="patch({ protocolMin: $event })"
           />
-          <p class="text-xs text-muted-foreground">
-            <span v-if="seen.length === 0">No client requests recorded yet.</span>
-            <template v-else>
-              Seen from clients:
-              <span v-for="(usage, index) in seen" :key="usage.protocol">
-                <span class="font-mono">{{ usage.protocol }}</span>
-                ×{{ usage.count }}, {{ relativeTime(usage.lastSeenAt) }}{{ index < seen.length - 1 ? " · " : "" }}
-              </span>
-            </template>
-          </p>
         </div>
         <div class="grid gap-2">
           <Label for="rate">Rate limit <span class="font-normal text-muted-foreground">— 0 = off</span></Label>
@@ -347,6 +347,8 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+
+      <p class="text-xs leading-relaxed text-muted-foreground">{{ seenNote }}</p>
 
       <div class="grid gap-2">
         <Label>Auth mode</Label>

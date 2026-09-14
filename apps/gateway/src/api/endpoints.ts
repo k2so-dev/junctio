@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, count, desc, eq, isNotNull, max } from "drizzle-orm";
+import { count, desc, eq, max } from "drizzle-orm";
 import { EndpointInput, EndpointPatch, type EndpointProtocolUsageDto } from "@junctio/schema";
 import type { Core } from "../core.ts";
 import { endpoints, namespaces, requestLog } from "../db/schema.ts";
@@ -65,12 +65,12 @@ export function createEndpointsApi(core: Core): Hono {
         lastSeenAt: max(requestLog.ts)
       })
       .from(requestLog)
-      .where(and(eq(requestLog.endpointId, row.id), isNotNull(requestLog.protocol)))
+      .where(eq(requestLog.endpointId, row.id))
       .groupBy(requestLog.protocol)
       .orderBy(desc(max(requestLog.ts)))
       .all();
     const items: EndpointProtocolUsageDto[] = rows.map((entry) => ({
-      protocol: entry.protocol ?? "",
+      protocol: entry.protocol ?? "unstated",
       count: entry.count,
       lastSeenAt: entry.lastSeenAt ?? 0
     }));

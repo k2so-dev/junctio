@@ -110,6 +110,35 @@ describe("protocol eras", () => {
     await client.close();
   });
 
+  test("a hand-written modern request is served as the ui snippet spells it", async () => {
+    const response = await fetch(`${harness.url}/mcp/mixed`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "MCP-Protocol-Version": MODERN,
+        "Mcp-Method": "tools/list"
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: {
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion": MODERN,
+            "io.modelcontextprotocol/clientInfo": { name: "curl", version: "1.0.0" },
+            "io.modelcontextprotocol/clientCapabilities": {}
+          }
+        }
+      })
+    });
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as { result?: { tools?: unknown[] }; error?: unknown };
+    expect(payload.error).toBeUndefined();
+    expect(payload.result?.tools?.length).toBeGreaterThan(0);
+  });
+
   test("the request log keeps the revision each client spoke", async () => {
     const modern = await connectClient(`${harness.url}/mcp/mixed`, token, { pin: MODERN });
     await modern.listTools();

@@ -5,6 +5,7 @@ import type { HealthDto } from "@junctio/schema";
 import type { Core } from "../core.ts";
 import { servers, upstreamOauth } from "../db/schema.ts";
 import { createMcpRoute } from "./mcp.ts";
+import { createAdminMcpRoute } from "./admin.ts";
 import { createWellKnownRoute } from "./wellknown.ts";
 import { createUpstreamOauthRoute } from "./oauth.ts";
 import { createApi } from "../api/index.ts";
@@ -71,6 +72,7 @@ export function createApp(options: AppOptions): Hono {
   app.get("/health", (c) => c.json(buildHealth(core)));
 
   app.route("/.well-known", createWellKnownRoute({ core, remote }));
+  app.route("/mcp", createAdminMcpRoute({ core, verifier: remote ? null : verifier }));
   app.route("/mcp", createMcpRoute({ core, verifier }));
   app.route("/oauth/upstream", createUpstreamOauthRoute(core));
   if (!remote) app.route("/oauth", createAuthorizationServerRoute(core.oauthProvider));

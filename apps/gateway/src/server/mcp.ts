@@ -69,7 +69,7 @@ async function serveLegacy(
   }
 }
 
-function jsonRpcError(
+export function jsonRpcError(
   status: number,
   code: number,
   message: string,

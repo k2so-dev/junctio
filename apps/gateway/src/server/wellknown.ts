@@ -1,9 +1,10 @@
 import { Hono } from "hono";
 import type { Core } from "../core.ts";
 import { endpoints as endpointsTable } from "../db/schema.ts";
-import { endpointAllowsOauth, endpointBySlug } from "../auth/downstream/middleware.ts";
+import { ADMIN_MCP_SLUG, endpointAllowsOauth, endpointBySlug } from "../auth/downstream/middleware.ts";
 import type { RemoteJwtVerifier } from "../auth/downstream/jwt.ts";
 import { authorizationServerMetadata } from "../auth/downstream/as/index.ts";
+import { adminMcpEnabled } from "../api/settings.ts";
 
 export type WellKnownOptions = {
   core: Core;
@@ -18,22 +19,32 @@ export function createWellKnownRoute(options: WellKnownOptions): Hono {
   const { core, remote } = options;
   const app = new Hono();
 
-  const protectedResource = async (slug: string, request: Request): Promise<Response> => {
-    const endpoint = endpointBySlug(core.db, slug);
-    if (!endpoint || !endpoint.enabled || !endpointAllowsOauth(endpoint)) {
-      return new Response(JSON.stringify({ error: "not_found" }), {
-        status: 404,
-        headers: { "content-type": "application/json" }
-      });
-    }
-    const base = baseOf(core, request);
-    return Response.json({
-      resource: `${base}/mcp/${endpoint.slug}`,
+  const adminOauth = (): boolean => remote === null && adminMcpEnabled(core);
+
+  const missing = (): Response =>
+    new Response(JSON.stringify({ error: "not_found" }), {
+      status: 404,
+      headers: { "content-type": "application/json" }
+    });
+
+  const resourceMetadata = (base: string, slug: string, name: string): Response =>
+    Response.json({
+      resource: `${base}/mcp/${slug}`,
       authorization_servers: [core.config.oauthIssuer ?? base],
       bearer_methods_supported: ["header"],
-      resource_name: `junctio ${endpoint.slug}`,
+      resource_name: name,
       resource_documentation: "https://github.com/junctio/junctio"
     });
+
+  const protectedResource = async (slug: string, request: Request): Promise<Response> => {
+    const base = baseOf(core, request);
+    if (slug === ADMIN_MCP_SLUG) {
+      if (!adminOauth()) return missing();
+      return resourceMetadata(base, ADMIN_MCP_SLUG, "Junctio management");
+    }
+    const endpoint = endpointBySlug(core.db, slug);
+    if (!endpoint || !endpoint.enabled || !endpointAllowsOauth(endpoint)) return missing();
+    return resourceMetadata(base, endpoint.slug, `Junctio ${endpoint.slug}`);
   };
 
   const authorizationServer = async (request: Request): Promise<Response> => {
@@ -54,16 +65,20 @@ export function createWellKnownRoute(options: WellKnownOptions): Hono {
   });
 
   app.get("/oauth-authorization-server/mcp/:slug", async (c) => {
-    const endpoint = endpointBySlug(core.db, c.req.param("slug"));
+    const slug = c.req.param("slug");
+    if (slug === ADMIN_MCP_SLUG) {
+      if (!adminOauth()) return c.json({ error: "not_found" }, 404);
+      return authorizationServer(c.req.raw);
+    }
+    const endpoint = endpointBySlug(core.db, slug);
     if (!endpoint || !endpoint.enabled || !endpointAllowsOauth(endpoint)) return c.json({ error: "not_found" }, 404);
     return authorizationServer(c.req.raw);
   });
 
   app.get("/oauth-authorization-server", async (c) => {
     const rows = core.db.select().from(endpointsTable).all();
-    if (!rows.some((endpoint) => endpoint.enabled && endpointAllowsOauth(endpoint))) {
-      return c.json({ error: "not_found" }, 404);
-    }
+    const anyEndpoint = rows.some((endpoint) => endpoint.enabled && endpointAllowsOauth(endpoint));
+    if (!anyEndpoint && !adminOauth()) return c.json({ error: "not_found" }, 404);
     return authorizationServer(c.req.raw);
   });
 

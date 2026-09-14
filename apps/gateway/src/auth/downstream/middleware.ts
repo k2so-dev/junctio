@@ -3,6 +3,7 @@ import type { Db } from "../../db/index.ts";
 import { endpoints } from "../../db/schema.ts";
 import type { ApiKeyRow, EndpointRow } from "../../db/schema.ts";
 import { getSetting } from "../../db/settings.ts";
+import { timingSafeEqual } from "../../crypto.ts";
 import { readBearerToken, verifyApiKey } from "./apikey.ts";
 
 export type JwtClaims = {
@@ -91,6 +92,49 @@ export function challengeHeader(
   const parts = [`error="${error}"`, `error_description="${description.replaceAll('"', "")}"`];
   if (endpointAllowsOauth(endpoint) && baseUrl) {
     parts.unshift(`resource_metadata="${baseUrl}/.well-known/oauth-protected-resource/mcp/${endpoint.slug}"`);
+  }
+  return `Bearer ${parts.join(", ")}`;
+}
+
+export const ADMIN_MCP_SLUG = "_admin";
+
+export async function authenticateAdmin(
+  adminToken: string | null,
+  request: Request,
+  verifier: JwtVerifier | null,
+  audience: string
+): Promise<AuthOutcome> {
+  const token = readBearerToken(request.headers) ?? request.headers.get("x-admin-token")?.trim() ?? null;
+  if (!token) {
+    return { ok: false, status: 401, error: "invalid_token", description: "missing credentials" };
+  }
+
+  if (adminToken && timingSafeEqual(token, adminToken)) {
+    return { ok: true, via: "api_key", key: null, claims: null };
+  }
+
+  if (verifier) {
+    try {
+      const claims = await verifier.verify(token, audience);
+      return { ok: true, via: "oauth", key: null, claims };
+    } catch (error) {
+      const description = error instanceof Error ? error.message : "token verification failed";
+      return { ok: false, status: 401, error: "invalid_token", description };
+    }
+  }
+
+  return { ok: false, status: 401, error: "invalid_token", description: "invalid credentials" };
+}
+
+export function adminChallengeHeader(
+  baseUrl: string | null,
+  oauthAvailable: boolean,
+  error: string,
+  description: string
+): string {
+  const parts = [`error="${error}"`, `error_description="${description.replaceAll('"', "")}"`];
+  if (oauthAvailable && baseUrl) {
+    parts.unshift(`resource_metadata="${baseUrl}/.well-known/oauth-protected-resource/mcp/${ADMIN_MCP_SLUG}"`);
   }
   return `Bearer ${parts.join(", ")}`;
 }

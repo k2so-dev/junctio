@@ -1,17 +1,6 @@
 import { Hono } from "hono";
-import { and, desc, eq, lt } from "drizzle-orm";
-import {
-  LoginInput,
-  RequestLogQuery,
-  SettingsPatch,
-  SetupInput,
-  type RequestLogDto,
-  type SessionDto,
-  type SettingsDto
-} from "@junctio/schema";
+import { LoginInput, SetupInput, type SessionDto } from "@junctio/schema";
 import type { Core } from "../core.ts";
-import { endpoints, requestLog, servers } from "../db/schema.ts";
-import { getSettings, setSetting } from "../db/settings.ts";
 import {
   SESSION_COOKIE,
   clearCookie,
@@ -32,6 +21,8 @@ import { createEndpointsApi } from "./endpoints.ts";
 import { createApiKeysApi } from "./apikeys.ts";
 import { createRegistryApi } from "./registry.ts";
 import { createOAuthApi } from "./oauth.ts";
+import { createSettingsApi } from "./settings.ts";
+import { createRequestLogApi } from "./requestlog.ts";
 import { badRequest, readJson } from "./util.ts";
 
 const OPEN_PATHS = new Set(["/v1/session", "/v1/session/login", "/v1/session/setup"]);
@@ -103,77 +94,8 @@ export function createApi(core: Core): Hono {
   app.route("/v1/api-keys", createApiKeysApi(core));
   app.route("/v1/oauth", createOAuthApi(core));
   app.route("/v1/registry", createRegistryApi(core));
-
-  app.get("/v1/settings", (c) => {
-    const stored = getSettings(core.db);
-    const settings: SettingsDto = {
-      baseUrl: core.config.baseUrl ?? `http://localhost:${core.config.port}`,
-      toolSeparator: stored.tool_separator,
-      runtimePath: stored.runtime_path,
-      apiKeyQueryParam: stored.api_key_query_param === "true",
-      requestLogRetentionDays: Number(stored.request_log_retention_days),
-      oauthIssuer: core.config.oauthIssuer,
-      authorizationServer: core.config.oauthIssuer ? "external" : "builtin",
-      version: core.config.version
-    };
-    return c.json(settings);
-  });
-
-  app.patch("/v1/settings", async (c) => {
-    const parsed = SettingsPatch.safeParse(await readJson(c));
-    if (!parsed.success) return badRequest(c, parsed.error);
-    const patch = parsed.data;
-    if (patch.toolSeparator !== undefined) setSetting(core.db, "tool_separator", patch.toolSeparator);
-    if (patch.runtimePath !== undefined) setSetting(core.db, "runtime_path", patch.runtimePath);
-    if (patch.apiKeyQueryParam !== undefined) {
-      setSetting(core.db, "api_key_query_param", patch.apiKeyQueryParam ? "true" : "false");
-    }
-    if (patch.requestLogRetentionDays !== undefined) {
-      setSetting(core.db, "request_log_retention_days", String(patch.requestLogRetentionDays));
-    }
-    core.registry.invalidate();
-    return c.json({ ok: true });
-  });
-
-  app.get("/v1/request-log", (c) => {
-    const url = new URL(c.req.url);
-    const parsed = RequestLogQuery.safeParse(Object.fromEntries(url.searchParams));
-    if (!parsed.success) return badRequest(c, parsed.error);
-    const query = parsed.data;
-    const filters = [
-      query.endpointId ? eq(requestLog.endpointId, query.endpointId) : undefined,
-      query.serverId ? eq(requestLog.serverId, query.serverId) : undefined,
-      query.status ? eq(requestLog.status, query.status) : undefined,
-      query.before ? lt(requestLog.ts, query.before) : undefined
-    ].filter((value) => value !== undefined);
-
-    const rows = core.db
-      .select()
-      .from(requestLog)
-      .where(filters.length > 0 ? and(...filters) : undefined)
-      .orderBy(desc(requestLog.ts))
-      .limit(query.limit)
-      .all();
-
-    const endpointNames = new Map(core.db.select().from(endpoints).all().map((row) => [row.id, row.slug]));
-    const serverNames = new Map(core.db.select().from(servers).all().map((row) => [row.id, row.name]));
-
-    const items: RequestLogDto[] = rows.map((row) => ({
-      id: row.id,
-      ts: row.ts,
-      endpointId: row.endpointId,
-      endpointSlug: row.endpointId ? (endpointNames.get(row.endpointId) ?? null) : null,
-      serverId: row.serverId,
-      serverName: row.serverId ? (serverNames.get(row.serverId) ?? null) : null,
-      method: row.method,
-      tool: row.tool,
-      protocol: row.protocol,
-      durationMs: row.durationMs,
-      status: row.status,
-      errorCode: row.errorCode
-    }));
-    return c.json(items);
-  });
+  app.route("/v1/settings", createSettingsApi(core));
+  app.route("/v1/request-log", createRequestLogApi(core));
 
   return app;
 }

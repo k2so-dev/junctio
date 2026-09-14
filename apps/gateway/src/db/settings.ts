@@ -25,7 +25,8 @@ export const DEFAULT_SETTINGS = {
   runtime_path: defaultRuntimePath(),
   api_key_query_param: "false",
   request_log_retention_days: "7",
-  admin_password_hash: ""
+  admin_password_hash: "",
+  admin_mcp_enabled: "false"
 } as const;
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;

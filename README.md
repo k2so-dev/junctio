@@ -87,6 +87,8 @@ An endpoint accepts `none`, `api_key`, `oauth` or `any`.
 
 API keys are sent as `Authorization: Bearer jn_...` or `X-API-Key`. Only an argon2id hash is stored and the key is shown once. A key can be bound to a single endpoint. The query parameter form is off unless you enable it for clients that cannot send headers.
 
+An endpoint can cap requests per minute. The budget is counted per API key, or per client address when the endpoint needs no key, and a request over the limit gets a 429 with `Retry-After`. Zero means no limit.
+
 In OAuth resource server mode the gateway validates JWTs against your identity provider's JWKS and checks that the audience matches the endpoint URL. The discovery documents under `/.well-known/` are served **only** for endpoints whose auth mode includes OAuth; anything else returns 404. A 401 always carries a correct `WWW-Authenticate` header with the resource metadata URL.
 
 ## Auth, upstream
@@ -103,7 +105,7 @@ After that:
 
 ## Protocol
 
-Streamable HTTP, stateless by default: no `Mcp-Session-Id`, no session state to lose across restarts. Protocol versions follow the pinned SDK, currently `2025-06-18` and `2025-11-25`. Legacy SSE is not exposed; it is only tolerated when reading from an old upstream. `Origin` is checked on every POST. JSON-RPC batching is not supported, matching the specification.
+Streamable HTTP, stateless by default: no `Mcp-Session-Id`, no session state to lose across restarts. Protocol versions follow the pinned SDK, currently `2025-06-18` and `2025-11-25`. Each endpoint declares the oldest version it accepts and refuses anything below it, on the `initialize` body and on the `MCP-Protocol-Version` header of later requests. Legacy SSE is not exposed; it is only tolerated when reading from an old upstream. `Origin` is checked on every POST. JSON-RPC batching is not supported, matching the specification.
 
 ## Development
 

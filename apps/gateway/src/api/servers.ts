@@ -17,17 +17,26 @@ const CONNECTION_FIELDS = [
   "env",
   "cwd",
   "url",
-  "headersEnc",
   "authMode",
   "oauthScope",
-  "enabled"
+  "enabled",
+  "idleTimeoutSec"
 ] as const satisfies readonly (keyof ServerRow)[];
 
 function findServer(core: Core, id: string): ServerRow | null {
   return core.db.select().from(servers).where(eq(servers.id, id)).get() ?? null;
 }
 
-function affectsConnection(before: ServerRow, after: ServerRow): boolean {
+function affectsConnection(
+  before: ServerRow,
+  after: ServerRow,
+  headersBefore: Record<string, string>,
+  headersAfter: Record<string, string> | undefined
+): boolean {
+  if (headersAfter !== undefined) {
+    const next = Object.fromEntries(Object.entries(headersAfter).filter(([, value]) => value !== ""));
+    if (JSON.stringify(headersBefore) !== JSON.stringify(next)) return true;
+  }
   return CONNECTION_FIELDS.some((field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
 }
 
@@ -139,7 +148,7 @@ export function createServersApi(core: Core): Hono {
 
     core.registry.invalidate(row.id);
     const updated = findServer(core, row.id);
-    if (updated && affectsConnection(row, updated)) {
+    if (updated && affectsConnection(row, updated, resolved?.headers ?? {}, headers)) {
       await core.pool.invalidate(row.id, "server updated");
       await core.supervisor.stop(row.id);
       core.supervisor.reset(row.id);

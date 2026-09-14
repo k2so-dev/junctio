@@ -18,12 +18,31 @@ import type { EndpointRow } from "../db/schema.ts";
 import { authenticateEndpoint, challengeHeader, endpointBySlug, type JwtVerifier } from "../auth/downstream/middleware.ts";
 import { recordRequest } from "./requestlog.ts";
 import { checkOrigin } from "./origin.ts";
+import { EndpointLimiter, clientAddress } from "./ratelimit.ts";
 import { UpstreamError } from "../upstream/types.ts";
 
 export type McpRouteOptions = {
   core: Core;
   verifier: JwtVerifier | null;
 };
+
+const LEGACY_PROTOCOL = "2025-03-26";
+
+async function requestedProtocol(request: Request): Promise<string | null> {
+  const header = request.headers.get("mcp-protocol-version");
+  if (header) return header.trim();
+  try {
+    const body: unknown = await request.clone().json();
+    const message = (Array.isArray(body) ? body[0] : body) as
+      | { method?: unknown; params?: { protocolVersion?: unknown } }
+      | undefined;
+    if (message?.method !== "initialize") return null;
+    const version = message.params?.protocolVersion;
+    return typeof version === "string" ? version : LEGACY_PROTOCOL;
+  } catch {
+    return null;
+  }
+}
 
 function jsonRpcError(status: number, code: number, message: string, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify({ jsonrpc: "2.0", error: { code, message }, id: null }), {
@@ -124,6 +143,7 @@ function buildServer(core: Core, endpoint: EndpointRow): Server {
 export function createMcpRoute(options: McpRouteOptions): Hono {
   const { core } = options;
   const app = new Hono();
+  const limiter = new EndpointLimiter();
 
   app.all("/:slug", async (c) => {
     const request = c.req.raw;
@@ -145,6 +165,27 @@ export function createMcpRoute(options: McpRouteOptions): Hono {
       return jsonRpcError(auth.status, -32001, auth.description, {
         "www-authenticate": challengeHeader(endpoint, core.config.baseUrl, auth.error, auth.description)
       });
+    }
+
+    const quotaKey = auth.key
+      ? `key:${auth.key.id}`
+      : auth.claims
+        ? `sub:${auth.claims.subject}`
+        : `addr:${clientAddress(request)}`;
+    const quota = limiter.check(endpoint.id, endpoint.rateLimit?.perMinute ?? 0, quotaKey);
+    if (!quota.allowed) {
+      return jsonRpcError(429, -32000, "rate limit exceeded for this endpoint", {
+        "retry-after": String(quota.retryAfterSec)
+      });
+    }
+
+    const protocol = await requestedProtocol(request);
+    if (protocol !== null && protocol < endpoint.protocolMin) {
+      return jsonRpcError(
+        400,
+        -32000,
+        `endpoint requires protocol version ${endpoint.protocolMin} or newer, client offered ${protocol}`
+      );
     }
 
     const server = buildServer(core, endpoint);

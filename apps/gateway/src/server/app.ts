@@ -35,6 +35,7 @@ export function buildHealth(core: Core): HealthDto {
   let failed = 0;
   let needsReauth = 0;
   for (const row of rows) {
+    if (!row.enabled) continue;
     if (row.authMode === "oauth") {
       const status = oauthStatus.get(row.id) ?? "needs_reauth";
       if (status === "needs_reauth" || status === "no_refresh") needsReauth += 1;

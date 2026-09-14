@@ -203,6 +203,23 @@ describe("servers api", () => {
     expect(stopped.status).toBe("stopped");
   }, 30_000);
 
+  test("keeps the process alive when only the name changes", async () => {
+    const created = await createStdioServer();
+    const started = await json<{ pid: number | null }>(await api(`/v1/servers/${created.id}/start`, { method: "POST" }));
+
+    const renamed = await json<{ name: string; status: string; pid: number | null }>(
+      await api(`/v1/servers/${created.id}`, { method: "PATCH", body: JSON.stringify({ name: "renamed" }) })
+    );
+    expect(renamed.name).toBe("renamed");
+    expect(renamed.status).toBe("running");
+    expect(renamed.pid).toBe(started.pid);
+
+    const changed = await json<{ status: string }>(
+      await api(`/v1/servers/${created.id}`, { method: "PATCH", body: JSON.stringify({ args: [MOCK_STDIO, "x"] }) })
+    );
+    expect(changed.status).not.toBe("running");
+  }, 30_000);
+
   test("returns logs for a started server", async () => {
     const created = await createStdioServer();
     await api(`/v1/servers/${created.id}/start`, { method: "POST" });

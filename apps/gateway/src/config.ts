@@ -28,7 +28,7 @@ function present(env: Record<string, string | undefined>): Record<string, string
   const out: Record<string, string> = {};
   for (const key of KNOWN_KEYS) {
     const value = env[key];
-    if (typeof value === "string" && value.trim() !== "") out[key] = value.trim();
+    if (typeof value === "string" && value.trim() !== "") out[key] = value;
   }
   return out;
 }

@@ -1,0 +1,274 @@
+{
+  "sources": [
+    {
+      "id": "github-mcp",
+      "group": "canonical",
+      "name": "GitHub MCP Registry",
+      "url": "https://github.com/mcp",
+      "host": "github.com/mcp",
+      "description": "A curated slice of the official registry, published by GitHub with its own API.",
+      "api": true,
+      "icon": "github-mcp.png"
+    },
+    {
+      "id": "mcp-servers",
+      "group": "canonical",
+      "name": "Reference servers",
+      "url": "https://github.com/modelcontextprotocol/servers",
+      "host": "github.com/modelcontextprotocol",
+      "description": "The servers the steering group maintains as examples of the protocol done right.",
+      "api": false,
+      "icon": "mcp-servers.png"
+    },
+    {
+      "id": "glama",
+      "group": "api",
+      "name": "Glama",
+      "url": "https://glama.ai/mcp/servers",
+      "host": "glama.ai",
+      "description": "One of the largest indexes, with security and quality scores on every listing.",
+      "api": true,
+      "icon": "glama.svg"
+    },
+    {
+      "id": "smithery",
+      "group": "api",
+      "name": "Smithery",
+      "url": "https://smithery.ai",
+      "host": "smithery.ai",
+      "description": "An index that also hosts servers for you, so many entries are remote URLs.",
+      "api": true,
+      "icon": "smithery.png"
+    },
+    {
+      "id": "pulsemcp",
+      "group": "api",
+      "name": "PulseMCP",
+      "url": "https://www.pulsemcp.com",
+      "host": "pulsemcp.com",
+      "description": "A large index with weekly news, use cases and a public API.",
+      "api": true,
+      "icon": "pulsemcp.svg"
+    },
+    {
+      "id": "docker",
+      "group": "api",
+      "name": "Docker MCP Catalog",
+      "url": "https://hub.docker.com/mcp",
+      "host": "hub.docker.com/mcp",
+      "description": "Signed container images. Useful to read, but the gateway image ships no docker.",
+      "api": true,
+      "icon": "docker.png"
+    },
+    {
+      "id": "toolhive",
+      "group": "api",
+      "name": "ToolHive Registry",
+      "url": "https://github.com/stacklok/toolhive-catalog",
+      "host": "github.com/stacklok",
+      "description": "A vetted catalog that states the permissions and the tool list of every entry.",
+      "api": true,
+      "icon": "toolhive.png"
+    },
+    {
+      "id": "awesome-registry",
+      "group": "api",
+      "name": "Awesome MCP Registry",
+      "url": "https://github.com/toolsdk-ai/toolsdk-mcp-registry",
+      "host": "github.com/toolsdk-ai",
+      "description": "Thousands of entries kept as plain JSON in a repository you can read in full.",
+      "api": true,
+      "icon": "awesome-registry.png"
+    },
+    {
+      "id": "mcpso",
+      "group": "catalogs",
+      "name": "mcp.so",
+      "url": "https://mcp.so",
+      "host": "mcp.so",
+      "description": "The largest search site for servers. Browsing only, it publishes no API.",
+      "api": false,
+      "icon": "mcpso.png"
+    },
+    {
+      "id": "mcpservers",
+      "group": "catalogs",
+      "name": "mcpservers.org",
+      "url": "https://mcpservers.org",
+      "host": "mcpservers.org",
+      "description": "A hand-kept directory that shows the ready config next to every server.",
+      "api": false,
+      "icon": "mcpservers.png"
+    },
+    {
+      "id": "awesome-servers",
+      "group": "catalogs",
+      "name": "Awesome MCP Servers",
+      "url": "https://github.com/punkpeye/awesome-mcp-servers",
+      "host": "github.com/punkpeye",
+      "description": "The list everyone links to, sorted by what the server is actually for.",
+      "api": false,
+      "icon": "awesome-servers.png"
+    },
+    {
+      "id": "cline",
+      "group": "catalogs",
+      "name": "Cline Marketplace",
+      "url": "https://github.com/cline/mcp-marketplace",
+      "host": "github.com/cline",
+      "description": "Submissions reviewed for the Cline editor, each with install instructions.",
+      "api": false,
+      "icon": "cline.png"
+    },
+    {
+      "id": "lobehub",
+      "group": "catalogs",
+      "name": "LobeHub MCP",
+      "url": "https://lobehub.com/mcp",
+      "host": "lobehub.com/mcp",
+      "description": "A browsable directory with screenshots, tool lists and a deploy score.",
+      "api": false,
+      "icon": "lobehub.png"
+    },
+    {
+      "id": "cursor",
+      "group": "catalogs",
+      "name": "Cursor Directory",
+      "url": "https://cursor.com/mcp",
+      "host": "cursor.com/mcp",
+      "description": "The servers Cursor lists for its own editor, with one-click install links.",
+      "api": false,
+      "icon": "cursor.svg"
+    },
+    {
+      "id": "mcpmarket",
+      "group": "catalogs",
+      "name": "MCP Market",
+      "url": "https://mcpmarket.com",
+      "host": "mcpmarket.com",
+      "description": "A directory sorted by category, with a short write-up on each server.",
+      "api": false,
+      "icon": null
+    },
+    {
+      "id": "agensi",
+      "group": "catalogs",
+      "name": "Agensi",
+      "url": "https://www.agensi.io",
+      "host": "agensi.io",
+      "description": "A directory that runs an automatic security scan over the listings it accepts.",
+      "api": false,
+      "icon": "agensi.svg"
+    },
+    {
+      "id": "faith-tools",
+      "group": "catalogs",
+      "name": "faith.tools",
+      "url": "https://faith.tools",
+      "host": "faith.tools",
+      "description": "A small subregistry that follows the official specification for its entries.",
+      "api": false,
+      "icon": "faith-tools.svg"
+    },
+    {
+      "id": "mcpm",
+      "group": "catalogs",
+      "name": "mcpm.sh",
+      "url": "https://mcpm.sh",
+      "host": "mcpm.sh",
+      "description": "A package manager for servers on the command line, with a registry behind it.",
+      "api": false,
+      "icon": "mcpm.svg"
+    },
+    {
+      "id": "composio",
+      "group": "vendors",
+      "name": "Composio",
+      "url": "https://composio.dev/toolkits",
+      "host": "composio.dev",
+      "description": "Hosted toolkits for hundreds of SaaS products, with auth handled on their side.",
+      "api": true,
+      "icon": "composio.png"
+    },
+    {
+      "id": "pipedream",
+      "group": "vendors",
+      "name": "Pipedream MCP",
+      "url": "https://mcp.pipedream.com",
+      "host": "mcp.pipedream.com",
+      "description": "Remote servers over the integrations Pipedream already runs for you.",
+      "api": false,
+      "icon": "pipedream.png"
+    },
+    {
+      "id": "cloudflare",
+      "group": "vendors",
+      "name": "Cloudflare MCP",
+      "url": "https://developers.cloudflare.com/agents/model-context-protocol/",
+      "host": "developers.cloudflare.com",
+      "description": "Servers for the Cloudflare products, plus the docs for hosting your own there.",
+      "api": false,
+      "icon": "cloudflare.png"
+    },
+    {
+      "id": "apify",
+      "group": "vendors",
+      "name": "Apify MCP Store",
+      "url": "https://apify.com/store/categories/mcp-servers",
+      "host": "apify.com",
+      "description": "Scrapers and crawlers from the Apify store, wrapped as servers.",
+      "api": false,
+      "icon": "apify.svg"
+    },
+    {
+      "id": "zapier",
+      "group": "vendors",
+      "name": "Zapier MCP",
+      "url": "https://zapier.com/mcp",
+      "host": "zapier.com/mcp",
+      "description": "One remote server built from the Zapier actions you pick for it.",
+      "api": false,
+      "icon": "zapier.png"
+    },
+    {
+      "id": "baidu",
+      "group": "regional",
+      "name": "MCP World",
+      "url": "https://sai.baidu.com/mcp",
+      "host": "sai.baidu.com",
+      "description": "Baidu's market, the way to reach Baidu Map and the rest of their services.",
+      "api": false,
+      "icon": "baidu.png"
+    },
+    {
+      "id": "bigmodel",
+      "group": "regional",
+      "name": "BigModel MCP",
+      "url": "https://bigmodel.cn/mcp",
+      "host": "bigmodel.cn/mcp",
+      "description": "Zhipu's market, hosted servers for Chinese platforms and their own models.",
+      "api": false,
+      "icon": "bigmodel.png"
+    },
+    {
+      "id": "modelscope",
+      "group": "regional",
+      "name": "ModelScope MCP",
+      "url": "https://modelscope.cn/mcp",
+      "host": "modelscope.cn/mcp",
+      "description": "Alibaba's market, thousands of entries with Amap, Alipay and WeChat among them.",
+      "api": false,
+      "icon": "modelscope.png"
+    },
+    {
+      "id": "higress",
+      "group": "regional",
+      "name": "Higress MCP",
+      "url": "https://mcp.higress.ai",
+      "host": "mcp.higress.ai",
+      "description": "Servers built for the Higress gateway, many of them Chinese APIs.",
+      "api": false,
+      "icon": "higress.png"
+    }
+  ]
+}

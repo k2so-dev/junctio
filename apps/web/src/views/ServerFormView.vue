@@ -40,6 +40,7 @@ const form = reactive({
 
 const showEnv = ref(false);
 const prefilledFrom = ref<string | null>(null);
+const prefilledBy = ref<"registry" | "import">("registry");
 const preview = ref("");
 const busy = ref(false);
 const loading = ref(false);
@@ -143,7 +144,7 @@ function removeEnv(index: number) {
   form.env.splice(index, 1);
 }
 
-function applyDraft(draft: ServerInput, source: string) {
+function applyDraft(draft: ServerInput, source: string, origin: "registry" | "import") {
   form.name = draft.name;
   form.transport = draft.transport;
   form.runtime = draft.runtime;
@@ -156,14 +157,21 @@ function applyDraft(draft: ServerInput, source: string) {
   form.authorization = draft.headers.Authorization ?? "";
   form.oauthScope = draft.oauthScope ?? "";
   prefilledFrom.value = source;
+  prefilledBy.value = origin;
   void refreshPreview();
 }
 
-function pendingDraft(): { draft: ServerInput; source: string } | null {
-  const state = window.history.state as { draft?: unknown; source?: unknown } | null;
+type PendingDraft = { draft: ServerInput; source: string; origin: "registry" | "import" };
+
+function pendingDraft(): PendingDraft | null {
+  const state = window.history.state as { draft?: unknown; source?: unknown; origin?: unknown } | null;
   if (typeof state?.draft !== "string") return null;
   try {
-    return { draft: JSON.parse(state.draft) as ServerInput, source: String(state.source ?? "the registry") };
+    return {
+      draft: JSON.parse(state.draft) as ServerInput,
+      source: String(state.source ?? "the registry"),
+      origin: state.origin === "import" ? "import" : "registry"
+    };
   } catch {
     return null;
   }
@@ -173,7 +181,7 @@ async function load() {
   if (!id.value) {
     const pending = pendingDraft();
     if (pending) {
-      applyDraft(pending.draft, pending.source);
+      applyDraft(pending.draft, pending.source, pending.origin);
       return;
     }
     form.args = RUNTIME_SEEDS[form.runtime] ?? "";
@@ -251,7 +259,7 @@ onMounted(load);
       The process gets an explicit PATH and only the env you set here. Nothing from the gateway leaks in.
     </p>
     <p v-if="prefilledFrom" class="mt-2 rounded-lg border bg-card px-3 py-2 text-muted-foreground">
-      Prefilled from the registry entry
+      {{ prefilledBy === "import" ? "Prefilled from the config you pasted, entry" : "Prefilled from the registry entry" }}
       <span class="font-mono text-foreground">{{ prefilledFrom }}</span
       >. Nothing is saved until you press save, so fill in the secrets and check the command first.
     </p>

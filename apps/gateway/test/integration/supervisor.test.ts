@@ -7,14 +7,16 @@ setLogLevel("error");
 
 const FIXTURE = new URL("../fixtures/mock-stdio-server.ts", import.meta.url).pathname;
 
-function makeSupervisor(spec: Partial<SpawnSpec> & { env?: Record<string, string> } = {}) {
+function makeSupervisor(spec: { env?: Record<string, string>; argv?: string[]; idleTimeoutSec?: number; warm?: boolean } = {}) {
   const full: SpawnSpec = {
-    argv: ["bun", FIXTURE],
-    cwd: null,
-    env: { PATH: Bun.env.PATH ?? "/usr/bin", HOME: Bun.env.HOME ?? "/tmp", ...(spec.env ?? {}) },
+    launch: {
+      kind: "process",
+      argv: spec.argv ?? ["bun", FIXTURE],
+      cwd: null,
+      env: { PATH: Bun.env.PATH ?? "/usr/bin", HOME: Bun.env.HOME ?? "/tmp", ...(spec.env ?? {}) }
+    },
     idleTimeoutSec: spec.idleTimeoutSec ?? 0,
-    warm: spec.warm ?? false,
-    ...(spec.argv ? { argv: spec.argv } : {})
+    warm: spec.warm ?? false
   };
   const logs = new LogRegistry();
   const supervisor = new ProcessSupervisor({
@@ -138,9 +140,12 @@ describe("ProcessSupervisor", () => {
     const exits: number[] = [];
     const supervisor = new ProcessSupervisor({
       getSpec: () => ({
-        argv: ["bun", FIXTURE],
-        cwd: null,
-        env: { PATH: Bun.env.PATH ?? "/usr/bin", HOME: Bun.env.HOME ?? "/tmp", MOCK_CRASH_AFTER_MS: "150" },
+        launch: {
+          kind: "process",
+          argv: ["bun", FIXTURE],
+          cwd: null,
+          env: { PATH: Bun.env.PATH ?? "/usr/bin", HOME: Bun.env.HOME ?? "/tmp", MOCK_CRASH_AFTER_MS: "150" }
+        },
         idleTimeoutSec: 0,
         warm: false
       }),

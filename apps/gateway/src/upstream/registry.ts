@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { parseDockerRun } from "@junctio/schema";
 import type { Db } from "../db/index.ts";
 import { servers } from "../db/schema.ts";
 import type { ServerRow } from "../db/schema.ts";
@@ -39,16 +40,34 @@ export class ServerRegistry {
   spawnSpec(serverId: string): SpawnSpec | null {
     const row = this.row(serverId);
     if (!row || row.transport !== "stdio") return null;
+    const idleTimeoutSec = row.idleTimeoutSec;
+    const warm = row.warm;
+
+    if (row.runtime === "docker") {
+      const env = Object.fromEntries(Object.entries(row.env).filter(([key]) => !key.startsWith("JUNCTIO_")));
+      const parsed = parseDockerRun(row.args, env);
+      if (!parsed.spec) throw new Error(parsed.errors.join("; "));
+      const container = { ...parsed.spec, workdir: parsed.spec.workdir ?? row.cwd };
+      return {
+        launch: { kind: "container", serverId: row.id, name: row.name, container },
+        idleTimeoutSec,
+        warm
+      };
+    }
+
     return {
-      argv: buildArgv({ runtime: row.runtime, args: row.args }),
-      cwd: row.cwd,
-      env: buildChildEnv({
-        env: row.env,
-        path: getSetting(this.db, "runtime_path"),
-        home: Bun.env.HOME ?? "/tmp"
-      }),
-      idleTimeoutSec: row.idleTimeoutSec,
-      warm: row.warm
+      launch: {
+        kind: "process",
+        argv: buildArgv({ runtime: row.runtime, args: row.args }),
+        cwd: row.cwd,
+        env: buildChildEnv({
+          env: row.env,
+          path: getSetting(this.db, "runtime_path"),
+          home: Bun.env.HOME ?? "/tmp"
+        })
+      },
+      idleTimeoutSec,
+      warm
     };
   }
 

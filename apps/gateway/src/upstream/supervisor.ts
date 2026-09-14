@@ -1,14 +1,13 @@
-import type { Subprocess } from "bun";
 import type { Logger } from "../log.ts";
 import { ChildProcessTransport } from "./stdio.ts";
 import type { LogRegistry } from "./logbuffer.ts";
+import type { Handle, Launch, Launcher } from "./launch.ts";
+import { spawnProcess } from "./process.ts";
 
 export type ProcessState = "stopped" | "starting" | "running" | "idle" | "failed";
 
 export type SpawnSpec = {
-  argv: string[];
-  cwd: string | null;
-  env: Record<string, string>;
+  launch: Launch;
   idleTimeoutSec: number;
   warm: boolean;
 };
@@ -16,6 +15,7 @@ export type SpawnSpec = {
 export type ProcessInfo = {
   state: ProcessState;
   pid: number | null;
+  containerId: string | null;
   restarts: number;
   consecutiveFailures: number;
   lastError: string | null;
@@ -31,6 +31,7 @@ export type SupervisorOptions = {
   getSpec: (serverId: string) => SpawnSpec | null;
   logs: LogRegistry;
   logger: Logger;
+  launcher?: Launcher;
   onExit?: (serverId: string, generation: number) => void;
   maxConsecutiveFailures?: number;
   backoffBaseMs?: number;
@@ -66,10 +67,9 @@ function remember(managed: Managed, line: string): void {
 
 type Managed = {
   serverId: string;
-  proc: Subprocess<"pipe", "pipe", "pipe">;
+  handle: Handle;
   transport: ChildProcessTransport;
   generation: number;
-  controller: AbortController;
   startedAt: number;
   lastActivity: number;
   idleTimeoutSec: number;
@@ -79,6 +79,11 @@ type Managed = {
   errorLine: string | null;
   exited: Promise<void>;
 };
+
+async function defaultLauncher(launch: Launch, log: (line: string) => void): Promise<Handle> {
+  if (launch.kind === "process") return spawnProcess(launch, log);
+  throw new Error("this gateway was built without a container launcher");
+}
 
 export class ProcessSupervisor {
   private readonly running = new Map<string, Managed>();
@@ -93,12 +98,14 @@ export class ProcessSupervisor {
   private readonly backoffBaseMs: number;
   private readonly backoffCapMs: number;
   private readonly stopGraceMs: number;
+  private readonly launcher: Launcher;
 
   constructor(private readonly options: SupervisorOptions) {
     this.maxConsecutiveFailures = options.maxConsecutiveFailures ?? 10;
     this.backoffBaseMs = options.backoffBaseMs ?? 1_000;
     this.backoffCapMs = options.backoffCapMs ?? 60_000;
     this.stopGraceMs = options.stopGraceMs ?? 5_000;
+    this.launcher = options.launcher ?? defaultLauncher;
     const interval = options.idleCheckMs ?? 30_000;
     if (interval > 0) {
       this.idleTimer = setInterval(() => void this.sweepIdle(), interval);
@@ -109,7 +116,15 @@ export class ProcessSupervisor {
   getInfo(serverId: string): ProcessInfo {
     const current = this.info.get(serverId);
     if (current) return { ...current };
-    return { state: "stopped", pid: null, restarts: 0, consecutiveFailures: 0, lastError: null, generation: 0 };
+    return {
+      state: "stopped",
+      pid: null,
+      containerId: null,
+      restarts: 0,
+      consecutiveFailures: 0,
+      lastError: null,
+      generation: 0
+    };
   }
 
   private patchInfo(serverId: string, patch: Partial<ProcessInfo>): void {
@@ -156,47 +171,43 @@ export class ProcessSupervisor {
     return promise;
   }
 
-  private async spawn(serverId: string): Promise<AcquireResult> {
-    const spec = this.options.getSpec(serverId);
+  private readSpec(serverId: string): SpawnSpec {
+    let spec: SpawnSpec | null;
+    try {
+      spec = this.options.getSpec(serverId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.options.logs.append(serverId, "system", message);
+      this.recordFailure(serverId, message);
+      throw new Error(message);
+    }
     if (!spec) throw new Error("server is not configured for stdio");
-    const argv = spec.argv.filter((part) => part !== "");
-    if (argv.length === 0) throw new Error("empty command");
+    return spec;
+  }
 
-    const executable = argv[0] as string;
-    if (!executable.includes("/") && !Bun.which(executable, { PATH: spec.env.PATH ?? "" })) {
-      const message = `${executable} is not in PATH (${spec.env.PATH ?? ""}); adjust PATH in Settings`;
+  private async spawn(serverId: string): Promise<AcquireResult> {
+    const spec = this.readSpec(serverId);
+
+    this.patchInfo(serverId, { state: "starting", lastError: null });
+    const generation = ++this.generationSeq;
+    const logger = this.options.logger.child({ server: serverId });
+    const log = (line: string) => this.options.logs.append(serverId, "system", line);
+
+    let handle: Handle;
+    try {
+      handle = await this.launcher(spec.launch, log);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       this.options.logs.append(serverId, "system", message);
       this.recordFailure(serverId, message);
       throw new Error(message);
     }
 
-    this.patchInfo(serverId, { state: "starting", lastError: null });
-    const controller = new AbortController();
-    const generation = ++this.generationSeq;
-    const logger = this.options.logger.child({ server: serverId });
-
-    let proc: Subprocess<"pipe", "pipe", "pipe">;
-    try {
-      proc = Bun.spawn(argv, {
-        cwd: spec.cwd ?? undefined,
-        env: spec.env,
-        stdin: "pipe",
-        stdout: "pipe",
-        stderr: "pipe",
-        signal: controller.signal
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.recordFailure(serverId, message);
-      throw new Error(`failed to spawn: ${message}`);
-    }
-
-    this.options.logs.append(serverId, "system", `started: ${argv.join(" ")} (pid ${proc.pid})`);
-    logger.info("upstream process started", { pid: proc.pid, argv: argv[0] });
+    logger.info("upstream started", { pid: handle.pid, container: handle.containerId, describe: handle.describe });
 
     const transport = new ChildProcessTransport({
-      stdin: proc.stdin,
-      stdout: proc.stdout,
+      stdin: handle.stdin,
+      stdout: handle.stdout,
       onUnparsed: (line) => {
         remember(managed, line);
         this.options.logs.append(serverId, "stdout", line);
@@ -205,10 +216,9 @@ export class ProcessSupervisor {
     });
     const managed: Managed = {
       serverId,
-      proc,
+      handle,
       transport,
       generation,
-      controller,
       startedAt: Date.now(),
       lastActivity: Date.now(),
       idleTimeoutSec: spec.idleTimeoutSec,
@@ -219,10 +229,15 @@ export class ProcessSupervisor {
       exited: Promise.resolve()
     };
 
-    void this.pipeStderr(managed, proc.stderr);
+    void this.pipeStderr(managed, handle.stderr);
     managed.exited = this.watchExit(managed, spec);
     this.running.set(serverId, managed);
-    this.patchInfo(serverId, { state: "running", pid: proc.pid ?? null, generation });
+    this.patchInfo(serverId, {
+      state: "running",
+      pid: handle.pid,
+      containerId: handle.containerId,
+      generation
+    });
     return { transport, generation };
   }
 
@@ -258,9 +273,8 @@ export class ProcessSupervisor {
   }
 
   private async watchExit(managed: Managed, spec: SpawnSpec): Promise<void> {
-    const { serverId, proc, generation } = managed;
-    const code = await proc.exited;
-    const signal = proc.signalCode;
+    const { serverId, handle, generation } = managed;
+    const { code, signal } = await handle.exited;
     if (this.running.get(serverId) === managed) this.running.delete(serverId);
     await managed.transport.close();
     const logger = this.options.logger.child({ server: serverId });
@@ -274,15 +288,15 @@ export class ProcessSupervisor {
     );
 
     if (managed.stopping || this.shuttingDown) {
-      logger.info("upstream process stopped", { detail });
+      logger.info("upstream stopped", { detail });
       if (!this.shuttingDown && this.getInfo(serverId).state !== "idle") {
-        this.patchInfo(serverId, { state: "stopped", pid: null });
+        this.patchInfo(serverId, { state: "stopped", pid: null, containerId: null });
       }
       this.options.onExit?.(serverId, generation);
       return;
     }
 
-    logger.warn("upstream process exited unexpectedly", { detail });
+    logger.warn("upstream exited unexpectedly", { detail });
     if (lived >= HEALTHY_AFTER_MS) this.patchInfo(serverId, { consecutiveFailures: 0 });
     this.recordFailure(serverId, `process exited with ${detail}${explain(silent, managed)}`);
     this.options.onExit?.(serverId, generation);
@@ -307,6 +321,7 @@ export class ProcessSupervisor {
     this.patchInfo(serverId, {
       state: failed ? "failed" : "stopped",
       pid: null,
+      containerId: null,
       restarts: info.restarts + 1,
       consecutiveFailures: failures,
       lastError: message
@@ -320,32 +335,32 @@ export class ProcessSupervisor {
     this.backoffUntil.set(serverId, Date.now() + delay);
   }
 
-  async stop(serverId: string, state: ProcessState = "stopped"): Promise<void> {
-    const pending = this.starting.get(serverId);
-    if (pending) await pending.catch(() => undefined);
-    const managed = this.running.get(serverId);
-    if (!managed) {
-      if (this.getInfo(serverId).state !== "failed") this.patchInfo(serverId, { state, pid: null });
-      return;
-    }
-    managed.stopping = true;
-    this.running.delete(serverId);
-    this.patchInfo(serverId, { state, pid: null });
-    managed.proc.kill("SIGTERM");
-    const timer = setTimeout(() => {
-      try {
-        managed.proc.kill("SIGKILL");
-      } catch {
-        return;
-      }
-    }, this.stopGraceMs);
+  private async halt(managed: Managed): Promise<void> {
+    managed.handle.terminate(this.stopGraceMs);
+    const timer = setTimeout(() => managed.handle.kill(), this.stopGraceMs);
     timer.unref?.();
     try {
       await managed.exited;
     } finally {
       clearTimeout(timer);
-      managed.controller.abort();
+      managed.handle.dispose();
     }
+  }
+
+  async stop(serverId: string, state: ProcessState = "stopped"): Promise<void> {
+    const pending = this.starting.get(serverId);
+    if (pending) await pending.catch(() => undefined);
+    const managed = this.running.get(serverId);
+    if (!managed) {
+      if (this.getInfo(serverId).state !== "failed") {
+        this.patchInfo(serverId, { state, pid: null, containerId: null });
+      }
+      return;
+    }
+    managed.stopping = true;
+    this.running.delete(serverId);
+    this.patchInfo(serverId, { state, pid: null, containerId: null });
+    await this.halt(managed);
   }
 
   async restart(serverId: string): Promise<void> {
@@ -375,14 +390,7 @@ export class ProcessSupervisor {
       all.map(async (managed) => {
         managed.stopping = true;
         this.running.delete(managed.serverId);
-        managed.proc.kill("SIGTERM");
-        const timer = setTimeout(() => managed.proc.kill("SIGKILL"), this.stopGraceMs);
-        try {
-          await managed.exited;
-        } finally {
-          clearTimeout(timer);
-          managed.controller.abort();
-        }
+        await this.halt(managed);
       })
     );
   }

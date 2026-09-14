@@ -33,7 +33,15 @@ export function buildChildEnv(options: ChildEnvOptions): Record<string, string> 
     LANG: "C.UTF-8",
     NODE_ENV: "production"
   };
-  const passthrough = ["NPM_CONFIG_CACHE", "BUN_INSTALL_CACHE_DIR", "UV_CACHE_DIR", "UV_PYTHON_INSTALL_DIR", "TMPDIR"];
+  const passthrough = [
+    "NPM_CONFIG_CACHE",
+    "BUN_INSTALL_CACHE_DIR",
+    "UV_CACHE_DIR",
+    "UV_PYTHON_INSTALL_DIR",
+    "XDG_CACHE_HOME",
+    "XDG_DATA_HOME",
+    "TMPDIR"
+  ];
   for (const key of passthrough) {
     const value = Bun.env[key];
     if (value) base[key] = value;

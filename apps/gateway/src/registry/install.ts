@@ -9,10 +9,9 @@ import type {
 import type { RegistryArgument, RegistryEntry, RegistryKeyValue, RegistryPackage, RegistryTransport } from "./types.ts";
 import { officialMeta, REGISTRY_URL } from "./types.ts";
 
-const STDIO_RUNTIMES: Record<string, "npx" | "uvx"> = { npm: "npx", pypi: "uvx" };
+const STDIO_RUNTIMES: Record<string, "npx" | "uvx" | "docker"> = { npm: "npx", pypi: "uvx", oci: "docker" };
 
 const UNSUPPORTED_PACKAGE: Record<string, string> = {
-  oci: "container images need a runtime the gateway image does not ship",
   nuget: "nuget packages need the dotnet toolchain, which the gateway image does not ship",
   mcpb: "bundles are installed by a desktop client, not by a gateway"
 };
@@ -151,9 +150,15 @@ function packageOption(entry: RegistryPackage, index: number, name: string): Reg
   }
 
   const seed = runtime === "npx" ? ["-y"] : [];
+  const runtimeArgs = argumentValues(entry.runtimeArguments);
+  if (runtime === "docker") {
+    if (!runtimeArgs.includes("--rm")) runtimeArgs.unshift("--rm");
+    if (!runtimeArgs.includes("-i") && !runtimeArgs.includes("--interactive")) runtimeArgs.unshift("-i");
+    runtimeArgs.unshift("run");
+  }
   const args = [
     ...seed,
-    ...argumentValues(entry.runtimeArguments),
+    ...runtimeArgs,
     packageIdentifier(entry),
     ...argumentValues(entry.packageArguments)
   ].filter((part) => part !== "");

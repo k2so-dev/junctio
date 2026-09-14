@@ -7,6 +7,7 @@ const KNOWN_KEYS = [
   "JUNCTIO_OAUTH_ISSUER",
   "JUNCTIO_OAUTH_AUDIENCE",
   "JUNCTIO_DATA_DIR",
+  "JUNCTIO_DOCKER_SOCKET",
   "PORT",
   "HOST",
   "LOG_LEVEL"
@@ -19,6 +20,7 @@ const EnvSchema = z.object({
   JUNCTIO_OAUTH_ISSUER: z.string().url().optional(),
   JUNCTIO_OAUTH_AUDIENCE: z.string().optional(),
   JUNCTIO_DATA_DIR: z.string().default("/data"),
+  JUNCTIO_DOCKER_SOCKET: z.string().default("/var/run/docker.sock"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   HOST: z.string().default("0.0.0.0"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info")
@@ -40,6 +42,7 @@ export type Config = {
   oauthIssuer: string | null;
   oauthAudience: string | null;
   dataDir: string;
+  dockerSocket: string;
   port: number;
   host: string;
   logLevel: "debug" | "info" | "warn" | "error";
@@ -63,6 +66,7 @@ export function loadConfig(env: Record<string, string | undefined> = Bun.env): C
     oauthIssuer: e.JUNCTIO_OAUTH_ISSUER ?? null,
     oauthAudience: e.JUNCTIO_OAUTH_AUDIENCE ?? null,
     dataDir: e.JUNCTIO_DATA_DIR,
+    dockerSocket: e.JUNCTIO_DOCKER_SOCKET,
     port: e.PORT,
     host: e.HOST,
     logLevel: e.LOG_LEVEL,

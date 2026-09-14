@@ -8,6 +8,8 @@ const exitImmediately = Bun.env.MOCK_EXIT_IMMEDIATELY === "1";
 const silentExit = Bun.env.MOCK_SILENT_EXIT === "1";
 const garbageStdout = Bun.env.MOCK_GARBAGE_STDOUT === "1";
 
+if (Bun.env.MOCK_IGNORE_SIGTERM === "1") process.on("SIGTERM", () => undefined);
+
 if (silentExit) process.exit(1);
 
 if (exitImmediately) {

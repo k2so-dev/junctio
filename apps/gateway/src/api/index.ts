@@ -22,6 +22,7 @@ import { createApiKeysApi } from "./apikeys.ts";
 import { createRegistryApi } from "./registry.ts";
 import { createOAuthApi } from "./oauth.ts";
 import { createSettingsApi } from "./settings.ts";
+import { createDockerApi } from "./docker.ts";
 import { createRequestLogApi } from "./requestlog.ts";
 import { badRequest, readJson } from "./util.ts";
 
@@ -95,6 +96,7 @@ export function createApi(core: Core): Hono {
   app.route("/v1/oauth", createOAuthApi(core));
   app.route("/v1/registry", createRegistryApi(core));
   app.route("/v1/settings", createSettingsApi(core));
+  app.route("/v1/docker", createDockerApi(core));
   app.route("/v1/request-log", createRequestLogApi(core));
 
   return app;

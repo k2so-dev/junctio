@@ -13,6 +13,7 @@ Environment:
   JUNCTIO_ADMIN_TOKEN   Optional bearer token for headless admin access.
   JUNCTIO_OAUTH_ISSUER  Optional issuer url for resource server mode.
   JUNCTIO_DATA_DIR      Directory for junctio.db. Defaults to /data.
+  JUNCTIO_DOCKER_SOCKET Socket of the docker daemon that runs container servers.
   PORT, HOST, LOG_LEVEL  Listener and logging configuration.
 `;
 

@@ -386,16 +386,17 @@ describe("installing from the registry", () => {
     const client = await adminClient();
 
     const detail = payload(
-      await call(client, "get_registry_server", { name: "io.github.j0hanz/filesystem-mcp" })
+      await call(client, "get_registry_server", { name: "io.github.Evozim/chroot-filesystem-jail-mcp" })
     ) as { options: { id: string; supported: boolean }[] };
     const blocked = detail.options.find((option) => !option.supported);
+    expect(blocked).toBeDefined();
 
     const refused = await call(client, "install_registry_server", {
-      name: "io.github.j0hanz/filesystem-mcp",
+      name: "io.github.Evozim/chroot-filesystem-jail-mcp",
       optionId: blocked?.id
     });
     expect(refused.isError).toBe(true);
-    expect(errorText(refused)).toContain("container");
+    expect(errorText(refused)).toContain("streamable http");
 
     const unknown = await call(client, "install_registry_server", {
       name: "io.github.j0hanz/filesystem-mcp",

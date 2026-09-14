@@ -113,6 +113,7 @@ export const ServerDto = z.object({
   createdAt: z.number(),
   status: ServerStatus,
   pid: z.number().nullable(),
+  containerId: z.string().nullable(),
   restarts: z.number(),
   lastError: z.string().nullable(),
   toolCount: z.number().nullable(),

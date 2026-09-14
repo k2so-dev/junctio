@@ -6,6 +6,9 @@ import { createCipher, type Cipher } from "./crypto.ts";
 import { initDatabase, type Db } from "./db/index.ts";
 import { LogRegistry } from "./upstream/logbuffer.ts";
 import { ProcessSupervisor } from "./upstream/supervisor.ts";
+import { DockerClient } from "./upstream/docker/client.ts";
+import { spawnContainer } from "./upstream/docker/launcher.ts";
+import { spawnProcess } from "./upstream/process.ts";
 import { ServerRegistry } from "./upstream/registry.ts";
 import { UpstreamPool } from "./upstream/pool.ts";
 import { Aggregator } from "./aggregate/aggregator.ts";
@@ -22,6 +25,7 @@ export type Core = {
   cipher: Cipher;
   logs: LogRegistry;
   registry: ServerRegistry;
+  docker: DockerClient;
   supervisor: ProcessSupervisor;
   pool: UpstreamPool;
   aggregator: Aggregator;
@@ -70,11 +74,15 @@ export function createCore(options: CoreOptions): Core {
     markNeedsReauth: (serverId, reason) => auth.markNeedsReauth?.(serverId, reason)
   };
 
+  const docker = new DockerClient(config.dockerSocket);
+
   let pool: UpstreamPool;
   const supervisor = new ProcessSupervisor({
     getSpec: (serverId) => registry.spawnSpec(serverId),
     logs,
     logger,
+    launcher: (launch, log) =>
+      launch.kind === "container" ? spawnContainer(docker, launch, log) : spawnProcess(launch, log),
     onExit: (serverId, generation) => pool.onProcessExit(serverId, generation)
   });
   pool = new UpstreamPool({ registry, supervisor, auth: authProxy, logger, logs });
@@ -88,6 +96,7 @@ export function createCore(options: CoreOptions): Core {
     cipher,
     logs,
     registry,
+    docker,
     supervisor,
     pool,
     aggregator,

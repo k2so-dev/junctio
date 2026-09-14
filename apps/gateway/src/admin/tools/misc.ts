@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { AgentSettingsPatch, RequestLogQuery } from "@junctio/schema";
 import { callApi, text } from "../call.ts";
 import { buildHealth } from "../../server/app.ts";
+import { dockerStatus } from "../../api/docker.ts";
 import { READ_ONLY, UPDATES, defineTool, type AdminDeps } from "./kit.ts";
 
 export function registerMiscTools(server: McpServer, deps: AdminDeps): void {
@@ -15,6 +16,19 @@ export function registerMiscTools(server: McpServer, deps: AdminDeps): void {
       annotations: READ_ONLY
     },
     async () => text(buildHealth(deps.core))
+  );
+
+  defineTool(
+    server,
+    deps,
+    "get_docker_status",
+    {
+      title: "Docker status",
+      description:
+        "Whether the docker daemon answers on the socket, and which version. A server with the docker runtime cannot start without it.",
+      annotations: READ_ONLY
+    },
+    async () => text(await dockerStatus(deps.core))
   );
 
   defineTool(

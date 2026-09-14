@@ -13,6 +13,15 @@ export const HealthDto = z.object({
 });
 export type HealthDto = z.infer<typeof HealthDto>;
 
+export const DockerStatusDto = z.object({
+  socket: z.string(),
+  available: z.boolean(),
+  version: z.string().nullable(),
+  apiVersion: z.string().nullable(),
+  error: z.string().nullable()
+});
+export type DockerStatusDto = z.infer<typeof DockerStatusDto>;
+
 export const LogLineDto = z.object({
   ts: z.number(),
   stream: z.enum(["stdout", "stderr", "system"]),

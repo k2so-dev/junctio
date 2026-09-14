@@ -82,11 +82,21 @@ describe("install options", () => {
     expect(sse.reason).toContain("streamable http");
     expect(sse.draft).toBeNull();
 
-    const oci = installOptions(entry("io.github.j0hanz/filesystem-mcp"), "filesystem-mcp").find(
-      (option) => option.label.startsWith("oci")
+    const nuget = installOptions(entry("io.github.j0hanz/filesystem-mcp"), "filesystem-mcp").find((option) =>
+      option.label.startsWith("nuget")
     );
-    expect(oci?.supported).toBe(false);
-    expect(oci?.reason).toContain("container");
+    expect(nuget === undefined || nuget.supported === false).toBe(true);
+  });
+
+  test("turns a container image into a docker server", () => {
+    const oci = installOptions(entry("io.github.j0hanz/filesystem-mcp"), "filesystem-mcp").find((option) =>
+      option.label.startsWith("oci")
+    );
+    expect(oci?.supported).toBe(true);
+    expect(oci?.draft?.runtime).toBe("docker");
+    expect(oci?.draft?.args.slice(0, 3)).toEqual(["run", "-i", "--rm"]);
+    expect(oci?.draft?.args).toContain("ghcr.io/j0hanz/filesystem-mcp:2.2.0");
+    expect(oci?.draft?.args.join(" ")).toContain("-v");
   });
 });
 

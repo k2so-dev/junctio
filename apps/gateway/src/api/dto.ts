@@ -93,6 +93,7 @@ export async function toServerDto(core: Core, row: ServerRow): Promise<ServerDto
     createdAt: row.createdAt,
     status: serverStatus(core, row, oauth),
     pid: info.pid,
+    containerId: info.containerId,
     restarts: info.restarts,
     lastError: info.lastError ?? core.pool.getLastError(row.id),
     toolCount: catalog ? catalog.tools.length : null,

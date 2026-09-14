@@ -8,8 +8,8 @@ apps/gateway/test
 apps/web/dist
 data
 *.db*
-*.md
-LICENSE
+CHANGELOG.md
 .env
 Dockerfile
 compose.yml
+compose.docker.yml

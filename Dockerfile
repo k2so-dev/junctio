@@ -39,7 +39,7 @@ RUN apt-get update \
   && ln -s /usr/local/bin/bun /usr/local/bin/bunx \
   && groupadd --system --gid 10001 junctio \
   && useradd --system --uid 10001 --gid junctio --home-dir /home/junctio --create-home junctio \
-  && mkdir -p /data /cache/npm /cache/bun /cache/uv /cache/tmp \
+  && mkdir -p /data /cache/npm /cache/bun /cache/uv /cache/uv-python /cache/share /cache/tmp \
   && chown -R junctio:junctio /data /cache
 
 WORKDIR /app
@@ -48,6 +48,8 @@ COPY --from=runtime-deps --chown=junctio:junctio /app/node_modules node_modules
 COPY --from=runtime-deps --chown=junctio:junctio /app/apps/gateway/node_modules apps/gateway/node_modules
 COPY --from=runtime-deps --chown=junctio:junctio /app/packages/schema/node_modules packages/schema/node_modules
 COPY --chown=junctio:junctio package.json tsconfig.base.json ./
+COPY --chown=junctio:junctio LICENSE README.md ./
+COPY --chown=junctio:junctio .github/SECURITY.md ./
 COPY --chown=junctio:junctio packages packages
 COPY --chown=junctio:junctio apps/gateway/package.json apps/gateway/tsconfig.json apps/gateway/
 COPY --chown=junctio:junctio apps/gateway/src apps/gateway/src
@@ -63,7 +65,9 @@ ENV NODE_ENV=production \
     NPM_CONFIG_CACHE=/cache/npm \
     BUN_INSTALL_CACHE_DIR=/cache/bun \
     UV_CACHE_DIR=/cache/uv \
+    UV_PYTHON_INSTALL_DIR=/cache/uv-python \
     XDG_CACHE_HOME=/cache \
+    XDG_DATA_HOME=/cache/share \
     TMPDIR=/cache/tmp
 
 VOLUME ["/data", "/cache"]

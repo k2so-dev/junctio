@@ -130,7 +130,7 @@ onUnmounted(() => {
       v-if="!loading && servers.length === 0"
       dashed
       title="No servers yet"
-      description="Add an npm or PyPI package as a stdio server, or point the gateway at a remote Streamable HTTP server."
+      description="Add an npm or PyPI package as a stdio server, or point the gateway at a remote Streamable HTTP or SSE server."
     >
       <Button size="sm" @click="router.push({ name: 'server-new' })">
         <Plus />
@@ -161,7 +161,7 @@ onUnmounted(() => {
               <div class="flex min-w-0 items-center gap-2">
                 <span class="truncate font-medium">{{ server.name }}</span>
                 <Badge variant="outline" class="shrink-0 font-mono text-[10px]">
-                  {{ server.transport === "http" ? "http" : server.runtime }}
+                  {{ server.transport === "stdio" ? server.runtime : server.transport }}
                 </Badge>
               </div>
               <div class="truncate text-xs text-muted-foreground">{{ serverMeta(server) }}</div>
@@ -169,7 +169,7 @@ onUnmounted(() => {
             <TableCell><StatusDot :status="server.status" /></TableCell>
             <TableCell class="max-w-0">
               <div class="truncate font-mono text-xs text-muted-foreground">
-                {{ server.transport === "http" ? server.url : server.commandPreview }}
+                {{ server.transport === "stdio" ? server.commandPreview : server.url }}
               </div>
             </TableCell>
             <TableCell class="font-mono text-muted-foreground">{{ server.toolCount ?? "—" }}</TableCell>

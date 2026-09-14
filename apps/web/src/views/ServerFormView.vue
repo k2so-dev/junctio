@@ -75,6 +75,18 @@ const ARG_PLACEHOLDERS: Record<RuntimeKind, string> = {
   custom: "/usr/local/bin/my-server\n--flag"
 };
 
+const URL_PLACEHOLDERS: Record<TransportKind, string> = {
+  stdio: "",
+  http: "https://mcp.linear.app/mcp",
+  sse: "https://mcp.example.com/sse"
+};
+
+const PROTOCOL_LABELS: Record<TransportKind, string> = {
+  stdio: "",
+  http: "Streamable HTTP",
+  sse: "HTTP+SSE (2024-11-05)"
+};
+
 const AUTH_MODES: { value: UpstreamAuthMode; label: string; hint: string }[] = [
   { value: "none", label: "None", hint: "Public server, no credentials." },
   { value: "header", label: "Static header", hint: "A token you paste once. Encrypted at rest." },
@@ -93,6 +105,8 @@ function seedArgs(runtime: RuntimeKind, previous: RuntimeKind) {
 const argLines = computed(() =>
   form.args.split("\n").map((line) => line.trim()).filter((line) => line !== "")
 );
+
+const isRemote = computed(() => form.transport !== "stdio");
 
 const isDocker = computed(() => form.transport === "stdio" && form.runtime === "docker");
 
@@ -114,19 +128,19 @@ function toInput(): ServerInput {
   const env: Record<string, string> = {};
   for (const entry of form.env) if (entry.key.trim() !== "") env[entry.key.trim()] = entry.value;
   const headers: Record<string, string> = {};
-  if (form.transport === "http" && form.authMode === "header" && form.authorization !== "") {
+  if (isRemote.value && form.authMode === "header" && form.authorization !== "") {
     headers.Authorization = form.authorization;
   }
   return {
     name: form.name,
     transport: form.transport,
-    runtime: form.transport === "http" ? "custom" : form.runtime,
+    runtime: isRemote.value ? "custom" : form.runtime,
     args: form.args.split("\n").map((line) => line.trim()).filter((line) => line !== ""),
     env,
     cwd: form.cwd.trim() === "" ? null : form.cwd.trim(),
-    url: form.transport === "http" ? form.url : null,
+    url: isRemote.value ? form.url : null,
     headers,
-    authMode: form.transport === "http" ? form.authMode : "none",
+    authMode: isRemote.value ? form.authMode : "none",
     oauthScope: form.oauthScope.trim() === "" ? null : form.oauthScope.trim(),
     enabled: true,
     warm: form.warm,
@@ -135,8 +149,8 @@ function toInput(): ServerInput {
 }
 
 async function refreshPreview() {
-  if (form.transport === "http") {
-    preview.value = form.url === "" ? "https://…/mcp" : form.url;
+  if (isRemote.value) {
+    preview.value = form.url === "" ? URL_PLACEHOLDERS[form.transport] : form.url;
     return;
   }
   try {
@@ -301,6 +315,7 @@ onMounted(load);
             <TabsList>
               <TabsTrigger value="stdio">stdio</TabsTrigger>
               <TabsTrigger value="http">Streamable HTTP</TabsTrigger>
+              <TabsTrigger value="sse">SSE (legacy)</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -382,8 +397,18 @@ onMounted(load);
 
         <template v-else>
           <div class="grid gap-2">
-            <Label for="url">URL</Label>
-            <Input id="url" v-model="form.url" placeholder="https://mcp.linear.app/mcp" class="font-mono text-xs" />
+            <Label for="url">
+              URL
+              <span v-if="form.transport === 'sse'" class="font-normal text-muted-foreground">
+                — the stream endpoint, the one that answers text/event-stream
+              </span>
+            </Label>
+            <Input
+              id="url"
+              v-model="form.url"
+              :placeholder="URL_PLACEHOLDERS[form.transport]"
+              class="font-mono text-xs"
+            />
             <p v-if="fieldErrors.url" class="text-xs text-destructive">{{ fieldErrors.url }}</p>
           </div>
 
@@ -509,7 +534,11 @@ onMounted(load);
         <div v-else class="flex flex-col gap-2 rounded-lg border bg-card p-3.5 text-muted-foreground">
           <div class="flex justify-between gap-3">
             <span>Protocol</span>
-            <span class="font-mono text-foreground">Streamable HTTP</span>
+            <span class="text-right font-mono text-foreground">{{ PROTOCOL_LABELS[form.transport] }}</span>
+          </div>
+          <div v-if="form.transport === 'sse'" class="flex justify-between gap-3">
+            <span>Stream</span>
+            <span class="text-right font-mono text-foreground">one GET per session, reopened after a drop</span>
           </div>
           <div class="flex justify-between gap-3">
             <span>On 401</span>

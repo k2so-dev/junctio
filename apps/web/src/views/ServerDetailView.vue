@@ -181,7 +181,7 @@ onUnmounted(() => {
           <h1 class="max-w-full truncate text-xl font-semibold tracking-tight">{{ server.name }}</h1>
           <StatusDot :status="server.status" class="shrink-0 rounded-full border px-2.5 py-0.5 text-xs" />
           <span class="max-w-full truncate font-mono text-[11px] text-muted-foreground">
-            {{ server.transport === "http" ? server.url : server.runtime }}
+            {{ server.transport === "stdio" ? server.runtime : server.url }}
           </span>
         </div>
         <div class="flex flex-wrap gap-2">

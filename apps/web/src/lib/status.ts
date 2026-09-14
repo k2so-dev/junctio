@@ -47,7 +47,7 @@ export const TONE_BORDER: Record<Tone, string> = {
 };
 
 export function serverMeta(server: ServerDto): string {
-  if (server.transport === "http") return server.url ?? "";
+  if (server.transport !== "stdio") return server.url ?? "";
   return server.warm ? "warm start" : "lazy start";
 }
 

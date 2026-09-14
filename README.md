@@ -57,7 +57,7 @@ claude mcp add --transport http junctio https://mcp.example.com/mcp/main \
 
 ## Upstream servers
 
-A server is either `stdio` or `http`.
+A server is `stdio`, `http` or `sse`.
 
 For stdio the `runtime` field is the launcher and everything else is yours: the arguments you type are passed through in order, one per line. `custom` takes the executable from the first argument.
 
@@ -73,6 +73,12 @@ Nothing is added behind your back. The form seeds `-y` for `npx` and `run` for `
 The environment handed to a child process is built explicitly: the `PATH` from settings, `HOME`, `TMPDIR` and the variables you configured. Nothing else is inherited, and `JUNCTIO_*` variables are never passed down. That `PATH` defaults to the directories where the gateway found `bun`, `node` and `uv` at first start, plus the system ones; change it in Settings if a runtime lives elsewhere.
 
 `TMPDIR` matters more than it looks: `bunx` unpacks and executes packages there, so a temporary directory mounted `noexec` makes it exit with status 1 and no output at all. The image points `TMPDIR` at `/cache/tmp` for that reason, and the gateway warns at startup if the directory it ends up with is `noexec`.
+
+### Remote servers
+
+`http` is Streamable HTTP, the transport every current server should be on: the url is the endpoint, and each request is an ordinary POST. `sse` is the HTTP+SSE transport deprecated in the 2025-03-26 revision, still the only thing a good number of hosted servers speak. There the url is the stream: the gateway opens a GET, reads the `endpoint` event the server answers with, and POSTs its requests there. One stream is held per connection, and when the server drops it the connection is discarded and reopened on the next call rather than resumed, because the server has forgotten the session either way.
+
+Pick the transport the server documents. The gateway does not probe a url to find out which one it is, since the two expect different addresses and a wrong guess reads as an auth failure. Both transports take a static header or the OAuth flow, and both are terminated at the gateway: **what your own clients speak is always Streamable HTTP**, whatever the upstream turned out to be.
 
 ### Servers that ship as an image
 
@@ -123,7 +129,7 @@ Each row links out to whatever the entry declares, in a new tab: the repository,
 | npm package, stdio | Prefills an `npx` server with the pinned version, its arguments and its environment |
 | PyPI package, stdio | Prefills a `uvx` server |
 | Remote Streamable HTTP | Prefills an HTTP server, with the `Authorization` header when the entry declares one |
-| Remote SSE | Refused: the gateway proxies Streamable HTTP only |
+| Remote SSE | Prefills an `sse` server with the stream url and its declared headers |
 | Container image, stdio | Prefills a `docker` server with `run -i --rm`, the declared mounts and the image |
 | NuGet, bundle | Refused: the image ships no dotnet toolchain, and bundles are a desktop client's job |
 
@@ -141,7 +147,7 @@ Sending you away without a way back would be pointless, so the tab starts with a
 { "mcpServers": { "foo": { "command": "npx", "args": ["-y", "@x/foo"] } } }
 ```
 
-Paste it and each server in it turns into a row with the command it would run and an Add button. The `mcpServers` wrapper is read, so is the VS Code `servers` wrapper with `type: http`, so is a bare server object, and so are the `vscode:mcp/install` and `cursor://` links a site hands to your editor. A fenced snippet with prose around it is fine, the object is dug out. An `npx`, `bunx`, `uvx`, `uv` or `node` command becomes that runtime, `docker` and `podman` become the docker runtime with their `run` line intact, and anything else becomes a custom command. Placeholders like `${input:token}` are blanked and listed as things to fill in, and a legacy SSE entry is refused with its reason rather than half-imported.
+Paste it and each server in it turns into a row with the command it would run and an Add button. The `mcpServers` wrapper is read, so is the VS Code `servers` wrapper with `type: http`, so is a bare server object, and so are the `vscode:mcp/install` and `cursor://` links a site hands to your editor. A fenced snippet with prose around it is fine, the object is dug out. An `npx`, `bunx`, `uvx`, `uv` or `node` command becomes that runtime, `docker` and `podman` become the docker runtime with their `run` line intact, and anything else becomes a custom command. Placeholders like `${input:token}` are blanked and listed as things to fill in, and a `type: sse` entry becomes an `sse` server with a note saying so.
 
 The parsing happens in your browser. Nothing is sent to the gateway and nothing is written until you press save on the Add server form, which matters because these snippets often carry a token.
 
@@ -213,7 +219,7 @@ Each endpoint declares the oldest revision it accepts, and a new one accepts **`
 
 Upstreams are negotiated the same way. The gateway probes each server once with `server/discover`, talks `2026-07-28` to servers that answer, and falls back to `initialize` for everything else. A stdio server that dies on the probe is respawned and spoken to as legacy from then on; the verdict is cached for a day and dropped when the server config changes. The negotiated revision is shown on the server page and in the connection test.
 
-Legacy SSE is not exposed; it is only tolerated when reading from an old upstream. `Origin` is checked on every POST. JSON-RPC batching is not supported, matching the specification.
+Legacy SSE is never exposed; it is spoken only to upstreams configured as `sse`. `Origin` is checked on every POST. JSON-RPC batching is not supported, matching the specification.
 
 ## Development
 

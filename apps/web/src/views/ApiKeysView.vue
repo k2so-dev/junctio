@@ -13,8 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, api } from "@/lib/api";
 import { relativeTime, shortDate } from "@/lib/format";
+import { useFreshKeys } from "@/stores/keys";
 
 const route = useRoute();
+const { remember } = useFreshKeys();
 
 const keys = ref<ApiKeyDto[]>([]);
 const endpoints = ref<EndpointDto[]>([]);
@@ -57,6 +59,7 @@ async function create() {
         draft.value.expires === "never" ? null : Date.now() + Number(draft.value.expires) * 86_400_000
     });
     revealed.value = created.token;
+    remember(created.id, created.token);
     creating.value = false;
     draft.value = { name: "", endpointId: "", expires: "never" };
     await load();

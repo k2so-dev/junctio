@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ApiKeyDto, EndpointAuthMode, EndpointDto, NamespaceDto, ProtocolVersion } from "@junctio/schema";
-import { Check, Copy, KeyRound, Loader2, Plus, Trash2 } from "@lucide/vue";
+import { Check, Copy, ExternalLink, KeyRound, Loader2, Plus, Trash2 } from "@lucide/vue";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
@@ -20,24 +20,32 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, api } from "@/lib/api";
+import { CLIENTS, type AuthKind } from "@/lib/clients";
 import { cn } from "@/lib/utils";
+import { useFreshKeys } from "@/stores/keys";
+import { useSession } from "@/stores/session";
 
 const route = useRoute();
 const router = useRouter();
+const { settings } = useSession();
+const { tokens: freshTokens } = useFreshKeys();
 
 const endpoints = ref<EndpointDto[]>([]);
 const namespaces = ref<NamespaceDto[]>([]);
 const keys = ref<ApiKeyDto[]>([]);
 const client = ref("claude-code");
+const kindPick = ref<AuthKind>("key");
 const keyPick = ref("");
 const copied = ref(false);
 const creating = ref(false);
 const draft = ref({ slug: "", namespaceId: "" });
 const busy = ref(false);
 
+const KEY_PLACEHOLDER = "<your-api-key>";
+
 const PROTOCOLS: SelectOption<ProtocolVersion>[] = [
-  { value: "2025-06-18", label: "2025-06-18", mono: true },
-  { value: "2025-11-25", label: "2025-11-25", mono: true }
+  { value: "2025-06-18", label: "2025-06-18", hint: "Every current client", mono: true },
+  { value: "2025-11-25", label: "2025-11-25", hint: "Newest the gateway speaks", mono: true }
 ];
 
 const AUTH_MODES: { value: EndpointAuthMode; label: string; hint: string }[] = [
@@ -47,11 +55,9 @@ const AUTH_MODES: { value: EndpointAuthMode; label: string; hint: string }[] = [
   { value: "none", label: "Open", hint: "No authentication. Localhost only." }
 ];
 
-const CLIENTS = [
-  { value: "claude-code", label: "Claude Code" },
-  { value: "codex", label: "Codex" },
-  { value: "cursor", label: "Cursor" },
-  { value: "claude-ai", label: "claude.ai" }
+const KINDS: { value: AuthKind; label: string }[] = [
+  { value: "key", label: "API key" },
+  { value: "oauth", label: "OAuth" }
 ];
 
 const selectedId = computed(() => {
@@ -70,47 +76,52 @@ const namespaceOptions = computed(() =>
   }))
 );
 
-const keyOptions = computed(() => [
-  { value: "", label: "<paste your key>", mono: true },
-  ...keys.value
+const endpointKeys = computed(() =>
+  keys.value
     .filter((key) => key.endpointId === null || key.endpointId === selectedId.value)
-    .map((key) => ({ value: key.id, label: `${key.prefix}… · ${key.name}`, mono: true }))
+    .sort((a, b) => Number(freshTokens.has(b.id)) - Number(freshTokens.has(a.id)) || b.createdAt - a.createdAt)
+);
+
+const keyOptions = computed(() => [
+  { value: "", label: KEY_PLACEHOLDER, hint: "Placeholder to replace by hand", mono: true },
+  ...endpointKeys.value.map((key) => ({
+    value: key.id,
+    label: `${key.prefix}… · ${key.name}`,
+    hint: freshTokens.has(key.id) ? "Created this session, paste-ready" : "Prefix only",
+    mono: true
+  }))
 ]);
 
-const keyToken = computed(() => {
-  const picked = keys.value.find((key) => key.id === keyPick.value);
-  return picked ? `${picked.prefix}...` : "<paste your key>";
+const kind = computed<AuthKind>(() => {
+  const mode = current.value?.authMode;
+  if (mode === "any") return kindPick.value;
+  if (mode === "oauth") return "oauth";
+  if (mode === "none") return "none";
+  return "key";
 });
 
-const snippet = computed(() => {
-  const endpoint = current.value;
-  if (!endpoint) return "";
-  const url = endpoint.url;
-  const token = keyToken.value;
-  switch (client.value) {
-    case "codex":
-      return `# ~/.codex/config.toml\n[mcp_servers.junctio]\nurl = "${url}"\nhttp_headers = { Authorization = "Bearer ${token}" }`;
-    case "cursor":
-      return `// ~/.cursor/mcp.json\n{\n  "mcpServers": {\n    "junctio": {\n      "url": "${url}",\n      "headers": { "Authorization": "Bearer ${token}" }\n    }\n  }\n}`;
-    case "claude-ai":
-      return `Settings → Connectors → Add custom connector\n\nRemote MCP server URL:\n${url}\n\nAuthentication: OAuth`;
-    default:
-      return `claude mcp add --transport http junctio ${url} \\\n  --header "Authorization: Bearer ${token}"`;
-  }
+const token = computed(() => {
+  if (keyPick.value === "") return KEY_PLACEHOLDER;
+  return freshTokens.get(keyPick.value) ?? KEY_PLACEHOLDER;
 });
 
-const snippetWarning = computed(() => {
+const guide = computed(() => {
   const endpoint = current.value;
-  if (!endpoint) return null;
-  if (client.value === "claude-ai" && endpoint.authMode !== "oauth" && endpoint.authMode !== "any") {
-    return "claude.ai connectors authenticate with OAuth. Switch this endpoint to OAuth or Either first.";
-  }
-  if (client.value !== "claude-ai" && endpoint.authMode === "oauth") {
-    return "This endpoint accepts OAuth only, so an API key in the snippet will be rejected.";
-  }
-  if (keyPick.value !== "" && client.value !== "claude-ai") {
-    return "Existing keys are hashed — the snippet can only show the prefix. Create a new key for a paste-ready snippet.";
-  }
+  const spec = CLIENTS.find((item) => item.value === client.value);
+  if (!endpoint || !spec) return null;
+  const queryUrl = settings.value?.apiKeyQueryParam ? `${endpoint.url}?api_key=${token.value}` : null;
+  return spec.build({ url: endpoint.url, slug: endpoint.slug, kind: kind.value, token: token.value, queryUrl });
+});
+
+const keyWarning = computed(() => {
+  if (kind.value !== "key" || keyPick.value === "" || freshTokens.has(keyPick.value)) return null;
+  return "Keys are stored as hashes, so this one cannot be shown again. The snippet keeps the placeholder; create a new key for a paste-ready one.";
+});
+
+const kindNote = computed(() => {
+  const mode = current.value?.authMode;
+  if (mode === "oauth") return "This endpoint accepts OAuth only, so the snippets skip API keys.";
+  if (mode === "none") return "This endpoint is open, so the snippets carry no credentials.";
   return null;
 });
 
@@ -185,6 +196,20 @@ async function copyUrl() {
 watch(namespaceOptions, (options) => {
   if (draft.value.namespaceId === "" && options.length > 0) draft.value.namespaceId = options[0]!.value;
 });
+
+watch(client, (value) => {
+  const preferred = CLIENTS.find((item) => item.value === value)?.prefers;
+  if (preferred && current.value?.authMode === "any") kindPick.value = preferred;
+});
+
+watch(
+  [selectedId, endpointKeys],
+  () => {
+    const fresh = endpointKeys.value.find((key) => freshTokens.has(key.id));
+    keyPick.value = fresh?.id ?? "";
+  },
+  { immediate: true }
+);
 
 onMounted(loadAll);
 </script>
@@ -303,32 +328,85 @@ onMounted(loadAll);
         <p class="text-xs leading-relaxed text-muted-foreground">{{ wellKnownNote }}</p>
       </div>
 
-      <div class="flex flex-col gap-3">
-        <Tabs v-model="client">
-          <TabsList>
-            <TabsTrigger v-for="item in CLIENTS" :key="item.value" :value="item.value">{{ item.label }}</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <div class="flex flex-col gap-3 border-t pt-5">
+        <div>
+          <h3 class="font-medium">Connect a client</h3>
+          <p class="mt-0.5 text-xs text-muted-foreground">
+            The server is registered under the slug; rename it in the snippet if you like.
+          </p>
+        </div>
 
-        <p v-if="snippetWarning" class="rounded-lg border border-warning/50 bg-warning/8 p-3 leading-relaxed">
-          {{ snippetWarning }}
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            v-for="item in CLIENTS"
+            :key="item.value"
+            type="button"
+            :title="item.hint"
+            :class="
+              cn(
+                'rounded-md border px-2.5 py-1 text-xs transition-colors hover:border-ring',
+                client === item.value ? 'border-primary bg-accent font-medium' : 'bg-card text-muted-foreground'
+              )
+            "
+            @click="client = item.value"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-end gap-3">
+          <div v-if="current.authMode === 'any'" class="grid gap-2">
+            <Label>Credentials in snippet</Label>
+            <Tabs v-model="kindPick">
+              <TabsList class="h-8">
+                <TabsTrigger v-for="item in KINDS" :key="item.value" :value="item.value" class="text-xs">
+                  {{ item.label }}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          <div v-if="kind === 'key'" class="grid min-w-64 gap-2">
+            <Label>Key in snippet</Label>
+            <SearchSelect v-model="keyPick" :options="keyOptions" trigger-class="h-8" />
+          </div>
+          <Button v-if="kind === 'key'" variant="outline" size="sm" class="h-8" as-child>
+            <RouterLink :to="{ name: 'api-keys', query: { endpoint: current.id } }">
+              <KeyRound />
+              New key for this endpoint
+            </RouterLink>
+          </Button>
+          <p v-if="kindNote" class="text-xs text-muted-foreground">{{ kindNote }}</p>
+        </div>
+
+        <p v-if="keyWarning" class="rounded-lg border border-warning/50 bg-warning/8 p-3 text-xs leading-relaxed">
+          {{ keyWarning }}
         </p>
 
-        <div class="grid items-start gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(220px,300px)]">
-          <CodeBlock title="Client configuration" :code="snippet" copyable />
-          <div class="flex flex-col gap-2.5">
-            <div class="grid gap-2">
-              <Label>Key in snippet</Label>
-              <SearchSelect v-model="keyPick" :options="keyOptions" trigger-class="h-8" />
+        <template v-if="guide">
+          <p v-if="guide.blocker" class="rounded-lg border border-warning/50 bg-warning/8 p-3 leading-relaxed">
+            {{ guide.blocker }}
+          </p>
+
+          <div v-else class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
+            <div class="flex min-w-0 flex-col gap-3">
+              <CodeBlock v-for="block in guide.blocks" :key="block.title" :title="block.title" :code="block.code" copyable />
+              <Button v-if="guide.link" variant="outline" size="sm" class="self-start" as-child>
+                <a :href="guide.link.href">
+                  <ExternalLink />
+                  {{ guide.link.label }}
+                </a>
+              </Button>
             </div>
-            <Button variant="outline" size="sm" class="self-start" as-child>
-              <RouterLink :to="{ name: 'api-keys', query: { endpoint: current.id } }">
-                <KeyRound />
-                New key for this endpoint
-              </RouterLink>
-            </Button>
+            <div class="flex flex-col gap-3 rounded-lg border bg-card p-3.5">
+              <ol class="flex list-decimal flex-col gap-1.5 pl-4 text-xs leading-relaxed marker:text-muted-foreground">
+                <li v-for="step in guide.steps" :key="step">{{ step }}</li>
+              </ol>
+              <ul v-if="guide.notes.length" class="flex flex-col gap-1.5 border-t pt-3 text-xs leading-relaxed text-muted-foreground">
+                <li v-for="note in guide.notes" :key="note">{{ note }}</li>
+              </ul>
+            </div>
           </div>
-        </div>
+        </template>
       </div>
     </div>
 

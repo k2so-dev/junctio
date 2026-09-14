@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const REGISTRY_URL = "https://registry.modelcontextprotocol.io";
+
 const RegistryArgument = z.looseObject({
   type: z.string().optional(),
   name: z.string().optional(),

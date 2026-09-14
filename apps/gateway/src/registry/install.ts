@@ -1,12 +1,13 @@
 import type {
   RegistryInputDto,
   RegistryInstallOptionDto,
+  RegistryLinkDto,
   RegistryPackageKind,
   RegistryServerDto,
   ServerInput
 } from "@junctio/schema";
 import type { RegistryArgument, RegistryEntry, RegistryKeyValue, RegistryPackage, RegistryTransport } from "./types.ts";
-import { officialMeta } from "./types.ts";
+import { officialMeta, REGISTRY_URL } from "./types.ts";
 
 const STDIO_RUNTIMES: Record<string, "npx" | "uvx"> = { npm: "npx", pypi: "uvx" };
 
@@ -218,6 +219,42 @@ export function installOptions(entry: RegistryEntry, name: string): RegistryInst
   return [...remotes, ...packages];
 }
 
+function packageLink(entry: RegistryPackage): RegistryLinkDto | null {
+  const identifier = entry.identifier ?? "";
+  if (identifier === "") return null;
+  const base = entry.registryBaseUrl ?? "";
+  if (entry.registryType === "npm" && (base === "" || base.includes("npmjs.org"))) {
+    return { kind: "npm", label: "npm", url: `https://www.npmjs.com/package/${identifier}` };
+  }
+  if (entry.registryType === "pypi" && (base === "" || base.includes("pypi.org"))) {
+    return { kind: "pypi", label: "PyPI", url: `https://pypi.org/project/${identifier}/` };
+  }
+  return null;
+}
+
+export function serverLinks(entry: RegistryEntry): RegistryLinkDto[] {
+  const links: RegistryLinkDto[] = [];
+  const repository = entry.server.repository?.url;
+  if (repository) {
+    const source = entry.server.repository?.source ?? "";
+    links.push({ kind: "repository", label: source === "github" ? "GitHub" : "Repository", url: repository });
+  }
+  if (entry.server.websiteUrl && entry.server.websiteUrl !== repository) {
+    links.push({ kind: "website", label: "Website", url: entry.server.websiteUrl });
+  }
+  for (const item of entry.server.packages ?? []) {
+    const link = packageLink(item);
+    if (link && !links.some((existing) => existing.url === link.url)) links.push(link);
+  }
+  const version = entry.server.version ?? "latest";
+  links.push({
+    kind: "registry",
+    label: "Registry entry",
+    url: `${REGISTRY_URL}/v0.1/servers/${encodeURIComponent(entry.server.name)}/versions/${encodeURIComponent(version)}`
+  });
+  return links;
+}
+
 export function serverKinds(entry: RegistryEntry): RegistryPackageKind[] {
   const kinds = new Set<RegistryPackageKind>();
   for (const item of entry.server.remotes ?? []) if (item.url) kinds.add("remote");
@@ -239,6 +276,7 @@ export function summarize(entry: RegistryEntry, installed: boolean): RegistrySer
     updatedAt: timestamp(meta.updatedAt),
     status: meta.status ?? "unknown",
     kinds: serverKinds(entry),
+    links: serverLinks(entry),
     installable: options.some((option) => option.supported),
     installed
   };

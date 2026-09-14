@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import fixture from "../fixtures/registry-list.json" with { type: "json" };
-import { installOptions, serverKinds, serverName, summarize, uniqueName } from "../../src/registry/install.ts";
+import {
+  installOptions,
+  serverKinds,
+  serverLinks,
+  serverName,
+  summarize,
+  uniqueName
+} from "../../src/registry/install.ts";
 import { registryEntries, type RegistryEntry } from "../../src/registry/types.ts";
 
 const entries = registryEntries(fixture as never);
@@ -80,6 +87,36 @@ describe("install options", () => {
     );
     expect(oci?.supported).toBe(false);
     expect(oci?.reason).toContain("container");
+  });
+});
+
+describe("links", () => {
+  test("points at the repository, the package page and the registry entry", () => {
+    const links = serverLinks(entry("io.github.j0hanz/filesystem-mcp"));
+    expect(links.map((link) => link.kind)).toEqual(["repository", "npm", "registry"]);
+    expect(links[0]?.url).toBe("https://github.com/j0hanz/filesystem-mcp");
+    expect(links[1]?.url).toBe("https://www.npmjs.com/package/@j0hanz/filesystem-mcp");
+    expect(links[2]?.url).toBe(
+      "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.j0hanz%2Ffilesystem-mcp/versions/2.2.0"
+    );
+  });
+
+  test("sends a python package to pypi", () => {
+    const links = serverLinks(entry("io.github.Oncorporation/filesystem-server"));
+    expect(links.find((link) => link.kind === "pypi")?.url).toBe(
+      "https://pypi.org/project/vs-filesystem-mcp-server/"
+    );
+  });
+
+  test("always offers the registry entry, even with nothing else to link", () => {
+    const links = serverLinks(entry("io.github.Evozim/chroot-filesystem-jail-mcp"));
+    expect(links).toHaveLength(1);
+    expect(links[0]?.kind).toBe("registry");
+  });
+
+  test("does not repeat a website that is the repository", () => {
+    const links = serverLinks(entry("io.github.j0hanz/filesystem-mcp"));
+    expect(links.filter((link) => link.url === "https://github.com/j0hanz/filesystem-mcp")).toHaveLength(1);
   });
 });
 

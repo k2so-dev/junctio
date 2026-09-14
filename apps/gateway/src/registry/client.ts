@@ -4,9 +4,9 @@ import type { Db } from "../db/index.ts";
 import { registryCache } from "../db/schema.ts";
 import type { Logger } from "../log.ts";
 import { VERSION } from "../config.ts";
-import { RegistryEntry, RegistryListBody, RegistryProblem } from "./types.ts";
+import { REGISTRY_URL, RegistryEntry, RegistryListBody, RegistryProblem } from "./types.ts";
 
-export const REGISTRY_URL = "https://registry.modelcontextprotocol.io";
+export { REGISTRY_URL };
 
 const TTL_MS = 3_600_000;
 const SWEEP_MS = 86_400_000;

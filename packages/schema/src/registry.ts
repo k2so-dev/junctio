@@ -19,6 +19,17 @@ export const RegistryDetailQuery = z.object({
 });
 export type RegistryDetailQuery = z.infer<typeof RegistryDetailQuery>;
 
+export const registryLinkKinds = ["repository", "website", "npm", "pypi", "registry"] as const;
+export const RegistryLinkKind = z.enum(registryLinkKinds);
+export type RegistryLinkKind = z.infer<typeof RegistryLinkKind>;
+
+export const RegistryLinkDto = z.object({
+  kind: RegistryLinkKind,
+  label: z.string(),
+  url: z.string()
+});
+export type RegistryLinkDto = z.infer<typeof RegistryLinkDto>;
+
 export const RegistryServerDto = z.object({
   name: z.string(),
   title: z.string().nullable(),
@@ -30,6 +41,7 @@ export const RegistryServerDto = z.object({
   updatedAt: z.number().nullable(),
   status: z.string(),
   kinds: z.array(RegistryPackageKind),
+  links: z.array(RegistryLinkDto),
   installable: z.boolean(),
   installed: z.boolean()
 });

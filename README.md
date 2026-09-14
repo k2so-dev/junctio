@@ -82,7 +82,9 @@ The browser never talks to the registry. The gateway does, over its public read-
 
 If the registry is slow or down, a request gives up after ten seconds and the page falls back to the cached copy, saying how old it is and what went wrong. With nothing cached you get an error and a retry button instead of an empty table.
 
-The registry searches by name only and has no filters, so the page offers search, paging and nothing it cannot honour. Every row is the latest version of that server.
+The registry searches by name only and has no filters, so the page offers search, paging and nothing it cannot honour. Paging is by cursor: the registry publishes no total, and counting more than twenty thousand entries by hand would cost hundreds of requests, so there are no page numbers to render. Every row is the latest version of that server.
+
+Each row links out to whatever the entry declares, in a new tab: the repository, the project website, the npm or PyPI page of the package, and the raw registry entry itself.
 
 | Published as | What the gateway does |
 |---|---|

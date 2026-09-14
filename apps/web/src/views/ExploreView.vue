@@ -1,6 +1,16 @@
 <script setup lang="ts">
-import type { RegistryDetailDto, RegistryInstallOptionDto, RegistryServerDto } from "@junctio/schema";
-import { ChevronLeft, ChevronRight, ExternalLink, Loader2, RefreshCw, TriangleAlert } from "@lucide/vue";
+import type { RegistryDetailDto, RegistryInstallOptionDto, RegistryLinkDto, RegistryServerDto } from "@junctio/schema";
+import {
+  Braces,
+  ChevronLeft,
+  ChevronRight,
+  Code,
+  Globe,
+  Loader2,
+  Package,
+  RefreshCw,
+  TriangleAlert
+} from "@lucide/vue";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
@@ -17,6 +27,14 @@ import { relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 30;
+
+const LINK_ICONS: Record<RegistryLinkDto["kind"], typeof Code> = {
+  repository: Code,
+  website: Globe,
+  npm: Package,
+  pypi: Package,
+  registry: Braces
+};
 
 const router = useRouter();
 
@@ -180,6 +198,7 @@ onMounted(() => void load());
             <TableHead class="w-36">Kind</TableHead>
             <TableHead class="w-24">Version</TableHead>
             <TableHead class="w-28">Updated</TableHead>
+            <TableHead class="w-28">Links</TableHead>
             <TableHead class="w-32 text-right">Install</TableHead>
           </TableRow>
         </TableHeader>
@@ -204,6 +223,21 @@ onMounted(() => void load());
             </TableCell>
             <TableCell class="font-mono text-xs text-muted-foreground">{{ server.version || "—" }}</TableCell>
             <TableCell class="text-xs text-muted-foreground">{{ relativeTime(server.updatedAt) }}</TableCell>
+            <TableCell>
+              <div class="flex items-center gap-1">
+                <a
+                  v-for="link in server.links"
+                  :key="link.url"
+                  :href="link.url"
+                  :title="`${link.label} — opens in a new tab`"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  class="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <component :is="LINK_ICONS[link.kind]" class="size-3.5" />
+                </a>
+              </div>
+            </TableCell>
             <TableCell class="text-right">
               <Button
                 v-if="server.installable"
@@ -234,16 +268,19 @@ onMounted(() => void load());
         </div>
 
         <div v-else-if="detail" class="flex max-h-[55vh] flex-col gap-3 overflow-auto">
-          <a
-            v-if="detail.server.repositoryUrl"
-            :href="detail.server.repositoryUrl"
-            target="_blank"
-            rel="noreferrer noopener"
-            class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ExternalLink class="size-3" />
-            {{ detail.server.repositoryUrl }}
-          </a>
+          <div class="flex flex-wrap gap-1.5">
+            <a
+              v-for="link in detail.server.links"
+              :key="link.url"
+              :href="link.url"
+              target="_blank"
+              rel="noreferrer noopener"
+              class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-ring hover:text-foreground"
+            >
+              <component :is="LINK_ICONS[link.kind]" class="size-3" />
+              {{ link.label }}
+            </a>
+          </div>
 
           <div class="grid gap-2">
             <button

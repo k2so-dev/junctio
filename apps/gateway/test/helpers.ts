@@ -10,7 +10,7 @@ import { setLogLevel } from "../src/log.ts";
 import { apiKeys, endpoints, namespaceServers, namespaces, servers } from "../src/db/schema.ts";
 import { createApiKey } from "../src/auth/downstream/apikey.ts";
 import { randomId } from "../src/crypto.ts";
-import type { JwtVerifier } from "../src/auth/downstream/middleware.ts";
+import type { RemoteJwtVerifier } from "../src/auth/downstream/jwt.ts";
 
 setLogLevel("error");
 
@@ -32,7 +32,7 @@ export function testConfig(overrides: Record<string, string> = {}): Config {
   });
 }
 
-export async function startHarness(options: { verifier?: JwtVerifier | null; env?: Record<string, string> } = {}): Promise<Harness> {
+export async function startHarness(options: { verifier?: RemoteJwtVerifier | null; env?: Record<string, string> } = {}): Promise<Harness> {
   const dir = mkdtempSync(join(tmpdir(), "junctio-test-"));
   const config = testConfig({ JUNCTIO_DATA_DIR: dir, ...(options.env ?? {}) });
   const core = createCore({ config, dbFile: join(dir, "junctio.db") });

@@ -5,11 +5,12 @@ import type { HealthDto } from "@junctio/schema";
 import type { Core } from "../core.ts";
 import { servers } from "../db/schema.ts";
 import { createMcpRoute } from "./mcp.ts";
-import type { JwtVerifier } from "../auth/downstream/middleware.ts";
+import { createWellKnownRoute } from "./wellknown.ts";
+import { RemoteJwtVerifier } from "../auth/downstream/jwt.ts";
 
 export type AppOptions = {
   core: Core;
-  verifier?: JwtVerifier | null;
+  verifier?: RemoteJwtVerifier | null;
   publicDir?: string | null;
 };
 
@@ -47,10 +48,13 @@ export function createApp(options: AppOptions): Hono {
   const { core } = options;
   const app = new Hono();
   const publicDir = resolvePublicDir(options.publicDir);
+  const verifier =
+    options.verifier ?? (core.config.oauthIssuer ? new RemoteJwtVerifier(core.config.oauthIssuer, core.config.oauthAudience) : null);
 
   app.get("/health", (c) => c.json(buildHealth(core)));
 
-  app.route("/mcp", createMcpRoute({ core, verifier: options.verifier ?? null }));
+  app.route("/.well-known", createWellKnownRoute({ core, verifier }));
+  app.route("/mcp", createMcpRoute({ core, verifier }));
 
   if (publicDir) {
     app.get("/assets/*", async (c) => {

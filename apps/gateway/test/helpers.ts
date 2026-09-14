@@ -43,6 +43,8 @@ export type HarnessOptions = {
   env?: Record<string, string>;
   withBaseUrl?: boolean;
   refreshIntervalMs?: number;
+  fetchImpl?: typeof fetch;
+  registryTimeoutMs?: number;
 };
 
 export async function startHarness(options: HarnessOptions = {}): Promise<Harness> {
@@ -56,7 +58,9 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
   const core = createCore({
     config,
     dbFile: join(dir, "junctio.db"),
-    ...(options.refreshIntervalMs ? { refreshIntervalMs: options.refreshIntervalMs } : {})
+    ...(options.refreshIntervalMs ? { refreshIntervalMs: options.refreshIntervalMs } : {}),
+    ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+    ...(options.registryTimeoutMs ? { registryTimeoutMs: options.registryTimeoutMs } : {})
   });
   const app = createApp({ core, verifier: options.verifier ?? null, publicDir: null });
   const server = Bun.serve({ port, hostname: "127.0.0.1", idleTimeout: 0, fetch: app.fetch });

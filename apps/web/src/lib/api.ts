@@ -16,6 +16,8 @@ import type {
   NamespaceServerInput,
   NamespaceToolDto,
   OAuthClientDto,
+  RegistryDetailDto,
+  RegistryListDto,
   RequestLogDto,
   ServerDto,
   ServerInput,
@@ -172,6 +174,16 @@ export const api = {
     deny: (id: string) => request<ConsentDecisionDto>("POST", `/v1/oauth/requests/${id}/deny`),
     clients: () => request<OAuthClientDto[]>("GET", "/v1/oauth/clients"),
     removeClient: (clientId: string) => request<void>("DELETE", `/v1/oauth/clients/${clientId}`)
+  },
+
+  registry: {
+    list: (params: { search?: string; cursor?: string; limit?: number; refresh?: string }) =>
+      request<RegistryListDto>("GET", `/v1/registry/servers${query(params)}`),
+    get: (name: string, refresh = false) =>
+      request<RegistryDetailDto>(
+        "GET",
+        `/v1/registry/server${query({ name, refresh: refresh ? "1" : undefined })}`
+      )
   },
 
   requestLog: (params: { endpointId?: string; serverId?: string; status?: string; limit?: number }) =>

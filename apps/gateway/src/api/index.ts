@@ -30,6 +30,7 @@ import { createServersApi } from "./servers.ts";
 import { createNamespacesApi } from "./namespaces.ts";
 import { createEndpointsApi } from "./endpoints.ts";
 import { createApiKeysApi } from "./apikeys.ts";
+import { createRegistryApi } from "./registry.ts";
 import { createOAuthApi } from "./oauth.ts";
 import { badRequest, readJson } from "./util.ts";
 
@@ -101,6 +102,7 @@ export function createApi(core: Core): Hono {
   app.route("/v1/endpoints", createEndpointsApi(core));
   app.route("/v1/api-keys", createApiKeysApi(core));
   app.route("/v1/oauth", createOAuthApi(core));
+  app.route("/v1/registry", createRegistryApi(core));
 
   app.get("/v1/settings", (c) => {
     const stored = getSettings(core.db);

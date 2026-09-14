@@ -9,7 +9,11 @@ import { useSession } from "@/stores/session";
 const route = useRoute();
 const { session, ready } = useSession();
 
-const shell = computed(() => ready.value && (session.value?.authenticated ?? false) && route.name !== "login");
+const BARE_ROUTES = new Set(["login", "consent"]);
+
+const shell = computed(
+  () => ready.value && (session.value?.authenticated ?? false) && !BARE_ROUTES.has(String(route.name))
+);
 </script>
 
 <template>

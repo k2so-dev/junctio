@@ -129,6 +129,69 @@ export const oauthStates = sqliteTable("oauth_states", {
   createdAt: integer("created_at").notNull().default(now)
 });
 
+export const oauthClients = sqliteTable("oauth_clients", {
+  clientId: text("client_id").primaryKey(),
+  clientName: text("client_name"),
+  clientSecretEnc: text("client_secret_enc"),
+  clientSecretExpiresAt: integer("client_secret_expires_at"),
+  redirectUris: text("redirect_uris", { mode: "json" }).$type<string[]>().notNull(),
+  info: text("info", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
+  createdAt: integer("created_at").notNull().default(now),
+  lastUsedAt: integer("last_used_at")
+});
+
+export const oauthAuthRequests = sqliteTable("oauth_auth_requests", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+  redirectUri: text("redirect_uri").notNull(),
+  codeChallenge: text("code_challenge").notNull(),
+  state: text("state"),
+  scopes: text("scopes", { mode: "json" }).$type<string[]>().notNull().default([]),
+  resource: text("resource"),
+  createdAt: integer("created_at").notNull().default(now),
+  expiresAt: integer("expires_at").notNull()
+});
+
+export const oauthAuthCodes = sqliteTable(
+  "oauth_auth_codes",
+  {
+    codeHash: text("code_hash").primaryKey(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+    redirectUri: text("redirect_uri").notNull(),
+    codeChallenge: text("code_challenge").notNull(),
+    scopes: text("scopes", { mode: "json" }).$type<string[]>().notNull().default([]),
+    resource: text("resource"),
+    createdAt: integer("created_at").notNull().default(now),
+    expiresAt: integer("expires_at").notNull()
+  },
+  (t) => [index("oauth_auth_codes_client_idx").on(t.clientId)]
+);
+
+export const oauthTokens = sqliteTable(
+  "oauth_tokens",
+  {
+    id: text("id").primaryKey(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+    accessTokenHash: text("access_token_hash").notNull(),
+    refreshTokenHash: text("refresh_token_hash"),
+    scopes: text("scopes", { mode: "json" }).$type<string[]>().notNull().default([]),
+    resource: text("resource"),
+    expiresAt: integer("expires_at").notNull(),
+    createdAt: integer("created_at").notNull().default(now),
+    lastUsedAt: integer("last_used_at")
+  },
+  (t) => [
+    uniqueIndex("oauth_tokens_access_idx").on(t.accessTokenHash),
+    index("oauth_tokens_refresh_idx").on(t.refreshTokenHash)
+  ]
+);
+
 export const requestLog = sqliteTable(
   "request_log",
   {
@@ -167,4 +230,7 @@ export type ToolOverrideRow = typeof toolOverrides.$inferSelect;
 export type EndpointRow = typeof endpoints.$inferSelect;
 export type ApiKeyRow = typeof apiKeys.$inferSelect;
 export type UpstreamOauthRow = typeof upstreamOauth.$inferSelect;
+export type OauthClientRow = typeof oauthClients.$inferSelect;
+export type OauthAuthRequestRow = typeof oauthAuthRequests.$inferSelect;
+export type OauthTokenRow = typeof oauthTokens.$inferSelect;
 export type RequestLogRow = typeof requestLog.$inferSelect;

@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@hono/mcp": "0.3.2",
     "@junctio/schema": "workspace:*",
     "@modelcontextprotocol/sdk": "1.30.0",
     "drizzle-orm": "^0.45.2",

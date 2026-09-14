@@ -15,6 +15,7 @@ const router = createRouter({
     { path: "/api-keys", name: "api-keys", component: () => import("@/views/ApiKeysView.vue") },
     { path: "/request-log", name: "request-log", component: () => import("@/views/RequestLogView.vue") },
     { path: "/settings", name: "settings", component: () => import("@/views/SettingsView.vue") },
+    { path: "/consent", name: "consent", component: () => import("@/views/ConsentView.vue") },
     { path: "/:pathMatch(.*)*", redirect: "/servers" }
   ]
 });

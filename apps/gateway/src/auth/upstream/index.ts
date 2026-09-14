@@ -4,11 +4,11 @@ import type { Logger } from "../../log.ts";
 import type { ResolvedServer, UpstreamAuth } from "../../upstream/types.ts";
 import { TokenStore } from "./store.ts";
 import { UpstreamRefresher } from "./refresher.ts";
-import { UpstreamOauthFlow } from "./flow.ts";
+import { STATE_TTL_MS, UpstreamOauthFlow } from "./flow.ts";
 
 export { TokenStore } from "./store.ts";
 export { UpstreamRefresher, refreshWindowMs, needsRefresh } from "./refresher.ts";
-export { UpstreamOauthFlow, CALLBACK_PATH } from "./flow.ts";
+export { UpstreamOauthFlow, CALLBACK_PATH, STATE_TTL_MS } from "./flow.ts";
 
 export type UpstreamAuthServiceOptions = {
   db: Db;
@@ -23,6 +23,7 @@ export class UpstreamAuthService implements UpstreamAuth {
   readonly store: TokenStore;
   readonly refresher: UpstreamRefresher;
   readonly flow: UpstreamOauthFlow | null;
+  private stateTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(private readonly options: UpstreamAuthServiceOptions) {
     this.store = new TokenStore(options.db, options.cipher);
@@ -46,10 +47,17 @@ export class UpstreamAuthService implements UpstreamAuth {
 
   start(): void {
     this.refresher.start();
+    const flow = this.flow;
+    if (!flow || this.stateTimer) return;
+    flow.pruneStates();
+    this.stateTimer = setInterval(() => flow.pruneStates(), STATE_TTL_MS);
+    this.stateTimer.unref?.();
   }
 
   stop(): void {
     this.refresher.stop();
+    if (this.stateTimer) clearInterval(this.stateTimer);
+    this.stateTimer = null;
   }
 
   async authHeaders(server: ResolvedServer): Promise<Record<string, string>> {

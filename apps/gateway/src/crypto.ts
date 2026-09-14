@@ -67,6 +67,10 @@ export function randomToken(length = 32): string {
   return out;
 }
 
+export function sha256Hex(value: string): string {
+  return new Bun.CryptoHasher("sha256").update(value).digest("hex");
+}
+
 export function timingSafeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, lt } from "drizzle-orm";
 import {
   discoverOAuthServerInfo,
   exchangeAuthorization,
@@ -13,6 +13,7 @@ import { randomToken } from "../../crypto.ts";
 import { TokenStore, tokenSetFrom, type ClientRegistration } from "./store.ts";
 
 export const CALLBACK_PATH = "/oauth/upstream/callback";
+export const STATE_TTL_MS = 600_000;
 
 export type FlowOptions = {
   db: Db;
@@ -125,6 +126,7 @@ export class UpstreamOauthFlow {
     const pending = this.options.db.select().from(oauthStates).where(eq(oauthStates.state, state)).get();
     if (!pending || pending.serverId !== serverId) throw new Error("unknown or expired authorization state");
     this.options.db.delete(oauthStates).where(eq(oauthStates.state, state)).run();
+    if (pending.createdAt < Date.now() - STATE_TTL_MS) throw new Error("unknown or expired authorization state");
 
     const stored = await this.options.store.read(serverId);
     if (!stored?.client || !stored.authorizationServerUrl) throw new Error("oauth client is not registered");
@@ -151,10 +153,7 @@ export class UpstreamOauthFlow {
     });
   }
 
-  pruneStates(maxAgeMs = 600_000): void {
-    const cutoff = Date.now() - maxAgeMs;
-    for (const row of this.options.db.select().from(oauthStates).all()) {
-      if (row.createdAt < cutoff) this.options.db.delete(oauthStates).where(eq(oauthStates.state, row.state)).run();
-    }
+  pruneStates(maxAgeMs = STATE_TTL_MS): void {
+    this.options.db.delete(oauthStates).where(lt(oauthStates.createdAt, Date.now() - maxAgeMs)).run();
   }
 }

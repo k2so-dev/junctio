@@ -42,7 +42,7 @@ const PROTOCOLS: SelectOption<ProtocolVersion>[] = [
 
 const AUTH_MODES: { value: EndpointAuthMode; label: string; hint: string }[] = [
   { value: "api_key", label: "API key", hint: "Bearer jn_… or X-API-Key. The simple path." },
-  { value: "oauth", label: "OAuth", hint: "JWTs validated against your identity provider." },
+  { value: "oauth", label: "OAuth", hint: "The browser flow. Needed for claude.ai connectors." },
   { value: "any", label: "Either", hint: "Accepts an API key or a valid token." },
   { value: "none", label: "Open", hint: "No authentication. Localhost only." }
 ];

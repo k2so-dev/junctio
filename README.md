@@ -10,7 +10,7 @@ The promise: **auth does not go stale.** Not between your client and the gateway
 
 ## Status
 
-Early, but the whole path works: gateway, aggregation, API key auth, OAuth resource server mode, upstream OAuth, REST API, web UI and container image. Not published to a registry yet — build it yourself.
+Early, but the whole path works: gateway, aggregation, API key auth, a built-in OAuth authorization server, upstream OAuth, REST API, web UI and container image. Not published to a registry yet — build it yourself.
 
 ## Quickstart
 
@@ -45,8 +45,8 @@ claude mcp add --transport http junctio https://mcp.example.com/mcp/main \
 | `JUNCTIO_SECRET` | yes | Key used to encrypt stored tokens and headers. The process refuses to start without it. |
 | `JUNCTIO_BASE_URL` | for OAuth | Public URL of the gateway. Redirect URIs and resource identifiers are built from it. |
 | `JUNCTIO_ADMIN_TOKEN` | no | Bearer token for headless admin access, as an alternative to the password login. |
-| `JUNCTIO_OAUTH_ISSUER` | no | Issuer URL of your identity provider. Enables OAuth resource server mode. |
-| `JUNCTIO_OAUTH_AUDIENCE` | no | Override the expected audience. Defaults to the endpoint URL. |
+| `JUNCTIO_OAUTH_ISSUER` | no | Issuer URL of an external identity provider. Leave it empty to use the gateway's own authorization server. |
+| `JUNCTIO_OAUTH_AUDIENCE` | no | Override the expected audience of an external provider. Defaults to the endpoint URL. |
 | `JUNCTIO_DATA_DIR` | no | Where `junctio.db` lives. Defaults to `/data`. |
 | `JUNCTIO_PUBLIC_DIR` | no | Directory of the built UI. Defaults to `./public`, then `./apps/web/dist`. |
 | `PORT` / `HOST` | no | Listener. Defaults to `3000` and `0.0.0.0`. |
@@ -89,7 +89,13 @@ API keys are sent as `Authorization: Bearer jn_...` or `X-API-Key`. Only an argo
 
 An endpoint can cap requests per minute. The budget is counted per API key, or per client address when the endpoint needs no key, and a request over the limit gets a 429 with `Retry-After`. Zero means no limit.
 
-In OAuth resource server mode the gateway validates JWTs against your identity provider's JWKS and checks that the audience matches the endpoint URL. The discovery documents under `/.well-known/` are served **only** for endpoints whose auth mode includes OAuth; anything else returns 404. A 401 always carries a correct `WWW-Authenticate` header with the resource metadata URL.
+**The gateway is its own authorization server.** You do not need an identity provider. Set `JUNCTIO_BASE_URL`, switch an endpoint to OAuth, and a browser client can connect: the gateway publishes RFC 8414 metadata, accepts RFC 7591 dynamic client registration, runs authorization code with PKCE and issues its own tokens. This is what claude.ai and Claude Desktop connectors need, because they cannot send an API key header.
+
+Every authorization stops at a consent screen that requires the admin password. Registering a client grants nothing on its own. Access tokens live one hour, refresh tokens thirty days and rotate on every use, and a client secret never expires. Revoke a client from Settings and its tokens die with it.
+
+If you already run Keycloak, Authentik, Auth0 or similar, set `JUNCTIO_OAUTH_ISSUER` instead. The gateway then stops being an authorization server and validates your provider's JWTs against its JWKS, checking that the audience matches the endpoint URL.
+
+Either way the discovery documents under `/.well-known/` are served **only** for endpoints whose auth mode includes OAuth; anything else returns 404. A 401 always carries a correct `WWW-Authenticate` header with the resource metadata URL.
 
 ## Auth, upstream
 
@@ -132,7 +138,7 @@ Verified by hand before each release.
 | Claude Code | | pending |
 | Codex | | pending |
 | Cursor | | pending |
-| claude.ai connector | | needs the built-in authorization server |
+| claude.ai connector | | implemented, not yet verified against the live service |
 
 ## Security
 

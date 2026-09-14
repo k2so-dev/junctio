@@ -30,9 +30,6 @@ export function createEndpointsApi(core: Core): Hono {
     if (!core.db.select().from(namespaces).where(eq(namespaces.id, input.namespaceId)).get()) {
       return notFound(c, "namespace");
     }
-    if ((input.authMode === "oauth" || input.authMode === "any") && !core.config.oauthIssuer) {
-      return badRequest(c, "JUNCTIO_OAUTH_ISSUER must be set to use oauth on an endpoint");
-    }
     const id = randomId();
     core.db
       .insert(endpoints)
@@ -68,9 +65,6 @@ export function createEndpointsApi(core: Core): Hono {
       if (core.db.select().from(endpoints).where(eq(endpoints.slug, patch.slug)).get()) {
         return conflict(c, `endpoint "${patch.slug}" already exists`);
       }
-    }
-    if ((patch.authMode === "oauth" || patch.authMode === "any") && !core.config.oauthIssuer) {
-      return badRequest(c, "JUNCTIO_OAUTH_ISSUER must be set to use oauth on an endpoint");
     }
     if (
       patch.namespaceId !== undefined &&

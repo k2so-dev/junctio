@@ -402,7 +402,7 @@ describe("endpoints and keys api", () => {
     expect(response.status).toBe(404);
   });
 
-  test("refuses oauth endpoints without a configured issuer", async () => {
+  test("accepts oauth endpoints backed by the built-in authorization server", async () => {
     const namespace = await json<{ id: string }>(
       await api("/v1/namespaces", { method: "POST", body: JSON.stringify({ name: "team" }) })
     );
@@ -410,7 +410,10 @@ describe("endpoints and keys api", () => {
       method: "POST",
       body: JSON.stringify({ slug: "team", namespaceId: namespace.id, authMode: "oauth" })
     });
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(201);
+
+    const settings = await json<{ authorizationServer: string }>(await api("/v1/settings"));
+    expect(settings.authorizationServer).toBe("builtin");
   });
 });
 

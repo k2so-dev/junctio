@@ -30,6 +30,7 @@ import { createServersApi } from "./servers.ts";
 import { createNamespacesApi } from "./namespaces.ts";
 import { createEndpointsApi } from "./endpoints.ts";
 import { createApiKeysApi } from "./apikeys.ts";
+import { createOAuthApi } from "./oauth.ts";
 import { badRequest, readJson } from "./util.ts";
 
 const OPEN_PATHS = new Set(["/v1/session", "/v1/session/login", "/v1/session/setup"]);
@@ -99,6 +100,7 @@ export function createApi(core: Core): Hono {
   app.route("/v1/namespaces", createNamespacesApi(core));
   app.route("/v1/endpoints", createEndpointsApi(core));
   app.route("/v1/api-keys", createApiKeysApi(core));
+  app.route("/v1/oauth", createOAuthApi(core));
 
   app.get("/v1/settings", (c) => {
     const stored = getSettings(core.db);
@@ -109,6 +111,7 @@ export function createApi(core: Core): Hono {
       apiKeyQueryParam: stored.api_key_query_param === "true",
       requestLogRetentionDays: Number(stored.request_log_retention_days),
       oauthIssuer: core.config.oauthIssuer,
+      authorizationServer: core.config.oauthIssuer ? "external" : "builtin",
       version: core.config.version
     };
     return c.json(settings);

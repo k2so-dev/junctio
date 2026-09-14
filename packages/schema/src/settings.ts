@@ -7,6 +7,7 @@ export const SettingsDto = z.object({
   apiKeyQueryParam: z.boolean(),
   requestLogRetentionDays: z.number(),
   oauthIssuer: z.string().nullable(),
+  authorizationServer: z.enum(["builtin", "external"]),
   version: z.string()
 });
 export type SettingsDto = z.infer<typeof SettingsDto>;

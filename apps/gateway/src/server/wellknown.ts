@@ -3,10 +3,11 @@ import type { Core } from "../core.ts";
 import { endpoints as endpointsTable } from "../db/schema.ts";
 import { endpointAllowsOauth, endpointBySlug } from "../auth/downstream/middleware.ts";
 import type { RemoteJwtVerifier } from "../auth/downstream/jwt.ts";
+import { authorizationServerMetadata } from "../auth/downstream/as/index.ts";
 
 export type WellKnownOptions = {
   core: Core;
-  verifier: RemoteJwtVerifier | null;
+  remote: RemoteJwtVerifier | null;
 };
 
 function baseOf(core: Core, request: Request): string {
@@ -14,7 +15,7 @@ function baseOf(core: Core, request: Request): string {
 }
 
 export function createWellKnownRoute(options: WellKnownOptions): Hono {
-  const { core } = options;
+  const { core, remote } = options;
   const app = new Hono();
 
   const protectedResource = async (slug: string, request: Request): Promise<Response> => {
@@ -26,14 +27,23 @@ export function createWellKnownRoute(options: WellKnownOptions): Hono {
       });
     }
     const base = baseOf(core, request);
-    const issuer = core.config.oauthIssuer;
     return Response.json({
       resource: `${base}/mcp/${endpoint.slug}`,
-      authorization_servers: issuer ? [issuer] : [],
+      authorization_servers: [core.config.oauthIssuer ?? base],
       bearer_methods_supported: ["header"],
       resource_name: `junctio ${endpoint.slug}`,
       resource_documentation: "https://github.com/junctio/junctio"
     });
+  };
+
+  const authorizationServer = async (request: Request): Promise<Response> => {
+    if (!remote) return Response.json(authorizationServerMetadata(baseOf(core, request)));
+    try {
+      return Response.json(await remote.metadataOnce());
+    } catch (error) {
+      core.logger.warn("issuer metadata unavailable", { error: String(error) });
+      return Response.json({ error: "server_error" }, { status: 502 });
+    }
   };
 
   app.get("/oauth-protected-resource/mcp/:slug", (c) => protectedResource(c.req.param("slug"), c.req.raw));
@@ -46,27 +56,15 @@ export function createWellKnownRoute(options: WellKnownOptions): Hono {
   app.get("/oauth-authorization-server/mcp/:slug", async (c) => {
     const endpoint = endpointBySlug(core.db, c.req.param("slug"));
     if (!endpoint || !endpoint.enabled || !endpointAllowsOauth(endpoint)) return c.json({ error: "not_found" }, 404);
-    if (!options.verifier || !core.config.oauthIssuer) return c.json({ error: "not_found" }, 404);
-    try {
-      const metadata = await options.verifier.metadataOnce();
-      return c.json(metadata);
-    } catch (error) {
-      core.logger.warn("issuer metadata unavailable", { error: String(error) });
-      return c.json({ error: "server_error" }, 502);
-    }
+    return authorizationServer(c.req.raw);
   });
 
   app.get("/oauth-authorization-server", async (c) => {
-    if (!core.config.oauthIssuer || !options.verifier) return c.json({ error: "not_found" }, 404);
     const rows = core.db.select().from(endpointsTable).all();
     if (!rows.some((endpoint) => endpoint.enabled && endpointAllowsOauth(endpoint))) {
       return c.json({ error: "not_found" }, 404);
     }
-    try {
-      return c.json(await options.verifier.metadataOnce());
-    } catch {
-      return c.json({ error: "server_error" }, 502);
-    }
+    return authorizationServer(c.req.raw);
   });
 
   return app;

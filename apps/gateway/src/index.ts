@@ -42,7 +42,10 @@ export async function serve(): Promise<void> {
     });
   }
 
-  const pruneTimer = setInterval(() => pruneRequestLog(core), 3_600_000);
+  const pruneTimer = setInterval(() => {
+    pruneRequestLog(core);
+    core.oauthProvider.prune();
+  }, 3_600_000);
   pruneTimer.unref();
 
   let shuttingDown = false;

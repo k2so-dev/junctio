@@ -11,6 +11,7 @@ import { UpstreamPool } from "./upstream/pool.ts";
 import { Aggregator } from "./aggregate/aggregator.ts";
 import { type UpstreamAuth } from "./upstream/types.ts";
 import { UpstreamAuthService } from "./auth/upstream/index.ts";
+import { JunctioOAuthProvider } from "./auth/downstream/as/provider.ts";
 
 export type Core = {
   config: Config;
@@ -24,6 +25,7 @@ export type Core = {
   pool: UpstreamPool;
   aggregator: Aggregator;
   upstreamAuth: UpstreamAuthService;
+  oauthProvider: JunctioOAuthProvider;
   startedAt: number;
   setUpstreamAuth(auth: UpstreamAuth): void;
   shutdown(): Promise<void>;
@@ -86,6 +88,7 @@ export function createCore(options: CoreOptions): Core {
     pool,
     aggregator,
     upstreamAuth,
+    oauthProvider: new JunctioOAuthProvider(db, cipher),
     startedAt: Date.now(),
     setUpstreamAuth(next) {
       auth = next;

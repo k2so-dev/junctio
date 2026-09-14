@@ -2,6 +2,8 @@ import type {
   ApiKeyCreated,
   ApiKeyDto,
   ApiKeyInput,
+  ConsentDecisionDto,
+  ConsentRequestDto,
   EndpointDto,
   EndpointInput,
   EndpointPatch,
@@ -12,6 +14,7 @@ import type {
   NamespacePatch,
   NamespaceServerInput,
   NamespaceToolDto,
+  OAuthClientDto,
   RequestLogDto,
   ServerDto,
   ServerInput,
@@ -159,6 +162,14 @@ export const api = {
   settings: {
     get: () => request<SettingsDto>("GET", "/v1/settings"),
     patch: (patch: SettingsPatch) => request<{ ok: boolean }>("PATCH", "/v1/settings", patch)
+  },
+
+  oauth: {
+    request: (id: string) => request<ConsentRequestDto>("GET", `/v1/oauth/requests/${id}`),
+    approve: (id: string) => request<ConsentDecisionDto>("POST", `/v1/oauth/requests/${id}/approve`),
+    deny: (id: string) => request<ConsentDecisionDto>("POST", `/v1/oauth/requests/${id}/deny`),
+    clients: () => request<OAuthClientDto[]>("GET", "/v1/oauth/clients"),
+    removeClient: (clientId: string) => request<void>("DELETE", `/v1/oauth/clients/${clientId}`)
   },
 
   requestLog: (params: { endpointId?: string; serverId?: string; status?: string; limit?: number }) =>

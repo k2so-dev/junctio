@@ -9,10 +9,13 @@ import { createWellKnownRoute } from "./wellknown.ts";
 import { createUpstreamOauthRoute } from "./oauth.ts";
 import { createApi } from "../api/index.ts";
 import { RemoteJwtVerifier } from "../auth/downstream/jwt.ts";
+import type { JwtVerifier } from "../auth/downstream/middleware.ts";
+import { createAuthorizationServerRoute } from "../auth/downstream/as/index.ts";
+import { LocalTokenVerifier } from "../auth/downstream/as/verifier.ts";
 
 export type AppOptions = {
   core: Core;
-  verifier?: RemoteJwtVerifier | null;
+  verifier?: JwtVerifier | null;
   publicDir?: string | null;
 };
 
@@ -60,14 +63,17 @@ export function createApp(options: AppOptions): Hono {
   const { core } = options;
   const app = new Hono();
   const publicDir = resolvePublicDir(options.publicDir);
-  const verifier =
-    options.verifier ?? (core.config.oauthIssuer ? new RemoteJwtVerifier(core.config.oauthIssuer, core.config.oauthAudience) : null);
+  const remote = core.config.oauthIssuer
+    ? new RemoteJwtVerifier(core.config.oauthIssuer, core.config.oauthAudience)
+    : null;
+  const verifier = options.verifier ?? remote ?? new LocalTokenVerifier(core.oauthProvider);
 
   app.get("/health", (c) => c.json(buildHealth(core)));
 
-  app.route("/.well-known", createWellKnownRoute({ core, verifier }));
+  app.route("/.well-known", createWellKnownRoute({ core, remote }));
   app.route("/mcp", createMcpRoute({ core, verifier }));
   app.route("/oauth/upstream", createUpstreamOauthRoute(core));
+  if (!remote) app.route("/oauth", createAuthorizationServerRoute(core.oauthProvider));
   app.route("/api", createApi(core));
 
   if (publicDir) {

@@ -20,11 +20,13 @@ There is no isolation between upstream servers. They share a process namespace, 
 - `Origin` is validated on every state-changing request to both the MCP endpoints and the admin API.
 - The login endpoint is rate limited to ten attempts per minute per client address.
 - Discovery documents under `/.well-known/` are served only for endpoints that actually accept OAuth. An API-key-only endpoint returns 404, so a client is never sent down an authorization flow that cannot work.
+- The built-in authorization server stores access, refresh and authorization codes as SHA-256 hashes, and client secrets encrypted with `JUNCTIO_SECRET`. Authorization codes are single use and expire in a minute. Refresh tokens rotate on every exchange, and replaying a spent one fails.
+- Dynamic client registration is open, because browser clients such as claude.ai register themselves before any human is involved. Registration alone grants nothing: every authorization stops at a consent screen that requires the admin password, and a token is bound to the endpoint named in the `resource` parameter, so it is rejected on any other endpoint.
 
 ## What is not protected
 
 - No sandboxing of upstream processes. Use a dedicated container or VM if you need it.
-- No role-based access control. Admin access is all or nothing.
+- No role-based access control. Admin access is all or nothing, and an approved OAuth client reaches every tool in the namespace behind its endpoint.
 - No audit log beyond the request log and the structured application log.
 - `JUNCTIO_SECRET` is read from the environment. Anyone who can read the process environment can decrypt the database.
 - The database file is not encrypted at rest beyond the individual secret columns. Table contents such as server names, URLs and request history are plain text.

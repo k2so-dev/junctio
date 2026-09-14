@@ -30,7 +30,8 @@ export async function runCli(argv: string[]): Promise<void> {
   }
 
   if (command === undefined || command === "serve") {
-    await import("../index.ts");
+    const { serve } = await import("../index.ts");
+    await serve();
     return;
   }
 

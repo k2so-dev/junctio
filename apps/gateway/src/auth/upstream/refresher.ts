@@ -92,7 +92,16 @@ export class UpstreamRefresher {
     const rows = this.options.db.select().from(servers).where(eq(servers.authMode, "oauth")).all();
     for (const row of rows) {
       if (!row.enabled) continue;
-      const state = await this.options.store.read(row.id);
+      let state: UpstreamOauthState | null;
+      try {
+        state = await this.options.store.read(row.id);
+      } catch (error) {
+        this.options.logger.error("could not read stored upstream tokens", {
+          server: row.id,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        continue;
+      }
       if (!state?.tokens) continue;
       if (state.status === "needs_reauth") continue;
       if (!state.tokens.refreshToken) {

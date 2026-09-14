@@ -40,7 +40,23 @@ export function serverStatus(core: Core, row: ServerRow, oauth: ServerOAuthInfo 
 
 export async function readOauthInfo(core: Core, row: ServerRow): Promise<ServerOAuthInfo | null> {
   if (row.authMode !== "oauth") return null;
-  const state = await core.upstreamAuth.store.read(row.id);
+  let state: Awaited<ReturnType<Core["upstreamAuth"]["store"]["read"]>>;
+  try {
+    state = await core.upstreamAuth.store.read(row.id);
+  } catch (error) {
+    core.logger.error("could not read stored upstream tokens", {
+      server: row.id,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return {
+      status: "needs_reauth",
+      expiresAt: null,
+      hasRefreshToken: false,
+      scope: null,
+      lastRefreshAt: null,
+      lastError: "stored tokens could not be read, re-authorize this server"
+    };
+  }
   if (!state) {
     return { status: "needs_reauth", expiresAt: null, hasRefreshToken: false, scope: null, lastRefreshAt: null, lastError: null };
   }

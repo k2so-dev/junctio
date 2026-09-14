@@ -5,4 +5,5 @@ export * from "./apikey.ts";
 export * from "./settings.ts";
 export * from "./oauth.ts";
 export * from "./registry.ts";
+export * from "./mcpconfig.ts";
 export * from "./misc.ts";

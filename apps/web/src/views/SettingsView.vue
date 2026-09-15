@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import type { OAuthClientDto } from "@junctio/schema";
+import type {
+  AuditActionMap,
+  AuditOverviewDto,
+  OAuthClientDto,
+  SanctionAction,
+  SanctionSeverity
+} from "@junctio/schema";
 import { Loader2 } from "@lucide/vue";
 import { computed, onMounted, reactive, ref } from "vue";
 import { toast } from "vue-sonner";
@@ -9,11 +15,15 @@ import DockerStatus from "@/components/server/DockerStatus.vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import ServerAudit from "@/components/server/ServerAudit.vue";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, api } from "@/lib/api";
 import { CLIENTS } from "@/lib/clients";
 import { relativeTime } from "@/lib/format";
+import { ACTION_LABEL } from "@/lib/status";
+import { DEFAULT_ACTIONS } from "@/lib/audit";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/stores/session";
 
@@ -28,8 +38,38 @@ const draft = reactive({
   runtimePath: "",
   apiKeyQueryParam: false,
   requestLogRetentionDays: 7,
-  adminMcp: false
+  adminMcp: false,
+  auditEnabled: false,
+  auditIntervalHours: 24,
+  auditActions: { ...DEFAULT_ACTIONS } as AuditActionMap
 });
+
+const SEVERITIES: SanctionSeverity[] = ["critical", "high", "moderate", "low"];
+const ACTIONS: SanctionAction[] = ["ignore", "report", "quarantine", "disable"];
+
+const audit = ref<AuditOverviewDto | null>(null);
+const auditBusy = ref(false);
+
+async function loadAudit() {
+  try {
+    audit.value = await api.audit.overview();
+  } catch {
+    audit.value = null;
+  }
+}
+
+async function runAudit() {
+  auditBusy.value = true;
+  try {
+    await api.audit.run();
+    toast.success("Audit started");
+    setTimeout(loadAudit, 1500);
+  } catch (error) {
+    if (error instanceof ApiError) toast.error(error.message);
+  } finally {
+    auditBusy.value = false;
+  }
+}
 
 const adminClient = ref("claude-code");
 
@@ -64,7 +104,10 @@ const dirty = computed(() => {
     draft.runtimePath !== current.runtimePath ||
     draft.apiKeyQueryParam !== current.apiKeyQueryParam ||
     draft.requestLogRetentionDays !== current.requestLogRetentionDays ||
-    draft.adminMcp !== current.adminMcp
+    draft.adminMcp !== current.adminMcp ||
+    draft.auditEnabled !== current.auditEnabled ||
+    draft.auditIntervalHours !== current.auditIntervalHours ||
+    SEVERITIES.some((severity) => draft.auditActions[severity] !== current.auditActions[severity])
   );
 });
 
@@ -91,13 +134,17 @@ function reset() {
   draft.apiKeyQueryParam = current.apiKeyQueryParam;
   draft.requestLogRetentionDays = current.requestLogRetentionDays;
   draft.adminMcp = current.adminMcp;
+  draft.auditEnabled = current.auditEnabled;
+  draft.auditIntervalHours = current.auditIntervalHours;
+  draft.auditActions = { ...current.auditActions };
 }
 
 async function save() {
   busy.value = true;
   try {
-    await api.settings.patch({ ...draft });
+    await api.settings.patch({ ...draft, auditActions: { ...draft.auditActions } });
     await refreshSettings();
+    await loadAudit();
     toast.success("Settings saved");
   } catch (error) {
     if (error instanceof ApiError) toast.error(error.message);
@@ -110,6 +157,7 @@ onMounted(async () => {
   await refreshSettings();
   reset();
   await loadClients();
+  await loadAudit();
 });
 </script>
 
@@ -235,6 +283,94 @@ onMounted(async () => {
         </div>
       </section>
     </div>
+
+    <section class="max-w-5xl overflow-hidden rounded-lg border bg-card">
+      <header class="flex items-baseline justify-between border-b px-3.5 py-2.5">
+        <span class="font-medium">Security audit</span>
+        <span class="text-xs text-muted-foreground">upstream packages</span>
+      </header>
+      <div class="flex flex-col gap-3 px-3.5 py-3">
+        <div class="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-3">
+          <Label for="audit-enabled">Audit packages</Label>
+          <Switch id="audit-enabled" v-model="draft.auditEnabled" />
+        </div>
+        <p class="text-xs leading-relaxed text-muted-foreground">
+          Off by default. Turned on, the gateway resolves the packages every stdio server runs and checks them against
+          the npm advisory database and OSV.dev. Those two are the only outbound calls it makes, and they carry package
+          names and versions, nothing else. Container images, custom commands and remote servers cannot be audited.
+        </p>
+
+        <div class="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-3">
+          <Label for="audit-interval">Run every</Label>
+          <div class="flex items-center gap-2">
+            <Input
+              id="audit-interval"
+              v-model.number="draft.auditIntervalHours"
+              type="number"
+              min="1"
+              max="720"
+              class="h-8 w-24 font-mono text-xs"
+            />
+            <span class="text-muted-foreground">hours</span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <span class="font-medium">What a finding does</span>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead class="w-32">Severity</TableHead>
+                <TableHead>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="severity in SEVERITIES" :key="severity">
+                <TableCell class="font-medium capitalize">{{ severity }}</TableCell>
+                <TableCell>
+                  <Select v-model="draft.auditActions[severity]">
+                    <SelectTrigger class="h-8 w-60 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="action in ACTIONS" :key="action" :value="action">
+                        {{ ACTION_LABEL[action] }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          <p class="text-xs leading-relaxed text-muted-foreground">
+            A quarantined server is stopped and refuses new calls until a later audit comes back clean or you ignore the
+            advisory on the server page. A disabled server stays off until you switch it back on. An advisory without a
+            published severity counts as moderate and is shown as unknown.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+          <span class="text-xs text-muted-foreground">
+            <template v-if="audit?.lastRun">
+              Last run {{ relativeTime(audit.lastRun.finishedAt ?? audit.lastRun.startedAt) }} ·
+              {{ audit.lastRun.vulnerable }} with advisories · {{ audit.lastRun.errors }} failed ·
+              {{ audit.lastRun.unsupported }} not audited
+            </template>
+            <template v-else>Never run</template>
+            <template v-if="audit?.nextRunAt"> · next {{ relativeTime(audit.nextRunAt) }}</template>
+          </span>
+          <Button variant="outline" size="sm" :disabled="!settings?.auditEnabled || auditBusy" @click="runAudit">
+            <Loader2 v-if="auditBusy" class="animate-spin" />
+            Audit all servers
+          </Button>
+        </div>
+
+        <div class="border-t pt-3">
+          <div class="mb-2 font-medium">The gateway itself</div>
+          <ServerAudit target="self" :enabled="settings?.auditEnabled ?? false" @changed="loadAudit" />
+        </div>
+      </div>
+    </section>
 
     <section class="max-w-5xl overflow-hidden rounded-lg border bg-card">
       <header class="flex items-baseline justify-between border-b px-3.5 py-2.5">

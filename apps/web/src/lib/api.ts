@@ -2,6 +2,10 @@ import type {
   ApiKeyCreated,
   ApiKeyDto,
   ApiKeyInput,
+  AuditIgnoreInput,
+  AuditOverviewDto,
+  AuditReportDto,
+  AuditRunSummaryDto,
   ConsentDecisionDto,
   ConsentRequestDto,
   DockerStatusDto,
@@ -129,7 +133,21 @@ export const api = {
       request<{ authorizationUrl: string }>("POST", `/v1/servers/${id}/oauth/start`, {}),
     oauthRefresh: (id: string) =>
       request<{ refreshed: boolean; oauth: ServerDto["oauth"] }>("POST", `/v1/servers/${id}/oauth/refresh`, {}),
-    oauthClear: (id: string) => request<void>("DELETE", `/v1/servers/${id}/oauth`)
+    oauthClear: (id: string) => request<void>("DELETE", `/v1/servers/${id}/oauth`),
+    audit: (id: string) => request<AuditReportDto>("GET", `/v1/servers/${id}/audit`),
+    runAudit: (id: string) => request<AuditReportDto>("POST", `/v1/servers/${id}/audit/run`, {}),
+    ignoreAdvisory: (id: string, advisoryId: string, input: AuditIgnoreInput) =>
+      request<AuditReportDto>("PUT", `/v1/servers/${id}/audit/ignores/${encodeURIComponent(advisoryId)}`, input),
+    unignoreAdvisory: (id: string, advisoryId: string) =>
+      request<void>("DELETE", `/v1/servers/${id}/audit/ignores/${encodeURIComponent(advisoryId)}`),
+    liftQuarantine: (id: string) => request<ServerDto>("DELETE", `/v1/servers/${id}/quarantine`)
+  },
+
+  audit: {
+    overview: () => request<AuditOverviewDto>("GET", "/v1/audit"),
+    run: () => request<{ started: boolean; current: AuditRunSummaryDto | null }>("POST", "/v1/audit/run", {}),
+    self: () => request<AuditReportDto>("GET", "/v1/audit/self"),
+    runSelf: () => request<AuditReportDto>("POST", "/v1/audit/self/run", {})
   },
 
   namespaces: {

@@ -7,6 +7,7 @@ import { toast } from "vue-sonner";
 import EmptyState from "@/components/EmptyState.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import StatusDot from "@/components/StatusDot.vue";
+import AuditBadge from "@/components/server/AuditBadge.vue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, api } from "@/lib/api";
 import { needsAttention, serverMeta } from "@/lib/status";
+
+function auditWorthShowing(server: ServerDto): boolean {
+  if (server.quarantinedAt !== null) return true;
+  const status = server.audit?.status;
+  return status === "ok" || status === "vulnerable" || status === "error";
+}
 
 const router = useRouter();
 
@@ -166,7 +173,17 @@ onUnmounted(() => {
               </div>
               <div class="truncate text-xs text-muted-foreground">{{ serverMeta(server) }}</div>
             </TableCell>
-            <TableCell><StatusDot :status="server.status" /></TableCell>
+            <TableCell>
+              <div class="flex flex-col items-start gap-1">
+                <StatusDot :status="server.status" />
+                <AuditBadge
+                  v-if="auditWorthShowing(server)"
+                  :summary="server.audit"
+                  :quarantined="server.quarantinedAt !== null"
+                  compact
+                />
+              </div>
+            </TableCell>
             <TableCell class="max-w-0">
               <div class="truncate font-mono text-xs text-muted-foreground">
                 {{ server.transport === "stdio" ? server.commandPreview : server.url }}

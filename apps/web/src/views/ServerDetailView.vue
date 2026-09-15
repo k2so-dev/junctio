@@ -8,6 +8,7 @@ import CodeBlock from "@/components/CodeBlock.vue";
 import DefinitionList from "@/components/DefinitionList.vue";
 import StatusDot from "@/components/StatusDot.vue";
 import DockerStatus from "@/components/server/DockerStatus.vue";
+import ServerAudit from "@/components/server/ServerAudit.vue";
 import ServerAuth from "@/components/server/ServerAuth.vue";
 import ServerLogs from "@/components/server/ServerLogs.vue";
 import ServerTools from "@/components/server/ServerTools.vue";
@@ -27,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, api } from "@/lib/api";
 import { relativeTime } from "@/lib/format";
 import { needsAttention, statusMeta } from "@/lib/status";
+import { useSession } from "@/stores/session";
 
 const route = useRoute();
 const router = useRouter();
@@ -40,6 +42,21 @@ const server = ref<ServerDto | null>(null);
 const namespaces = ref<NamespaceDto[]>([]);
 const tab = ref("overview");
 const busy = ref<string | null>(null);
+const { settings, refreshSettings } = useSession();
+
+const auditEnabled = computed(() => settings.value?.auditEnabled ?? false);
+
+async function liftQuarantine() {
+  busy.value = "quarantine";
+  try {
+    server.value = await api.servers.liftQuarantine(id.value);
+    toast.success("Quarantine lifted");
+  } catch (error) {
+    if (error instanceof ApiError) toast.error(error.message);
+  } finally {
+    busy.value = null;
+  }
+}
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -161,6 +178,7 @@ watch(id, () => {
 onMounted(() => {
   void load();
   void loadNamespaces();
+  void refreshSettings();
   timer = setInterval(load, 5000);
 });
 onUnmounted(() => {
@@ -250,10 +268,41 @@ onUnmounted(() => {
           Auth
           <span v-if="needsAttention(server)" class="size-[6px] rounded-full bg-warning" />
         </TabsTrigger>
+        <TabsTrigger value="audit" :class="TAB_TRIGGER">
+          Audit
+          <span
+            v-if="server.quarantinedAt !== null || server.audit?.status === 'vulnerable'"
+            :class="server.quarantinedAt !== null ? 'size-[6px] rounded-full bg-destructive' : 'size-[6px] rounded-full bg-warning'"
+          />
+        </TabsTrigger>
       </TabsList>
     </div>
 
     <div class="flex min-h-0 flex-1 flex-col overflow-auto p-6">
+      <div
+        v-if="server.quarantinedAt !== null"
+        class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3"
+      >
+        <div class="flex min-w-0 flex-col gap-0.5">
+          <span class="font-medium text-destructive">Quarantined by the security audit</span>
+          <span class="text-xs text-muted-foreground">
+            {{ server.quarantineReason ?? "A vulnerable package was found." }}
+          </span>
+          <span class="text-xs text-muted-foreground">
+            Lifting it keeps the server running until the next audit finds the same advisory again.
+          </span>
+        </div>
+        <Button variant="outline" size="sm" :disabled="busy !== null" @click="liftQuarantine">Lift quarantine</Button>
+      </div>
+
+      <div
+        v-else-if="server.disabledReason"
+        class="mb-5 rounded-lg border border-warning/50 bg-warning/5 px-4 py-3 text-xs text-muted-foreground"
+      >
+        <span class="font-medium text-warning">Disabled by the security audit.</span>
+        {{ server.disabledReason }}
+      </div>
+
       <TabsContent value="overview" class="mt-0">
           <div class="grid items-start gap-5 lg:grid-cols-[minmax(300px,1.3fr)_minmax(260px,1fr)]">
             <div class="flex flex-col gap-3.5">
@@ -305,6 +354,10 @@ onUnmounted(() => {
 
       <TabsContent value="logs" class="mt-0 flex min-h-0 flex-1 flex-col">
         <ServerLogs :server-id="server.id" />
+      </TabsContent>
+
+      <TabsContent value="audit" class="mt-0">
+        <ServerAudit :target="server.id" :enabled="auditEnabled" @changed="load" />
       </TabsContent>
 
       <TabsContent value="auth" class="mt-0">

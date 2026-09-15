@@ -25,6 +25,7 @@ import { createOAuthApi } from "./oauth.ts";
 import { createSettingsApi } from "./settings.ts";
 import { createDockerApi } from "./docker.ts";
 import { createRequestLogApi } from "./requestlog.ts";
+import { createAuditApi } from "./audit.ts";
 import { badRequest, readJson } from "./util.ts";
 
 const OPEN_PATHS = new Set(["/v1/session", "/v1/session/login", "/v1/session/setup"]);
@@ -101,6 +102,7 @@ export function createApi(core: Core): Hono<AppEnv> {
   app.route("/v1/settings", createSettingsApi(core));
   app.route("/v1/docker", createDockerApi(core));
   app.route("/v1/request-log", createRequestLogApi(core));
+  app.route("/v1/audit", createAuditApi(core));
 
   return app;
 }

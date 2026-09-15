@@ -8,6 +8,7 @@ import { randomId } from "../crypto.ts";
 import { mergeSecrets, toServerDto } from "./dto.ts";
 import { badRequest, conflict, notFound, readJson } from "./util.ts";
 import { buildArgv, previewCommand } from "../upstream/command.ts";
+import { AuditIgnoreInput } from "@junctio/schema";
 
 const CONNECTION_FIELDS = [
   "transport",
@@ -104,6 +105,7 @@ export function createServersApi(core: Core): Hono {
       .run();
     const row = findServer(core, id);
     if (!row) return notFound(c, "server");
+    core.audit.enqueue(id, "server-saved");
     return c.json(await toServerDto(core, row), 201);
   });
 
@@ -143,6 +145,7 @@ export function createServersApi(core: Core): Hono {
         ...(patch.authMode !== undefined ? { authMode: patch.authMode } : {}),
         ...(patch.oauthScope !== undefined ? { oauthScope: patch.oauthScope } : {}),
         ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+        ...(patch.enabled === true && row.disabledReason !== null ? { disabledReason: null } : {}),
         ...(patch.warm !== undefined ? { warm: patch.warm } : {}),
         ...(patch.idleTimeoutSec !== undefined ? { idleTimeoutSec: patch.idleTimeoutSec } : {}),
         updatedAt: Date.now()
@@ -160,6 +163,7 @@ export function createServersApi(core: Core): Hono {
       await core.pool.invalidate(row.id, "server updated");
       await core.supervisor.stop(row.id);
       core.supervisor.reset(row.id);
+      core.audit.enqueue(row.id, "server-saved");
     }
     if (!updated) return notFound(c, "server");
     return c.json(await toServerDto(core, updated));
@@ -173,12 +177,16 @@ export function createServersApi(core: Core): Hono {
     core.db.delete(servers).where(eq(servers.id, row.id)).run();
     core.registry.invalidate(row.id);
     core.logs.clear(row.id);
+    core.audit.onServerDeleted(row.id);
     return c.body(null, 204);
   });
 
   app.post("/:id/start", async (c) => {
     const row = findServer(core, c.req.param("id"));
     if (!row) return notFound(c, "server");
+    if (row.quarantinedAt !== null) {
+      return conflict(c, "server is quarantined by the security audit; lift the quarantine or ignore the advisory first");
+    }
     try {
       await core.pool.acquire(row.id);
     } catch (error) {
@@ -198,6 +206,9 @@ export function createServersApi(core: Core): Hono {
   app.post("/:id/restart", async (c) => {
     const row = findServer(core, c.req.param("id"));
     if (!row) return notFound(c, "server");
+    if (row.quarantinedAt !== null) {
+      return conflict(c, "server is quarantined by the security audit; lift the quarantine or ignore the advisory first");
+    }
     await core.pool.invalidate(row.id, "restarted from the api");
     await core.supervisor.stop(row.id);
     core.supervisor.reset(row.id);
@@ -338,6 +349,53 @@ export function createServersApi(core: Core): Hono {
     core.upstreamAuth.store.clear(row.id);
     await core.pool.invalidate(row.id, "oauth tokens cleared");
     return c.body(null, 204);
+  });
+
+  app.get("/:id/audit", (c) => {
+    const row = findServer(core, c.req.param("id"));
+    if (!row) return notFound(c, "server");
+    const report = core.audit.report(row.id);
+    if (!report) return notFound(c, "audit report");
+    return c.json(report);
+  });
+
+  app.post("/:id/audit/run", async (c) => {
+    const row = findServer(core, c.req.param("id"));
+    if (!row) return notFound(c, "server");
+    if (!core.audit.isEnabled()) return badRequest(c, "the security audit is disabled in settings");
+    await core.audit.runServer(row.id, "manual");
+    const report = core.audit.report(row.id);
+    if (!report) return notFound(c, "audit report");
+    return c.json(report);
+  });
+
+  app.put("/:id/audit/ignores/:advisoryId", async (c) => {
+    const row = findServer(core, c.req.param("id"));
+    if (!row) return notFound(c, "server");
+    const parsed = AuditIgnoreInput.safeParse((await readJson(c)) ?? {});
+    if (!parsed.success) return badRequest(c, parsed.error);
+    core.audit.store.addIgnore(row.id, c.req.param("advisoryId"), parsed.data.reason);
+    await core.audit.reevaluate(row.id);
+    const report = core.audit.report(row.id);
+    if (!report) return notFound(c, "audit report");
+    return c.json(report);
+  });
+
+  app.delete("/:id/audit/ignores/:advisoryId", async (c) => {
+    const row = findServer(core, c.req.param("id"));
+    if (!row) return notFound(c, "server");
+    if (!core.audit.store.removeIgnore(row.id, c.req.param("advisoryId"))) return notFound(c, "ignored advisory");
+    await core.audit.reevaluate(row.id);
+    return c.body(null, 204);
+  });
+
+  app.delete("/:id/quarantine", async (c) => {
+    const row = findServer(core, c.req.param("id"));
+    if (!row) return notFound(c, "server");
+    await core.audit.liftQuarantine(row.id, "admin");
+    const updated = findServer(core, row.id);
+    if (!updated) return notFound(c, "server");
+    return c.json(await toServerDto(core, updated));
   });
 
   return app;

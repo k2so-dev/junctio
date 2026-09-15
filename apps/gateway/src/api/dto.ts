@@ -33,6 +33,7 @@ export function mergeSecrets(
 
 export function serverStatus(core: Core, row: ServerRow, oauth: ServerOAuthInfo | null): ServerStatus {
   if (!row.enabled) return "stopped";
+  if (row.quarantinedAt !== null) return "quarantined";
   if (oauth && (oauth.status === "needs_reauth" || oauth.status === "no_refresh")) return oauth.status;
   if (row.transport !== "stdio") return core.pool.cachedCatalog(row.id) ? "running" : "stopped";
   return core.supervisor.getInfo(row.id).state;
@@ -99,7 +100,11 @@ export async function toServerDto(core: Core, row: ServerRow): Promise<ServerDto
     toolCount: catalog ? catalog.tools.length : null,
     protocolVersion: core.pool.negotiated(row.id)?.protocolVersion ?? null,
     commandPreview: core.registry.preview(row),
-    oauth
+    oauth,
+    audit: core.audit.summary(row.id),
+    quarantinedAt: row.quarantinedAt,
+    quarantineReason: row.quarantineReason,
+    disabledReason: row.disabledReason
   };
 }
 

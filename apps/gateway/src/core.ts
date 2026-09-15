@@ -16,6 +16,7 @@ import { type UpstreamAuth } from "./upstream/types.ts";
 import { UpstreamAuthService } from "./auth/upstream/index.ts";
 import { JunctioOAuthProvider } from "./auth/downstream/as/provider.ts";
 import { RegistryClient } from "./registry/client.ts";
+import { AuditService, type AuditServiceOptions } from "./audit/service.ts";
 
 export type Core = {
   config: Config;
@@ -32,6 +33,7 @@ export type Core = {
   upstreamAuth: UpstreamAuthService;
   oauthProvider: JunctioOAuthProvider;
   registryClient: RegistryClient;
+  audit: AuditService;
   startedAt: number;
   setUpstreamAuth(auth: UpstreamAuth): void;
   shutdown(): Promise<void>;
@@ -44,6 +46,12 @@ export type CoreOptions = {
   refreshIntervalMs?: number;
   registryBaseUrl?: string;
   registryTimeoutMs?: number;
+  audit?: Partial<
+    Pick<
+      AuditServiceOptions,
+      "engines" | "targetFor" | "fetchImpl" | "tickMs" | "intervalMs" | "serverTimeoutMs" | "startupDelayMs" | "appDir"
+    >
+  >;
 };
 
 export function databaseFile(config: Config): string {
@@ -88,6 +96,19 @@ export function createCore(options: CoreOptions): Core {
   pool = new UpstreamPool({ registry, supervisor, auth: authProxy, logger, logs });
   const aggregator = new Aggregator(db, pool, logger);
 
+  const audit = new AuditService({
+    db,
+    logger,
+    logs,
+    registry,
+    stopInstance: async (serverId, reason) => {
+      await pool.invalidate(serverId, reason);
+      await supervisor.stop(serverId);
+    },
+    ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+    ...(options.audit ?? {})
+  });
+
   return {
     config,
     logger,
@@ -109,11 +130,13 @@ export function createCore(options: CoreOptions): Core {
       ...(options.registryBaseUrl ? { baseUrl: options.registryBaseUrl } : {}),
       ...(options.registryTimeoutMs ? { timeoutMs: options.registryTimeoutMs } : {})
     }),
+    audit,
     startedAt: Date.now(),
     setUpstreamAuth(next) {
       auth = next;
     },
     async shutdown() {
+      audit.stop();
       upstreamAuth.stop();
       await pool.shutdown();
       await supervisor.shutdown();

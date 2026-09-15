@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { SettingsPatch, type SettingsDto } from "@junctio/schema";
 import type { Core } from "../core.ts";
 import { getSetting, getSettings, setSetting } from "../db/settings.ts";
+import { parseActionMap } from "../audit/policy.ts";
 import { badRequest, readJson } from "./util.ts";
 
 export function adminMcpEnabled(core: Core): boolean {
@@ -28,6 +29,9 @@ export function createSettingsApi(core: Core): Hono {
       authorizationServer: core.config.oauthIssuer ? "external" : "builtin",
       adminMcp: stored.admin_mcp_enabled === "true",
       adminMcpUrl: adminMcpUrl(core),
+      auditEnabled: stored.audit_enabled === "true",
+      auditIntervalHours: Number(stored.audit_interval_hours),
+      auditActions: parseActionMap(stored.audit_actions),
       version: core.config.version
     };
     return c.json(settings);
@@ -47,6 +51,17 @@ export function createSettingsApi(core: Core): Hono {
     }
     if (patch.adminMcp !== undefined) {
       setSetting(core.db, "admin_mcp_enabled", patch.adminMcp ? "true" : "false");
+    }
+    if (patch.auditEnabled !== undefined) {
+      setSetting(core.db, "audit_enabled", patch.auditEnabled ? "true" : "false");
+      if (!patch.auditEnabled) core.audit.cancelPending();
+    }
+    if (patch.auditIntervalHours !== undefined) {
+      setSetting(core.db, "audit_interval_hours", String(patch.auditIntervalHours));
+    }
+    if (patch.auditActions !== undefined) {
+      setSetting(core.db, "audit_actions", JSON.stringify(patch.auditActions));
+      await core.audit.reevaluateAll();
     }
     core.registry.invalidate();
     return c.json({ ok: true });

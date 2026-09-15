@@ -50,9 +50,12 @@ export async function serve(): Promise<void> {
   core.logger.info("listening", { url: `http://${config.host}:${config.port}` });
 
   core.upstreamAuth.start();
+  core.audit.store.pruneOrphans();
+  core.audit.sweepTemp();
+  core.audit.start();
 
   for (const row of core.db.select().from(servers).where(eq(servers.warm, true)).all()) {
-    if (!row.enabled || row.transport !== "stdio") continue;
+    if (!row.enabled || row.transport !== "stdio" || row.quarantinedAt !== null) continue;
     core.supervisor.acquire(row.id).catch((error: unknown) => {
       core.logger.warn("warm start failed", { server: row.id, error: String(error) });
     });

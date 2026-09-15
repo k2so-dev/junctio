@@ -63,7 +63,7 @@ export type PoolOptions = {
   backoffCapMs?: number;
 };
 
-const EMPTY_CATALOG: Catalog = {
+export const EMPTY_CATALOG: Catalog = {
   tools: [],
   resources: [],
   prompts: [],
@@ -187,6 +187,10 @@ export class UpstreamPool {
     const resolved = await this.options.registry.resolve(serverId);
     if (!resolved) throw new UpstreamError("server not found", "not_found", serverId);
     if (!resolved.row.enabled) throw new UpstreamError("server is disabled", "disabled", serverId);
+    if (resolved.row.quarantinedAt !== null) {
+      const detail = resolved.row.quarantineReason ?? "a vulnerable package was found";
+      throw new UpstreamError(`server is quarantined by the security audit: ${detail}`, "quarantined", serverId);
+    }
     if (resolved.row.transport === "stdio") {
       const handle = await this.options.supervisor.acquire(serverId);
       return { transport: handle.transport, generation: handle.generation };

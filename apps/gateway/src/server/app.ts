@@ -39,8 +39,13 @@ export function buildHealth(core: Core): HealthDto {
   let running = 0;
   let failed = 0;
   let needsReauth = 0;
+  let quarantined = 0;
   for (const row of rows) {
     if (!row.enabled) continue;
+    if (row.quarantinedAt !== null) {
+      quarantined += 1;
+      continue;
+    }
     if (row.authMode === "oauth") {
       const status = oauthStatus.get(row.id) ?? "needs_reauth";
       if (status === "needs_reauth" || status === "no_refresh") needsReauth += 1;
@@ -53,11 +58,29 @@ export function buildHealth(core: Core): HealthDto {
     if (info.state === "running") running += 1;
     if (info.state === "failed") failed += 1;
   }
+  const results = core.audit.store.all();
+  let vulnerable = 0;
+  let auditErrors = 0;
+  for (const result of results) {
+    if (result.status === "error") auditErrors += 1;
+    if (result.status !== "vulnerable") continue;
+    const summary = core.audit.summary(result.serverId);
+    if (summary && summary.action !== null && summary.action !== "ignore") vulnerable += 1;
+  }
+  const lastRun = core.audit.lastRun();
+  const degraded = failed > 0 || needsReauth > 0 || quarantined > 0 || vulnerable > 0;
   return {
-    status: failed > 0 || needsReauth > 0 ? "degraded" : "ok",
+    status: degraded ? "degraded" : "ok",
     version: core.config.version,
     uptimeSec: Math.floor((Date.now() - core.startedAt) / 1000),
-    servers: { total: rows.length, running, failed, needsReauth }
+    servers: { total: rows.length, running, failed, needsReauth, quarantined },
+    audit: {
+      enabled: core.audit.isEnabled(),
+      lastRunAt: lastRun?.finishedAt ?? null,
+      vulnerable,
+      quarantined,
+      errors: auditErrors
+    }
   };
 }
 

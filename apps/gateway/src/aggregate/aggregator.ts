@@ -13,7 +13,7 @@ import { namespaceServers, namespaces, servers, toolOverrides } from "../db/sche
 import type { ToolOverrideRow } from "../db/schema.ts";
 import { getSetting } from "../db/settings.ts";
 import type { Logger } from "../log.ts";
-import type { UpstreamPool } from "../upstream/pool.ts";
+import { EMPTY_CATALOG, type UpstreamPool } from "../upstream/pool.ts";
 import { UpstreamError } from "../upstream/types.ts";
 import {
   assertUniquePrefixes,
@@ -30,6 +30,7 @@ export type NamespaceMember = {
   serverName: string;
   prefix: string;
   enabled: boolean;
+  quarantined: boolean;
 };
 
 export type AggregatedTool = {
@@ -56,7 +57,8 @@ export class Aggregator {
         serverName: servers.name,
         prefix: namespaceServers.prefix,
         enabled: namespaceServers.enabled,
-        serverEnabled: servers.enabled
+        serverEnabled: servers.enabled,
+        quarantinedAt: servers.quarantinedAt
       })
       .from(namespaceServers)
       .innerJoin(servers, eq(servers.id, namespaceServers.serverId))
@@ -68,7 +70,8 @@ export class Aggregator {
         serverId: row.serverId,
         serverName: row.serverName,
         prefix: row.prefix ?? row.serverName,
-        enabled: row.enabled && row.serverEnabled
+        enabled: row.enabled && row.serverEnabled,
+        quarantined: row.quarantinedAt !== null
       }));
   }
 
@@ -96,7 +99,10 @@ export class Aggregator {
   private async catalogs(namespaceId: string) {
     const members = this.members(namespaceId);
     return Promise.all(
-      members.map(async (member) => ({ member, catalog: await this.pool.safeCatalog(member.serverId) }))
+      members.map(async (member) => ({
+        member,
+        catalog: member.quarantined ? EMPTY_CATALOG : await this.pool.safeCatalog(member.serverId)
+      }))
     );
   }
 

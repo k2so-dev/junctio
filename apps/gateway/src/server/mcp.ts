@@ -145,6 +145,9 @@ function buildServer(core: Core, endpoint: EndpointRow, protocol: string | null)
       if (error instanceof UpstreamError && error.code === "unknown_tool") {
         throw new ProtocolError(ProtocolErrorCode.InvalidParams, error.message);
       }
+      if (error instanceof UpstreamError && error.code === "quarantined") {
+        return { content: [{ type: "text" as const, text: error.message }], isError: true };
+      }
       throw error;
     }
   });

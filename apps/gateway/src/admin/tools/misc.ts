@@ -3,7 +3,8 @@ import { AgentSettingsPatch, RequestLogQuery } from "@junctio/schema";
 import { callApi, text } from "../call.ts";
 import { buildHealth } from "../../server/app.ts";
 import { dockerStatus } from "../../api/docker.ts";
-import { READ_ONLY, UPDATES, defineTool, type AdminDeps } from "./kit.ts";
+import { MUTATES, READ_ONLY, UPDATES, defineTool, type AdminDeps } from "./kit.ts";
+import { z } from "zod";
 
 export function registerMiscTools(server: McpServer, deps: AdminDeps): void {
   defineTool(
@@ -34,6 +35,40 @@ export function registerMiscTools(server: McpServer, deps: AdminDeps): void {
   defineTool(
     server,
     deps,
+    "get_audit",
+    {
+      title: "Security audit results",
+      description:
+        "What the last audit found. Without an id it returns every server; with an id it returns the findings for that server. Ignoring an advisory and lifting a quarantine are done by a human in the web ui.",
+      inputSchema: z.object({ id: z.string().optional() }),
+      annotations: READ_ONLY
+    },
+    async (input) =>
+      input.id
+        ? callApi(deps.apis.servers, { method: "GET", path: `/${input.id}/audit` })
+        : callApi(deps.apis.audit, { method: "GET", path: "/" })
+  );
+
+  defineTool(
+    server,
+    deps,
+    "run_audit",
+    {
+      title: "Run the security audit",
+      description:
+        "Audit the packages of one server, or every server when no id is given. A finding can stop a server if the settings say so.",
+      inputSchema: z.object({ id: z.string().optional() }),
+      annotations: MUTATES
+    },
+    async (input) =>
+      input.id
+        ? callApi(deps.apis.servers, { method: "POST", path: `/${input.id}/audit/run` })
+        : callApi(deps.apis.audit, { method: "POST", path: "/run" })
+  );
+
+  defineTool(
+    server,
+    deps,
     "get_settings",
     {
       title: "Get the settings",
@@ -50,7 +85,7 @@ export function registerMiscTools(server: McpServer, deps: AdminDeps): void {
     {
       title: "Update the settings",
       description:
-        "Change the tool separator, the PATH given to child processes, the api key query parameter or the request log retention. The management server cannot switch itself off; that is done by a human in the web ui.",
+        "Change the tool separator, the PATH given to child processes, the api key query parameter, the request log retention or the audit interval. The management server cannot switch itself off, cannot enable the security audit and cannot change what a severity does; those are done by a human in the web ui.",
       inputSchema: AgentSettingsPatch,
       annotations: UPDATES
     },

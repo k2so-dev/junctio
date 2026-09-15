@@ -101,8 +101,21 @@ function inputsFrom(vars: RegistryKeyValue[] | undefined): RegistryInputDto[] {
 
 function packageIdentifier(entry: RegistryPackage): string {
   const identifier = entry.identifier ?? "";
-  if (entry.registryType !== "npm") return identifier;
-  return entry.version ? `${identifier}@${entry.version}` : identifier;
+  if (!entry.version) return identifier;
+  if (entry.registryType === "npm") return `${identifier}@${entry.version}`;
+  if (entry.registryType === "pypi") return `${identifier}==${entry.version}`;
+  if (entry.registryType === "oci") return identifier.includes(":") ? identifier : `${identifier}:${entry.version}`;
+  return identifier;
+}
+
+function safeLinkUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : null;
+  } catch {
+    return null;
+  }
 }
 
 function baseDraft(name: string): ServerInput {
@@ -242,13 +255,14 @@ function packageLink(entry: RegistryPackage): RegistryLinkDto | null {
 
 export function serverLinks(entry: RegistryEntry): RegistryLinkDto[] {
   const links: RegistryLinkDto[] = [];
-  const repository = entry.server.repository?.url;
+  const repository = safeLinkUrl(entry.server.repository?.url);
   if (repository) {
     const source = entry.server.repository?.source ?? "";
     links.push({ kind: "repository", label: source === "github" ? "GitHub" : "Repository", url: repository });
   }
-  if (entry.server.websiteUrl && entry.server.websiteUrl !== repository) {
-    links.push({ kind: "website", label: "Website", url: entry.server.websiteUrl });
+  const website = safeLinkUrl(entry.server.websiteUrl);
+  if (website && website !== repository) {
+    links.push({ kind: "website", label: "Website", url: website });
   }
   for (const item of entry.server.packages ?? []) {
     const link = packageLink(item);

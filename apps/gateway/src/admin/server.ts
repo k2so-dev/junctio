@@ -9,6 +9,7 @@ import { createOAuthApi } from "../api/oauth.ts";
 import { createRegistryApi } from "../api/registry.ts";
 import { createSettingsApi } from "../api/settings.ts";
 import { createRequestLogApi } from "../api/requestlog.ts";
+import { createAuditApi } from "../api/audit.ts";
 import { buildHealth } from "../server/app.ts";
 import { readApi } from "./call.ts";
 import type { AdminApis, AdminDeps } from "./tools/kit.ts";
@@ -24,6 +25,8 @@ An upstream server is added once, put into one or more namespaces, and published
 
 Two things are deliberately missing: api keys cannot be issued or revoked here, and this management server cannot switch itself off. Both are done by a human in the web ui.
 
+The security audit checks the packages every stdio server runs against public vulnerability databases. You can read its results and start a run, but switching it on, changing what a severity does, ignoring an advisory and lifting a quarantine are all reserved for a human.
+
 Creating a stdio server makes the gateway run that command on its host. Read the command back with preview_server_command before saving something you did not write yourself.`;
 
 function apis(core: Core): AdminApis {
@@ -35,7 +38,8 @@ function apis(core: Core): AdminApis {
     oauth: createOAuthApi(core),
     registry: createRegistryApi(core),
     settings: createSettingsApi(core),
-    requestLog: createRequestLogApi(core)
+    requestLog: createRequestLogApi(core),
+    audit: createAuditApi(core)
   };
 }
 
@@ -73,6 +77,11 @@ function registerResources(server: McpServer, deps: AdminDeps): void {
 
   fromApi("settings", "junctio://settings", "Settings", "Gateway settings", async () => {
     const result = await readApi<unknown>(deps.apis.settings, { method: "GET", path: "/" });
+    return result.ok ? result.payload : {};
+  });
+
+  fromApi("audit", "junctio://audit", "Security audit", "The latest audit result for every server", async () => {
+    const result = await readApi<unknown>(deps.apis.audit, { method: "GET", path: "/" });
     return result.ok ? result.payload : {};
   });
 

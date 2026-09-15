@@ -23,6 +23,8 @@ export type McpRouteOptions = {
   verifier: JwtVerifier | null;
 };
 
+const SOFT_ERRORS = new Set(["quarantined", "disabled", "audit_pending", "audit_error"]);
+
 const LEGACY_PROTOCOL = "2025-03-26";
 const MODERN_PROTOCOL = latestProtocolVersion;
 
@@ -145,7 +147,7 @@ function buildServer(core: Core, endpoint: EndpointRow, protocol: string | null)
       if (error instanceof UpstreamError && error.code === "unknown_tool") {
         throw new ProtocolError(ProtocolErrorCode.InvalidParams, error.message);
       }
-      if (error instanceof UpstreamError && error.code === "quarantined") {
+      if (error instanceof UpstreamError && SOFT_ERRORS.has(error.code)) {
         return { content: [{ type: "text" as const, text: error.message }], isError: true };
       }
       throw error;

@@ -7,7 +7,18 @@ setLogLevel("error");
 
 const FIXTURE = new URL("../fixtures/mock-stdio-server.ts", import.meta.url).pathname;
 
-function makeSupervisor(spec: { env?: Record<string, string>; argv?: string[]; idleTimeoutSec?: number; warm?: boolean } = {}) {
+type SupervisorSpec = {
+  env?: Record<string, string>;
+  argv?: string[];
+  idleTimeoutSec?: number;
+  warm?: boolean;
+  idleCheckMs?: number;
+  stopGraceMs?: number;
+  beforeSpawn?: (serverId: string) => Promise<unknown>;
+  onExit?: (serverId: string, generation: number) => void;
+};
+
+function makeSupervisor(spec: SupervisorSpec = {}) {
   const full: SpawnSpec = {
     launch: {
       kind: "process",
@@ -25,8 +36,10 @@ function makeSupervisor(spec: { env?: Record<string, string>; argv?: string[]; i
     logger: createLogger(),
     backoffBaseMs: 10,
     backoffCapMs: 40,
-    stopGraceMs: 200,
-    idleCheckMs: 50
+    stopGraceMs: spec.stopGraceMs ?? 200,
+    idleCheckMs: spec.idleCheckMs ?? 50,
+    ...(spec.beforeSpawn ? { beforeSpawn: spec.beforeSpawn } : {}),
+    ...(spec.onExit ? { onExit: spec.onExit } : {})
   });
   return { supervisor, logs };
 }
@@ -134,6 +147,22 @@ describe("ProcessSupervisor", () => {
     const again = await supervisor.acquire("s1");
     expect(again.generation).toBeGreaterThan(0);
   }, 15_000);
+
+  test("a refused launch is not counted as a crash", async () => {
+    const { supervisor } = makeSupervisor({
+      beforeSpawn: async () => {
+        throw new Error("the security audit has not checked this server yet");
+      }
+    });
+    active = supervisor;
+    const baseline = childCount();
+    await expect(supervisor.acquire("s1")).rejects.toThrow("security audit");
+    const info = supervisor.getInfo("s1");
+    expect(info.consecutiveFailures).toBe(0);
+    expect(info.state).toBe("stopped");
+    expect(info.lastError).toContain("security audit");
+    expect(childCount()).toBe(baseline);
+  });
 
   test("notifies on unexpected exit", async () => {
     const logs = new LogRegistry();

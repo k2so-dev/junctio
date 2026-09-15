@@ -26,7 +26,7 @@ export function toSeverity(value: string | undefined): Severity {
 
 export function parseBunAuditOutput(stdout: string): BunAuditReport {
   const trimmed = stdout.trim();
-  if (trimmed === "") return {};
+  if (trimmed === "") throw new Error("bun audit did not return json");
   const lines = trimmed.split("\n");
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i]!;
@@ -34,12 +34,24 @@ export function parseBunAuditOutput(stdout: string): BunAuditReport {
     const candidate = lines.slice(i).join("\n").trim();
     try {
       const parsed: unknown = JSON.parse(candidate);
-      if (typeof parsed === "object" && parsed !== null) return parsed as BunAuditReport;
+      if (typeof parsed !== "object" || parsed === null) continue;
+      if ("error" in parsed) throw new Error(String((parsed as { error: unknown }).error));
+      return parsed as BunAuditReport;
     } catch {
       continue;
     }
   }
   throw new Error("bun audit did not return json");
+}
+
+function safeAdvisoryUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : null;
+  } catch {
+    return null;
+  }
 }
 
 function advisoryId(advisory: BunAuditAdvisory): { id: string; aliases: string[] } {
@@ -63,7 +75,7 @@ export function toFindings(report: BunAuditReport, versions: Map<string, string>
         title: advisory.title ?? "vulnerability reported by the npm advisory database",
         severity: toSeverity(advisory.severity),
         cvss: typeof advisory.cvss?.score === "number" ? advisory.cvss.score : null,
-        url: advisory.url ?? null
+        url: safeAdvisoryUrl(advisory.url)
       });
     }
   }
@@ -129,11 +141,18 @@ export class BunAuditEngine implements AuditEngine {
 
   private async auditIn(cwd: string, ctx: EngineContext, versions: Map<string, string>): Promise<EngineResult> {
     const audit = await this.run(["audit", "--json"], cwd, ctx);
+    if (audit.code > 1) {
+      const detail = lastLines(audit.stderr) || lastLines(audit.stdout) || `exit code ${audit.code}`;
+      throw new Error(`bun audit failed: ${detail}`);
+    }
     let report: BunAuditReport;
     try {
       report = parseBunAuditOutput(audit.stdout);
-    } catch {
-      const detail = lastLines(audit.stderr) || lastLines(audit.stdout) || `exit code ${audit.code}`;
+    } catch (error) {
+      const detail =
+        error instanceof Error && error.message !== "bun audit did not return json"
+          ? error.message
+          : lastLines(audit.stderr) || lastLines(audit.stdout) || `exit code ${audit.code}`;
       throw new Error(`bun audit failed: ${detail}`);
     }
     return {

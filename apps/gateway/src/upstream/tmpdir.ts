@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 export type TmpdirCheck = {
   path: string;
   noexec: boolean;
+  writable: boolean;
 };
 
 function mountOptions(path: string, mounts: string): string[] | null {
@@ -25,13 +26,13 @@ export function checkTmpdir(env: Record<string, string | undefined> = Bun.env): 
   try {
     mkdirSync(path, { recursive: true });
   } catch {
-    return { path, noexec: false };
+    return { path, noexec: false, writable: false };
   }
   let mounts = "";
   try {
     mounts = readFileSync("/proc/mounts", "utf8");
   } catch {
-    return { path, noexec: false };
+    return { path, noexec: false, writable: true };
   }
-  return { path, noexec: mountOptions(path, mounts)?.includes("noexec") ?? false };
+  return { path, noexec: mountOptions(path, mounts)?.includes("noexec") ?? false, writable: true };
 }

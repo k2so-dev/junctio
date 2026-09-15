@@ -7,15 +7,10 @@ import type { NamespaceRow } from "../db/schema.ts";
 import { randomId } from "../crypto.ts";
 import { toNamespaceDto } from "./dto.ts";
 import { badRequest, conflict, notFound, readJson } from "./util.ts";
-import { CollisionError, assertUniquePrefixes, exposedToolName } from "../aggregate/naming.ts";
+import { CollisionError, exposedToolName } from "../aggregate/naming.ts";
 
 function findNamespace(core: Core, id: string): NamespaceRow | null {
   return core.db.select().from(namespaces).where(eq(namespaces.id, id)).get() ?? null;
-}
-
-function checkPrefixes(core: Core, namespaceId: string): void {
-  const members = core.aggregator.members(namespaceId, false);
-  assertUniquePrefixes(members.map((m) => ({ serverId: m.serverId, serverName: m.serverName, prefix: m.prefix })));
 }
 
 export function createNamespacesApi(core: Core): Hono {
@@ -100,7 +95,7 @@ export function createNamespacesApi(core: Core): Hono {
             set: { prefix: parsed.data.prefix, enabled: parsed.data.enabled }
           })
           .run();
-        checkPrefixes(core, row.id);
+        core.aggregator.checkPrefixes(row.id);
       });
     } catch (error) {
       if (error instanceof CollisionError) return conflict(c, error.message);

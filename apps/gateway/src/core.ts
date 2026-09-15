@@ -11,6 +11,7 @@ import { spawnContainer } from "./upstream/docker/launcher.ts";
 import { spawnProcess } from "./upstream/process.ts";
 import { ServerRegistry } from "./upstream/registry.ts";
 import { UpstreamPool } from "./upstream/pool.ts";
+import { createLaunchGate, type LaunchGate } from "./upstream/gate.ts";
 import { Aggregator } from "./aggregate/aggregator.ts";
 import { type UpstreamAuth } from "./upstream/types.ts";
 import { UpstreamAuthService } from "./auth/upstream/index.ts";
@@ -29,6 +30,7 @@ export type Core = {
   docker: DockerClient;
   supervisor: ProcessSupervisor;
   pool: UpstreamPool;
+  gate: LaunchGate;
   aggregator: Aggregator;
   upstreamAuth: UpstreamAuthService;
   oauthProvider: JunctioOAuthProvider;
@@ -85,18 +87,21 @@ export function createCore(options: CoreOptions): Core {
   const docker = new DockerClient(config.dockerSocket);
 
   let pool: UpstreamPool;
+  let audit: AuditService;
+  const gate = createLaunchGate(registry, () => audit);
   const supervisor = new ProcessSupervisor({
     getSpec: (serverId) => registry.spawnSpec(serverId),
     logs,
     logger,
     launcher: (launch, log) =>
       launch.kind === "container" ? spawnContainer(docker, launch, log) : spawnProcess(launch, log),
+    beforeSpawn: (serverId) => gate.assert(serverId),
     onExit: (serverId, generation) => pool.onProcessExit(serverId, generation)
   });
-  pool = new UpstreamPool({ registry, supervisor, auth: authProxy, logger, logs });
+  pool = new UpstreamPool({ registry, supervisor, gate, auth: authProxy, logger, logs });
   const aggregator = new Aggregator(db, pool, logger);
 
-  const audit = new AuditService({
+  audit = new AuditService({
     db,
     logger,
     logs,
@@ -120,6 +125,7 @@ export function createCore(options: CoreOptions): Core {
     docker,
     supervisor,
     pool,
+    gate,
     aggregator,
     upstreamAuth,
     oauthProvider: new JunctioOAuthProvider(db, cipher),

@@ -32,6 +32,7 @@ export type SupervisorOptions = {
   logs: LogRegistry;
   logger: Logger;
   launcher?: Launcher;
+  beforeSpawn?: (serverId: string) => Promise<unknown>;
   onExit?: (serverId: string, generation: number) => void;
   maxConsecutiveFailures?: number;
   backoffBaseMs?: number;
@@ -185,7 +186,20 @@ export class ProcessSupervisor {
     return spec;
   }
 
+  private async admit(serverId: string): Promise<void> {
+    if (!this.options.beforeSpawn) return;
+    try {
+      await this.options.beforeSpawn(serverId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.options.logs.append(serverId, "system", message);
+      this.patchInfo(serverId, { state: "stopped", pid: null, containerId: null, lastError: message });
+      throw error;
+    }
+  }
+
   private async spawn(serverId: string): Promise<AcquireResult> {
+    await this.admit(serverId);
     const spec = await this.readSpec(serverId);
 
     this.patchInfo(serverId, { state: "starting", lastError: null });

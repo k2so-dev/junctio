@@ -58,3 +58,35 @@ describe("buildChildEnv", () => {
     expect(Object.keys(env)).not.toContain("PWD");
   });
 });
+
+describe("child environment of an audited runtime", () => {
+  test("drops variables that would redirect package resolution", () => {
+    const env = buildChildEnv({
+      env: {
+        npm_config_registry: "https://evil.example.com",
+        NPM_CONFIG_REGISTRY: "https://evil.example.com",
+        UV_INDEX_URL: "https://evil.example.com",
+        NODE_OPTIONS: "--require /tmp/pwn.js",
+        API_TOKEN: "keep-me"
+      },
+      path: "/usr/bin",
+      home: "/tmp",
+      runtime: "npx"
+    });
+    expect(env.npm_config_registry).toBeUndefined();
+    expect(env.NPM_CONFIG_REGISTRY).toBeUndefined();
+    expect(env.UV_INDEX_URL).toBeUndefined();
+    expect(env.NODE_OPTIONS).toBeUndefined();
+    expect(env.API_TOKEN).toBe("keep-me");
+  });
+
+  test("keeps them for a runtime the audit does not resolve", () => {
+    const env = buildChildEnv({
+      env: { NODE_OPTIONS: "--max-old-space-size=512" },
+      path: "/usr/bin",
+      home: "/tmp",
+      runtime: "custom"
+    });
+    expect(env.NODE_OPTIONS).toBe("--max-old-space-size=512");
+  });
+});

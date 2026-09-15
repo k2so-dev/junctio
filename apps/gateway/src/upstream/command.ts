@@ -24,7 +24,31 @@ export type ChildEnvOptions = {
   env: Record<string, string>;
   path: string;
   home: string;
+  runtime?: RuntimeKind;
 };
+
+const AUDITED_RUNTIMES = new Set<RuntimeKind>(["npx", "bunx", "uvx", "uv"]);
+
+const REDIRECTING_ENV = new Set([
+  "bun_config_registry",
+  "node_options",
+  "npm_config_userconfig",
+  "npm_config_globalconfig",
+  "pip_config_file",
+  "pip_extra_index_url",
+  "pip_index_url",
+  "uv_config_file",
+  "uv_default_index",
+  "uv_extra_index_url",
+  "uv_find_links",
+  "uv_index",
+  "uv_index_url"
+]);
+
+function redirectsResolution(key: string): boolean {
+  const lowered = key.toLowerCase();
+  return REDIRECTING_ENV.has(lowered) || lowered.startsWith("npm_config_registry");
+}
 
 export function buildChildEnv(options: ChildEnvOptions): Record<string, string> {
   const base: Record<string, string> = {
@@ -46,8 +70,10 @@ export function buildChildEnv(options: ChildEnvOptions): Record<string, string> 
     const value = Bun.env[key];
     if (value) base[key] = value;
   }
+  const audited = options.runtime !== undefined && AUDITED_RUNTIMES.has(options.runtime);
   for (const [key, value] of Object.entries(options.env)) {
     if (key.startsWith("JUNCTIO_")) continue;
+    if (audited && redirectsResolution(key)) continue;
     base[key] = value;
   }
   return base;

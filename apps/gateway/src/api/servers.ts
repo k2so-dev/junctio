@@ -8,6 +8,8 @@ import { randomId } from "../crypto.ts";
 import { mergeSecrets, toServerDto } from "./dto.ts";
 import { badRequest, conflict, notFound, readJson } from "./util.ts";
 import { buildArgv, previewCommand } from "../upstream/command.ts";
+import { getSetting } from "../db/settings.ts";
+import { CollisionError } from "../aggregate/naming.ts";
 import { AuditIgnoreInput } from "@junctio/schema";
 
 const CONNECTION_FIELDS = [
@@ -81,6 +83,10 @@ export function createServersApi(core: Core): Hono {
     if (core.db.select().from(servers).where(eq(servers.name, input.name)).get()) {
       return conflict(c, `server "${input.name}" already exists`);
     }
+    const separator = getSetting(core.db, "tool_separator");
+    if (input.name.includes(separator)) {
+      return badRequest(c, `a server name cannot contain the tool separator "${separator}"`);
+    }
     const id = randomId();
     core.db
       .insert(servers)
@@ -124,6 +130,17 @@ export function createServersApi(core: Core): Hono {
     if (patch.name && patch.name !== row.name) {
       const clash = core.db.select().from(servers).where(eq(servers.name, patch.name)).get();
       if (clash) return conflict(c, `server "${patch.name}" already exists`);
+      const separator = getSetting(core.db, "tool_separator");
+      if (patch.name.includes(separator)) {
+        return badRequest(c, `a server name cannot contain the tool separator "${separator}"`);
+      }
+    }
+    if (patch.enabled === true && !row.enabled && row.disabledReason !== null) {
+      const audit = core.audit.store.get(row.id);
+      if (core.audit.isEnabled() && core.audit.isAuditable(row) && audit?.status !== "ok") {
+        core.audit.enqueue(row.id, "server-saved");
+        return conflict(c, `the audit disabled this server: ${row.disabledReason}`);
+      }
     }
     const resolved = await core.registry.resolve(row.id);
     const headers = mergeSecrets(patch.headers, resolved?.headers ?? {});
@@ -154,6 +171,16 @@ export function createServersApi(core: Core): Hono {
       .run();
 
     core.registry.invalidate(row.id);
+    if (patch.name && patch.name !== row.name) {
+      try {
+        for (const namespaceId of core.aggregator.namespacesOf(row.id)) core.aggregator.checkPrefixes(namespaceId);
+      } catch (error) {
+        core.db.update(servers).set({ name: row.name }).where(eq(servers.id, row.id)).run();
+        core.registry.invalidate(row.id);
+        if (error instanceof CollisionError) return conflict(c, error.message);
+        throw error;
+      }
+    }
     const updated = findServer(core, row.id);
     const secrets: SecretChange[] = [
       { before: resolved?.headers ?? {}, after: headers },
@@ -184,9 +211,8 @@ export function createServersApi(core: Core): Hono {
   app.post("/:id/start", async (c) => {
     const row = findServer(core, c.req.param("id"));
     if (!row) return notFound(c, "server");
-    if (row.quarantinedAt !== null) {
-      return conflict(c, "server is quarantined by the security audit; lift the quarantine or ignore the advisory first");
-    }
+    const blocked = await core.gate.check(row.id);
+    if (blocked) return conflict(c, blocked.message);
     try {
       await core.pool.acquire(row.id);
     } catch (error) {
@@ -206,9 +232,8 @@ export function createServersApi(core: Core): Hono {
   app.post("/:id/restart", async (c) => {
     const row = findServer(core, c.req.param("id"));
     if (!row) return notFound(c, "server");
-    if (row.quarantinedAt !== null) {
-      return conflict(c, "server is quarantined by the security audit; lift the quarantine or ignore the advisory first");
-    }
+    const blocked = await core.gate.check(row.id);
+    if (blocked) return conflict(c, blocked.message);
     await core.pool.invalidate(row.id, "restarted from the api");
     await core.supervisor.stop(row.id);
     core.supervisor.reset(row.id);
@@ -231,6 +256,18 @@ export function createServersApi(core: Core): Hono {
     const row = findServer(core, c.req.param("id"));
     if (!row) return notFound(c, "server");
     const started = Date.now();
+    const blocked = await core.gate.check(row.id);
+    if (blocked) {
+      const result: TestResultDto = {
+        ok: false,
+        durationMs: 0,
+        serverInfo: null,
+        protocolVersion: null,
+        toolCount: null,
+        error: blocked.message
+      };
+      return c.json(result);
+    }
     try {
       const catalog = await core.pool.catalog(row.id, true);
       const client = await core.pool.acquire(row.id);

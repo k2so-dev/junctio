@@ -18,7 +18,7 @@ import { buildChildEnv } from "../upstream/command.ts";
 import { BunAuditEngine } from "./engines/npm.ts";
 import { OsvPypiEngine } from "./engines/pypi.ts";
 import { APP_DIR, selfTarget } from "./engines/self.ts";
-import { decide, emptyCounts, parseActionMap, shouldLift } from "./policy.ts";
+import { ACTION_RANK, decide, emptyCounts, parseActionMap, shouldLift } from "./policy.ts";
 import type { Decision } from "./policy.ts";
 import { auditTarget } from "./spec.ts";
 import { AuditStore } from "./store.ts";
@@ -82,6 +82,8 @@ export class AuditService {
   private running: Promise<AuditRunSummary> | null = null;
   private currentSummary: AuditRunSummary | null = null;
   private controller = new AbortController();
+  private active: string | null = null;
+  private auditLifts = 0;
   private startedAt = Date.now();
   private stopped = false;
 
@@ -177,6 +179,7 @@ export class AuditService {
     const rows = this.serverRows();
     const summary = emptySummary(trigger, rows.length + 1);
     this.currentSummary = summary;
+    const liftsBefore = this.auditLifts;
     const run = (async () => {
       this.stats.runs += 1;
       this.options.logger.info("audit run started", { trigger, servers: rows.length });
@@ -198,6 +201,7 @@ export class AuditService {
       const rowsAfter = this.serverRows();
       summary.quarantined = rowsAfter.filter((row) => row.quarantinedAt !== null).length;
       summary.disabled = rowsAfter.filter((row) => row.disabledReason !== null).length;
+      summary.lifted = this.auditLifts - liftsBefore;
       summary.finishedAt = Date.now();
       this.store.saveLastRun(summary);
       this.options.logger.info("audit run finished", {
@@ -223,6 +227,7 @@ export class AuditService {
 
   enqueue(serverId: string, trigger: AuditTrigger): void {
     if (!this.isEnabled() || this.stopped) return;
+    if (this.active === serverId) return;
     if (this.queue.some((job) => job.serverId === serverId)) return;
     void this.runServer(serverId, trigger).catch((error: unknown) => {
       this.options.logger.debug("queued audit failed", { server: serverId, error: String(error) });
@@ -235,10 +240,13 @@ export class AuditService {
       for (;;) {
         const job = this.queue.shift();
         if (!job) break;
+        this.active = job.serverId;
         try {
           job.resolve(await this.execute(job.serverId, job.trigger));
         } catch (error) {
           job.reject(error);
+        } finally {
+          this.active = null;
         }
       }
     })().finally(() => {
@@ -254,6 +262,10 @@ export class AuditService {
   private targetFor(row: ServerRow): AuditTarget | Unsupported {
     if (this.options.targetFor) return this.options.targetFor(row);
     return auditTarget(row);
+  }
+
+  isAuditable(row: ServerRow): boolean {
+    return this.targetFor(row).kind !== "unsupported";
   }
 
   private async execute(serverId: string, trigger: AuditTrigger): Promise<AuditResultRow> {
@@ -312,7 +324,7 @@ export class AuditService {
     ctx.env.NO_COLOR = "1";
 
     try {
-      const result = await engine.audit(target, ctx);
+      const result = await this.withAbort(engine.audit(target, ctx), ctx.signal);
       this.stats.audited += 1;
       const ignores = isSelf ? new Set<string>() : this.store.ignoreSet(serverId);
       const decision = decide(result.findings, ignores, this.actions());
@@ -332,7 +344,9 @@ export class AuditService {
       });
       if (!isSelf && row) await this.apply(row, status, decision);
       else if (isSelf && decision.active.length > 0) {
-        this.options.logger.warn("gateway dependencies have advisories", { detail: decision.reason });
+        const severe = decision.action !== null && ACTION_RANK[decision.action] >= ACTION_RANK.quarantine;
+        const log = severe ? this.options.logger.error : this.options.logger.warn;
+        log("gateway dependencies have advisories", { detail: decision.reason, action: decision.action });
       }
     } catch (error) {
       this.stats.errors += 1;
@@ -359,6 +373,27 @@ export class AuditService {
     return this.store.get(serverId)!;
   }
 
+  private withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      if (signal.aborted) {
+        reject(new Error("audit aborted"));
+        return;
+      }
+      const onAbort = () => reject(new Error("audit aborted"));
+      signal.addEventListener("abort", onAbort, { once: true });
+      promise.then(
+        (value) => {
+          signal.removeEventListener("abort", onAbort);
+          resolve(value);
+        },
+        (error: unknown) => {
+          signal.removeEventListener("abort", onAbort);
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      );
+    });
+  }
+
   private async apply(row: ServerRow, status: AuditStatus, decision: Decision): Promise<void> {
     const action = decision.action;
     const reason = decision.reason ?? "vulnerable package";
@@ -381,6 +416,10 @@ export class AuditService {
         this.options.logs.append(row.id, "system", `quarantined by audit: ${reason}`);
         this.options.logger.warn("server quarantined by audit", { server: row.id, detail: reason });
         this.stats.quarantines += 1;
+      } else if (row.quarantineReason !== reason) {
+        this.store.setQuarantineReason(row.id, reason);
+        this.options.registry.invalidate(row.id);
+        this.options.logs.append(row.id, "system", `quarantine reason updated: ${reason}`);
       }
       return;
     }
@@ -397,6 +436,7 @@ export class AuditService {
     this.options.registry.invalidate(serverId);
     this.options.logs.append(serverId, "system", `quarantine lifted by ${by}`);
     this.options.logger.info("quarantine lifted", { server: serverId, by });
+    if (by === "audit") this.auditLifts += 1;
     this.stats.lifts += 1;
     return true;
   }

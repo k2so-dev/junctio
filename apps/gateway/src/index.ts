@@ -29,6 +29,12 @@ export async function serve(): Promise<void> {
   await backfillServerEnv(core.db, core.sqlite, core.cipher, core.logger);
 
   const tmpdir = checkTmpdir();
+  if (!tmpdir.writable) {
+    core.logger.error("temporary directory is not writable", {
+      tmpdir: tmpdir.path,
+      hint: "stdio servers and the audit cannot run; point TMPDIR at a writable path"
+    });
+  }
   if (tmpdir.noexec) {
     core.logger.warn("temporary directory is mounted noexec", {
       tmpdir: tmpdir.path,
@@ -55,7 +61,7 @@ export async function serve(): Promise<void> {
   core.audit.start();
 
   for (const row of core.db.select().from(servers).where(eq(servers.warm, true)).all()) {
-    if (!row.enabled || row.transport !== "stdio" || row.quarantinedAt !== null) continue;
+    if (row.transport !== "stdio") continue;
     core.supervisor.acquire(row.id).catch((error: unknown) => {
       core.logger.warn("warm start failed", { server: row.id, error: String(error) });
     });

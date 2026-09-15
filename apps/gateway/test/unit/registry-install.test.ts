@@ -61,7 +61,7 @@ describe("install options", () => {
     const option = options[0]!;
     expect(option.kind).toBe("pypi");
     expect(option.draft?.runtime).toBe("uvx");
-    expect(option.draft?.args).toEqual(["vs-filesystem-mcp-server"]);
+    expect(option.draft?.args).toEqual(["vs-filesystem-mcp-server==0.1.3"]);
   });
 
   test("turns a streamable http remote into an http server and keeps the header template", () => {

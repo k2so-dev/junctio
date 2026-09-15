@@ -224,6 +224,20 @@ export class Aggregator {
     return { result, serverId: member.serverId };
   }
 
+  checkPrefixes(namespaceId: string): void {
+    const members = this.members(namespaceId, false);
+    assertUniquePrefixes(members.map((m) => ({ serverId: m.serverId, serverName: m.serverName, prefix: m.prefix })));
+  }
+
+  namespacesOf(serverId: string): string[] {
+    return this.db
+      .select({ namespaceId: namespaceServers.namespaceId })
+      .from(namespaceServers)
+      .where(eq(namespaceServers.serverId, serverId))
+      .all()
+      .map((row) => row.namespaceId);
+  }
+
   validate(namespaceId: string): void {
     const members = this.members(namespaceId, false);
     assertUniquePrefixes(members.map((m) => ({ serverId: m.serverId, serverName: m.serverName, prefix: m.prefix })));

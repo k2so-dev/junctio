@@ -2,6 +2,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Severity } from "@junctio/schema";
 import type { AuditEngine, AuditFinding, AuditTarget, EngineContext, EngineResult, TargetKind } from "../types.ts";
+import { cvssBaseScore } from "../cvss.ts";
 import { normalizePypiName } from "../spec.ts";
 import { withTempDir } from "../tmp.ts";
 
@@ -48,6 +49,11 @@ export function toSeverity(value: string | undefined): Severity {
 export function cvssScore(vuln: OsvVuln): number | null {
   for (const entry of vuln.severity ?? []) {
     if (!entry.score) continue;
+    if (entry.score.startsWith("CVSS:")) {
+      const derived = cvssBaseScore(entry.score);
+      if (derived !== null) return derived;
+      continue;
+    }
     const parsed = Number.parseFloat(entry.score);
     if (!Number.isNaN(parsed)) return parsed;
   }
@@ -115,9 +121,12 @@ export class OsvPypiEngine implements AuditEngine {
   private detail(ctx: EngineContext, id: string): Promise<OsvVuln | null> {
     const cached = this.details.get(id);
     if (cached && Date.now() - cached.at < DETAIL_TTL_MS) return cached.value;
-    const value = this.request(ctx, `/v1/vulns/${encodeURIComponent(id)}`)
-      .then(async (response) => (response.ok ? ((await response.json()) as OsvVuln) : null))
-      .catch(() => null);
+    const value = this.request(ctx, `/v1/vulns/${encodeURIComponent(id)}`).then(async (response) => {
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`osv.dev answered ${response.status} for ${id}`);
+      return (await response.json()) as OsvVuln;
+    });
+    value.catch(() => this.details.delete(id));
     this.details.set(id, { at: Date.now(), value });
     return value;
   }
@@ -187,14 +196,14 @@ export class OsvPypiEngine implements AuditEngine {
     return hits;
   }
 
-  private async fetchDetails(ctx: EngineContext, ids: string[]): Promise<Map<string, OsvVuln>> {
+  private async fetchDetails(ctx: EngineContext, ids: string[], tolerant = false): Promise<Map<string, OsvVuln>> {
     const out = new Map<string, OsvVuln>();
     const queue = [...ids];
     const workers = Array.from({ length: Math.min(DETAIL_CONCURRENCY, queue.length) }, async () => {
       for (;;) {
         const id = queue.shift();
         if (id === undefined) return;
-        const vuln = await this.detail(ctx, id);
+        const vuln = tolerant ? await this.detail(ctx, id).catch(() => null) : await this.detail(ctx, id);
         if (vuln) out.set(id, vuln);
       }
     });
@@ -219,7 +228,7 @@ export class OsvPypiEngine implements AuditEngine {
         if (alias.toUpperCase().startsWith("GHSA-") && !details.has(alias)) aliasIds.add(alias);
       }
     }
-    const aliasDetails = await this.fetchDetails(ctx, [...aliasIds]);
+    const aliasDetails = await this.fetchDetails(ctx, [...aliasIds], true);
 
     const findings = new Map<string, AuditFinding>();
     for (const [index, vulnIds] of hits) {

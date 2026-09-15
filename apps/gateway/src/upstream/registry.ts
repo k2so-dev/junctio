@@ -71,7 +71,8 @@ export class ServerRegistry {
         env: buildChildEnv({
           env: resolved.env,
           path: getSetting(this.db, "runtime_path"),
-          home: Bun.env.HOME ?? "/tmp"
+          home: Bun.env.HOME ?? "/tmp",
+          runtime: row.runtime
         })
       },
       idleTimeoutSec,

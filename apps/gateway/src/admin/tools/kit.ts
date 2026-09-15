@@ -14,6 +14,7 @@ export type AdminApis = {
   registry: Hono;
   settings: Hono;
   requestLog: Hono;
+  audit: Hono;
 };
 
 export type AdminDeps = {

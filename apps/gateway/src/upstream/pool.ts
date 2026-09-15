@@ -17,6 +17,7 @@ import type { Logger } from "../log.ts";
 import { VERSION } from "../config.ts";
 import type { ProcessSupervisor } from "./supervisor.ts";
 import type { ServerRegistry } from "./registry.ts";
+import type { LaunchGate } from "./gate.ts";
 import { createRemoteTransport } from "./http.ts";
 import { UpstreamError, type UpstreamAuth } from "./types.ts";
 import type { LogRegistry } from "./logbuffer.ts";
@@ -52,6 +53,7 @@ type Verdict = {
 export type PoolOptions = {
   registry: ServerRegistry;
   supervisor: ProcessSupervisor;
+  gate: LaunchGate;
   auth: UpstreamAuth;
   logger: Logger;
   logs: LogRegistry;
@@ -184,13 +186,7 @@ export class UpstreamPool {
   }
 
   private async openTransport(serverId: string): Promise<{ transport: Transport; generation: number }> {
-    const resolved = await this.options.registry.resolve(serverId);
-    if (!resolved) throw new UpstreamError("server not found", "not_found", serverId);
-    if (!resolved.row.enabled) throw new UpstreamError("server is disabled", "disabled", serverId);
-    if (resolved.row.quarantinedAt !== null) {
-      const detail = resolved.row.quarantineReason ?? "a vulnerable package was found";
-      throw new UpstreamError(`server is quarantined by the security audit: ${detail}`, "quarantined", serverId);
-    }
+    const resolved = await this.options.gate.assert(serverId);
     if (resolved.row.transport === "stdio") {
       const handle = await this.options.supervisor.acquire(serverId);
       return { transport: handle.transport, generation: handle.generation };

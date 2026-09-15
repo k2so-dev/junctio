@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client, StreamableHTTPClientTransport, type VersionNegotiationMode } from "@modelcontextprotocol/client";
 import { loadConfig, type Config } from "../src/config.ts";
-import { createCore, type Core } from "../src/core.ts";
+import { createCore, type Core, type CoreOptions } from "../src/core.ts";
 import { createApp } from "../src/server/app.ts";
 import { setLogLevel } from "../src/log.ts";
 import { apiKeys, endpoints, namespaceServers, namespaces, servers } from "../src/db/schema.ts";
@@ -45,6 +45,7 @@ export type HarnessOptions = {
   refreshIntervalMs?: number;
   fetchImpl?: typeof fetch;
   registryTimeoutMs?: number;
+  audit?: CoreOptions["audit"];
 };
 
 export async function startHarness(options: HarnessOptions = {}): Promise<Harness> {
@@ -60,7 +61,8 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
     dbFile: join(dir, "junctio.db"),
     ...(options.refreshIntervalMs ? { refreshIntervalMs: options.refreshIntervalMs } : {}),
     ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-    ...(options.registryTimeoutMs ? { registryTimeoutMs: options.registryTimeoutMs } : {})
+    ...(options.registryTimeoutMs ? { registryTimeoutMs: options.registryTimeoutMs } : {}),
+    ...(options.audit ? { audit: options.audit } : {})
   });
   const app = createApp({ core, verifier: options.verifier ?? null, publicDir: null });
   const server = Bun.serve({

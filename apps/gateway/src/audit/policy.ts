@@ -19,7 +19,7 @@ export const SEVERITY_RANK: Record<Severity, number> = {
   critical: 4,
   high: 3,
   moderate: 2,
-  unknown: 2,
+  unknown: 3,
   low: 1
 };
 
@@ -46,7 +46,7 @@ export function parseActionMap(raw: string): ActionMap {
 }
 
 export function sanctionSeverity(severity: Severity): SanctionSeverity {
-  return severity === "unknown" ? "moderate" : severity;
+  return severity === "unknown" ? "high" : severity;
 }
 
 export function emptyCounts(): SeverityCounts {

@@ -86,16 +86,16 @@ export class AuditStore {
       .run();
   }
 
+  setQuarantineReason(serverId: string, reason: string): void {
+    this.db.update(servers).set({ quarantineReason: reason }).where(eq(servers.id, serverId)).run();
+  }
+
   setDisabledByAudit(serverId: string, reason: string): void {
     this.db
       .update(servers)
       .set({ enabled: false, disabledReason: reason, updatedAt: Date.now() })
       .where(eq(servers.id, serverId))
       .run();
-  }
-
-  clearDisabledReason(serverId: string): void {
-    this.db.update(servers).set({ disabledReason: null }).where(eq(servers.id, serverId)).run();
   }
 
   lastRun(): AuditRunSummary | null {

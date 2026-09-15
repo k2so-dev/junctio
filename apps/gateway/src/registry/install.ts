@@ -171,12 +171,9 @@ function packageOption(entry: RegistryPackage, index: number, name: string): Reg
     if (!runtimeArgs.includes("-i") && !runtimeArgs.includes("--interactive")) runtimeArgs.unshift("-i");
     runtimeArgs.unshift("run");
   }
-  const args = [
-    ...seed,
-    ...runtimeArgs,
-    packageIdentifier(entry),
-    ...argumentValues(entry.packageArguments)
-  ].filter((part) => part !== "");
+  const args = [...seed, ...runtimeArgs, packageIdentifier(entry), ...argumentValues(entry.packageArguments)].filter(
+    (part) => part !== ""
+  );
 
   return {
     id,

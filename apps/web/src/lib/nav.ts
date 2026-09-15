@@ -1,14 +1,5 @@
 import type { Component } from "vue";
-import {
-  Boxes,
-  Compass,
-  KeyRound,
-  LayoutDashboard,
-  Layers,
-  Plug,
-  ScrollText,
-  ShieldCheck
-} from "@lucide/vue";
+import { Boxes, Compass, KeyRound, LayoutDashboard, Layers, Plug, ScrollText, ShieldCheck } from "@lucide/vue";
 
 export interface NavItem {
   name: string;

@@ -143,7 +143,10 @@ export class RegistryClient {
         set: { body: JSON.stringify(body), fetchedAt: now, expiresAt: now + this.ttlMs }
       })
       .run();
-    this.db.delete(registryCache).where(lt(registryCache.fetchedAt, now - SWEEP_MS)).run();
+    this.db
+      .delete(registryCache)
+      .where(lt(registryCache.fetchedAt, now - SWEEP_MS))
+      .run();
   }
 }
 

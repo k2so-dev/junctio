@@ -1,4 +1,9 @@
-import { parseJSONRPCMessage, serializeMessage, type JSONRPCMessage, type Transport } from "@modelcontextprotocol/client";
+import {
+  parseJSONRPCMessage,
+  serializeMessage,
+  type JSONRPCMessage,
+  type Transport
+} from "@modelcontextprotocol/client";
 
 export type StdioSink = {
   write(chunk: Uint8Array): number | Promise<number>;

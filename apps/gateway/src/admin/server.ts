@@ -59,16 +59,10 @@ function registerResources(server: McpServer, deps: AdminDeps): void {
     return result.ok ? result.payload : [];
   });
 
-  fromApi(
-    "namespaces",
-    "junctio://namespaces",
-    "Namespaces",
-    "Every namespace with its members",
-    async () => {
-      const result = await readApi<unknown>(deps.apis.namespaces, { method: "GET", path: "/" });
-      return result.ok ? result.payload : [];
-    }
-  );
+  fromApi("namespaces", "junctio://namespaces", "Namespaces", "Every namespace with its members", async () => {
+    const result = await readApi<unknown>(deps.apis.namespaces, { method: "GET", path: "/" });
+    return result.ok ? result.payload : [];
+  });
 
   fromApi("endpoints", "junctio://endpoints", "Endpoints", "Every endpoint clients connect to", async () => {
     const result = await readApi<unknown>(deps.apis.endpoints, { method: "GET", path: "/" });

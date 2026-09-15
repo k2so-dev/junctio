@@ -31,9 +31,7 @@ export function sweepTempDirs(root: string, maxAgeMs = 3_600_000, now = Date.now
       if (now - statSync(path).mtimeMs < maxAgeMs) continue;
       rmSync(path, { recursive: true, force: true });
       removed += 1;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   return removed;
 }

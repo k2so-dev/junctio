@@ -10,10 +10,9 @@ function spec(args: string[], env: Record<string, string> = {}) {
 
 describe("docker run arguments", () => {
   test("reads the snippet every site shows", () => {
-    const result = spec(
-      ["run", "-i", "--rm", "-e", "GITHUB_TOKEN", "ghcr.io/github/github-mcp-server"],
-      { GITHUB_TOKEN: "ghp_x" }
-    );
+    const result = spec(["run", "-i", "--rm", "-e", "GITHUB_TOKEN", "ghcr.io/github/github-mcp-server"], {
+      GITHUB_TOKEN: "ghp_x"
+    });
     expect(result.image).toBe("ghcr.io/github/github-mcp-server");
     expect(result.cmd).toEqual([]);
     expect(result.env.GITHUB_TOKEN).toBe("ghp_x");

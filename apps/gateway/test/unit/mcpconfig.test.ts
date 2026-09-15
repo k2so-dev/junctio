@@ -56,7 +56,9 @@ describe("client config import", () => {
   });
 
   test("carries the docker refusals into the notes", () => {
-    const entry = only(`{"mcpServers":{"pg":{"command":"docker","args":["run","-d","-p","5432:5432","mcp/postgres"]}}}`);
+    const entry = only(
+      `{"mcpServers":{"pg":{"command":"docker","args":["run","-d","-p","5432:5432","mcp/postgres"]}}}`
+    );
     expect(entry.draft?.runtime).toBe("docker");
     expect(entry.notes.join(" ")).toContain("stdio");
     expect(entry.notes.join(" ")).toContain("published port");
@@ -93,7 +95,9 @@ describe("client config import", () => {
   });
 
   test("digs the object out of a fenced snippet", () => {
-    const entry = only('Add this to your config:\n```json\n{"mcpServers":{"fetch":{"command":"uvx","args":["mcp-server-fetch"]}}}\n```\nThat is all.');
+    const entry = only(
+      'Add this to your config:\n```json\n{"mcpServers":{"fetch":{"command":"uvx","args":["mcp-server-fetch"]}}}\n```\nThat is all.'
+    );
     expect(entry.draft?.runtime).toBe("uvx");
   });
 
@@ -107,9 +111,7 @@ describe("client config import", () => {
   });
 
   test("reads a vs code install link", () => {
-    const payload = encodeURIComponent(
-      JSON.stringify({ name: "fetch", command: "uvx", args: ["mcp-server-fetch"] })
-    );
+    const payload = encodeURIComponent(JSON.stringify({ name: "fetch", command: "uvx", args: ["mcp-server-fetch"] }));
     const entry = only(`vscode:mcp/install?${payload}`);
     expect(entry.key).toBe("fetch");
     expect(entry.draft?.runtime).toBe("uvx");

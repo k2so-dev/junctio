@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { adminApi, connectClient, seedApiKey, seedEndpoint, seedNamespace, seedStdioServer, startHarness, withHarness, type Harness } from "../helpers.ts";
+import {
+  adminApi,
+  connectClient,
+  seedApiKey,
+  seedEndpoint,
+  seedNamespace,
+  seedStdioServer,
+  startHarness,
+  withHarness,
+  type Harness
+} from "../helpers.ts";
 import { eq } from "drizzle-orm";
 import { setSetting } from "../../src/db/settings.ts";
 import { servers } from "../../src/db/schema.ts";
@@ -214,7 +224,9 @@ describe("audit sanctions", () => {
     const callsBefore = engine.calls;
     await api("/v1/settings", {
       method: "PATCH",
-      body: JSON.stringify({ auditActions: { critical: "quarantine", high: "quarantine", moderate: "report", low: "ignore" } })
+      body: JSON.stringify({
+        auditActions: { critical: "quarantine", high: "quarantine", moderate: "report", low: "ignore" }
+      })
     });
     expect(harness.core.audit.report(serverId)?.quarantined).toBe(true);
     expect(engine.calls).toBe(callsBefore);

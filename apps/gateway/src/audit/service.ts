@@ -535,7 +535,10 @@ export class AuditService {
       durationMs: stored?.durationMs ?? null,
       quarantined: row?.quarantinedAt !== null && row?.quarantinedAt !== undefined,
       quarantineReason: row?.quarantineReason ?? null,
-      findings: findings.map((finding) => ({ ...finding, ignored: ignoredKeys.has(`${finding.package}:${finding.id}`) })),
+      findings: findings.map((finding) => ({
+        ...finding,
+        ignored: ignoredKeys.has(`${finding.package}:${finding.id}`)
+      })),
       ignores: (isSelf ? [] : this.store.ignores(serverId)).map((ignore) => ({
         advisoryId: ignore.advisoryId,
         reason: ignore.reason,

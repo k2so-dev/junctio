@@ -55,10 +55,9 @@ afterEach(async () => {
 
 describe("docker runtime", () => {
   test("runs a container and speaks to the server inside it", async () => {
-    const server = await createServer(
-      ["run", "-i", "--rm", "-e", "MOCK_NAME", IMAGE, "bun", MOCK_STDIO],
-      { MOCK_NAME: "boxed" }
-    );
+    const server = await createServer(["run", "-i", "--rm", "-e", "MOCK_NAME", IMAGE, "bun", MOCK_STDIO], {
+      MOCK_NAME: "boxed"
+    });
 
     const started = (await (await post(`/v1/servers/${server.id}/start`)).json()) as ServerDto;
     expect(started.status).toBe("running");
@@ -121,10 +120,9 @@ describe("docker runtime", () => {
   }, 20_000);
 
   test("kills a container that ignores the stop signal", async () => {
-    const server = await createServer(
-      ["run", "-i", "--rm", "-e", "MOCK_IGNORE_SIGTERM", IMAGE, "bun", MOCK_STDIO],
-      { MOCK_IGNORE_SIGTERM: "1" }
-    );
+    const server = await createServer(["run", "-i", "--rm", "-e", "MOCK_IGNORE_SIGTERM", IMAGE, "bun", MOCK_STDIO], {
+      MOCK_IGNORE_SIGTERM: "1"
+    });
     await post(`/v1/servers/${server.id}/start`);
     expect(docker.containers()).toHaveLength(1);
 

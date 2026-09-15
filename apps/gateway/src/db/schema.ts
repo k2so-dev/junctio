@@ -28,7 +28,9 @@ export const servers = sqliteTable("servers", {
   cwd: text("cwd"),
   url: text("url"),
   headersEnc: text("headers_enc"),
-  authMode: text("auth_mode", { enum: ["none", "header", "oauth"] }).notNull().default("none"),
+  authMode: text("auth_mode", { enum: ["none", "header", "oauth"] })
+    .notNull()
+    .default("none"),
   oauthScope: text("oauth_scope"),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   warm: integer("warm", { mode: "boolean" }).notNull().default(false),

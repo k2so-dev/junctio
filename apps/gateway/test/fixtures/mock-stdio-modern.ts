@@ -13,9 +13,13 @@ serveStdio(
       { title: "Echo", description: "Echoes the provided message", inputSchema: z.object({ message: z.string() }) },
       async ({ message }) => ({ content: [{ type: "text", text: `${name}: ${message}` }] })
     );
-    server.registerTool("era", { title: "Era", description: "Reports the protocol era of the connection" }, async () => ({
-      content: [{ type: "text", text: era }]
-    }));
+    server.registerTool(
+      "era",
+      { title: "Era", description: "Reports the protocol era of the connection" },
+      async () => ({
+        content: [{ type: "text", text: era }]
+      })
+    );
     return server;
   },
   { legacy }

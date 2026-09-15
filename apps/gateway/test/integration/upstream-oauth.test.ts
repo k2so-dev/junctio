@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import {
   connectClient,
   seedApiKey,
@@ -262,10 +262,16 @@ describe("refresh window", () => {
       lastError: null
     };
     expect(
-      needsRefresh({ ...base, tokens: { accessToken: "a", refreshToken: "r", expiresAt: Date.now() + 500, ttlSec: 5, scope: null } })
+      needsRefresh({
+        ...base,
+        tokens: { accessToken: "a", refreshToken: "r", expiresAt: Date.now() + 500, ttlSec: 5, scope: null }
+      })
     ).toBe(true);
     expect(
-      needsRefresh({ ...base, tokens: { accessToken: "a", refreshToken: "r", expiresAt: Date.now() + 4_000, ttlSec: 5, scope: null } })
+      needsRefresh({
+        ...base,
+        tokens: { accessToken: "a", refreshToken: "r", expiresAt: Date.now() + 4_000, ttlSec: 5, scope: null }
+      })
     ).toBe(false);
     expect(needsRefresh({ ...base, tokens: null })).toBe(false);
   });

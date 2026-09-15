@@ -40,7 +40,11 @@ describe("decide", () => {
   });
 
   test("picks the strongest action across findings", () => {
-    const decision = decide([finding({ severity: "low" }), finding({ severity: "critical" })], new Set(), DEFAULT_ACTIONS);
+    const decision = decide(
+      [finding({ severity: "low" }), finding({ severity: "critical" })],
+      new Set(),
+      DEFAULT_ACTIONS
+    );
     expect(decision.action).toBe("quarantine");
     expect(decision.worst).toBe("critical");
     expect(decision.counts.critical).toBe(1);
@@ -96,7 +100,9 @@ describe("shouldLift", () => {
   });
 
   test("lifts when the remaining findings no longer reach quarantine", () => {
-    expect(shouldLift(true, "vulnerable", decide([finding({ severity: "high" })], new Set(), DEFAULT_ACTIONS))).toBe(true);
+    expect(shouldLift(true, "vulnerable", decide([finding({ severity: "high" })], new Set(), DEFAULT_ACTIONS))).toBe(
+      true
+    );
   });
 
   test("keeps the quarantine while the finding stands", () => {

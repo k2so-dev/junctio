@@ -42,10 +42,7 @@ export function cvssBaseScore(vector: string): number | null {
   if ([av, ac, pr, ui, c, i, a].some((value) => value === undefined)) return null;
 
   const impactBase = 1 - (1 - c) * (1 - i) * (1 - a);
-  const impact =
-    scope === "U"
-      ? 6.42 * impactBase
-      : 7.52 * (impactBase - 0.029) - 3.25 * (impactBase - 0.02) ** 15;
+  const impact = scope === "U" ? 6.42 * impactBase : 7.52 * (impactBase - 0.029) - 3.25 * (impactBase - 0.02) ** 15;
   if (impact <= 0) return 0;
   const exploitability = 8.22 * av * ac * pr * ui;
   const score = scope === "U" ? Math.min(impact + exploitability, 10) : Math.min(1.08 * (impact + exploitability), 10);

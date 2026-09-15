@@ -67,9 +67,7 @@ export type RegistryServer = z.infer<typeof RegistryServer>;
 
 export const RegistryEntry = z.looseObject({
   server: RegistryServer,
-  _meta: z
-    .looseObject({ "io.modelcontextprotocol.registry/official": RegistryOfficialMeta.optional() })
-    .optional()
+  _meta: z.looseObject({ "io.modelcontextprotocol.registry/official": RegistryOfficialMeta.optional() }).optional()
 });
 export type RegistryEntry = z.infer<typeof RegistryEntry>;
 

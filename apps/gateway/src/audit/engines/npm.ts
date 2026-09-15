@@ -37,9 +37,7 @@ export function parseBunAuditOutput(stdout: string): BunAuditReport {
       if (typeof parsed !== "object" || parsed === null) continue;
       if ("error" in parsed) throw new Error(String((parsed as { error: unknown }).error));
       return parsed as BunAuditReport;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   throw new Error("bun audit did not return json");
 }
@@ -110,8 +108,8 @@ export function manifestFor(specs: string[]): string {
 export function parseLockVersions(lock: string): Map<string, string[]> {
   const versions = new Map<string, string[]>();
   const pattern = /"((?:@[^"/]+\/)?[^"@]+)@([^"]+)"/g;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(lock)) !== null) {
+  let match = pattern.exec(lock);
+  for (; match !== null; match = pattern.exec(lock)) {
     const name = match[1]!;
     const version = match[2]!;
     if (!/^\d/.test(version)) continue;
@@ -139,7 +137,11 @@ export class BunAuditEngine implements AuditEngine {
 
   constructor(private readonly bunPath: string = process.execPath) {}
 
-  private async run(argv: string[], cwd: string, ctx: EngineContext): Promise<{ stdout: string; stderr: string; code: number }> {
+  private async run(
+    argv: string[],
+    cwd: string,
+    ctx: EngineContext
+  ): Promise<{ stdout: string; stderr: string; code: number }> {
     const proc = Bun.spawn([this.bunPath, ...argv], {
       cwd,
       env: ctx.env,

@@ -14,7 +14,8 @@ export class RateLimiter {
   ) {}
 
   check(key: string, now = Date.now()): RateLimitResult {
-    if ((this.ops = (this.ops + 1) % PRUNE_EVERY) === 0) this.prune(now);
+    this.ops = (this.ops + 1) % PRUNE_EVERY;
+    if (this.ops === 0) this.prune(now);
     const bucket = this.buckets.get(key);
     if (!bucket || bucket.resetAt <= now) {
       this.buckets.set(key, { count: 1, resetAt: now + this.windowMs });

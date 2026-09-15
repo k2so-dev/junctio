@@ -98,8 +98,7 @@ export function registerNamespaceTools(server: McpServer, deps: AdminDeps): void
       inputSchema: z.object({ namespaceId: resourceId("namespace id"), serverId: resourceId("server id") }),
       annotations: DESTROYS
     },
-    async (input) =>
-      callApi(api, { method: "DELETE", path: `/${input.namespaceId}/servers/${input.serverId}` })
+    async (input) => callApi(api, { method: "DELETE", path: `/${input.namespaceId}/servers/${input.serverId}` })
   );
 
   defineTool(

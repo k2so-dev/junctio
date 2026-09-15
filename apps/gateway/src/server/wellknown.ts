@@ -43,7 +43,7 @@ export function createWellKnownRoute(options: WellKnownOptions): Hono {
       return resourceMetadata(base, ADMIN_MCP_SLUG, "Junctio management");
     }
     const endpoint = endpointBySlug(core.db, slug);
-    if (!endpoint || !endpoint.enabled || !endpointAllowsOauth(endpoint)) return missing();
+    if (!endpoint?.enabled || !endpointAllowsOauth(endpoint)) return missing();
     return resourceMetadata(base, endpoint.slug, `Junctio ${endpoint.slug}`);
   };
 
@@ -71,7 +71,7 @@ export function createWellKnownRoute(options: WellKnownOptions): Hono {
       return authorizationServer(c.req.raw);
     }
     const endpoint = endpointBySlug(core.db, slug);
-    if (!endpoint || !endpoint.enabled || !endpointAllowsOauth(endpoint)) return c.json({ error: "not_found" }, 404);
+    if (!endpoint?.enabled || !endpointAllowsOauth(endpoint)) return c.json({ error: "not_found" }, 404);
     return authorizationServer(c.req.raw);
   });
 

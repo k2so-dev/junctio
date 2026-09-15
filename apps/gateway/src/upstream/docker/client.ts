@@ -1,4 +1,4 @@
-import { accessSync, constants, statSync } from "node:fs";
+import { accessSync, constants, statSync, type Stats } from "node:fs";
 
 export type DockerVersion = {
   version: string;
@@ -44,7 +44,7 @@ export class DockerError extends Error {
 }
 
 function diagnose(socket: string): string {
-  let stats;
+  let stats: Stats;
   try {
     stats = statSync(socket);
   } catch {
@@ -85,9 +85,7 @@ export class DockerClient {
       return await fetch(this.url(path), {
         method,
         unix: this.socket,
-        ...(body === undefined
-          ? {}
-          : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+        ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
       });
     } catch (error) {
       throw friendly(error, this.socket);

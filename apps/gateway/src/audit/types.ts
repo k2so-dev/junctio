@@ -1,11 +1,4 @@
-import type {
-  AuditEcosystem,
-  AuditStatus,
-  AuditTrigger,
-  SanctionAction,
-  SanctionSeverity,
-  Severity
-} from "@junctio/schema";
+import type { AuditEcosystem, AuditTrigger, SanctionAction, SanctionSeverity, Severity } from "@junctio/schema";
 import type { Logger } from "../log.ts";
 
 export type ActionMap = Record<SanctionSeverity, SanctionAction>;
@@ -83,11 +76,3 @@ export function targetValues(target: AuditTarget): string[] {
   if (target.kind === "node-project") return [target.cwd];
   return [target.appDir];
 }
-
-export type AuditOutcome = {
-  status: AuditStatus;
-  findings: AuditFinding[];
-  resolved: string[];
-  engine: string | null;
-  error: string | null;
-};

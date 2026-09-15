@@ -1,9 +1,17 @@
 import { and, eq, isNull, lt } from "drizzle-orm";
 import type { Context } from "hono";
-import type { OAuthClientInformationFull, OAuthTokenRevocationRequest, OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
+import type {
+  OAuthClientInformationFull,
+  OAuthTokenRevocationRequest,
+  OAuthTokens
+} from "@modelcontextprotocol/sdk/shared/auth.js";
 import type { AuthorizationParams } from "@modelcontextprotocol/sdk/server/auth/provider.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
-import { InvalidGrantError, InvalidRequestError, InvalidTokenError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
+import {
+  InvalidGrantError,
+  InvalidRequestError,
+  InvalidTokenError
+} from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import type { Db } from "../../../db/index.ts";
 import { oauthAuthCodes, oauthAuthRequests, oauthClients, oauthTokens } from "../../../db/schema.ts";
 import type { Cipher } from "../../../crypto.ts";
@@ -48,7 +56,10 @@ export class JunctioOAuthProvider {
   prune(now = Date.now()): void {
     this.db.delete(oauthAuthRequests).where(lt(oauthAuthRequests.expiresAt, now)).run();
     this.db.delete(oauthAuthCodes).where(lt(oauthAuthCodes.expiresAt, now)).run();
-    this.db.delete(oauthTokens).where(lt(oauthTokens.expiresAt, now - REFRESH_TOKEN_TTL_SEC * 1000)).run();
+    this.db
+      .delete(oauthTokens)
+      .where(lt(oauthTokens.expiresAt, now - REFRESH_TOKEN_TTL_SEC * 1000))
+      .run();
     this.db
       .delete(oauthClients)
       .where(and(isNull(oauthClients.lastUsedAt), lt(oauthClients.createdAt, now - UNUSED_CLIENT_TTL_MS)))
@@ -130,7 +141,11 @@ export class JunctioOAuthProvider {
   }
 
   async challengeForAuthorizationCode(client: OAuthClientInformationFull, authorizationCode: string): Promise<string> {
-    const row = this.db.select().from(oauthAuthCodes).where(eq(oauthAuthCodes.codeHash, sha256Hex(authorizationCode))).get();
+    const row = this.db
+      .select()
+      .from(oauthAuthCodes)
+      .where(eq(oauthAuthCodes.codeHash, sha256Hex(authorizationCode)))
+      .get();
     if (!row || row.clientId !== client.client_id || row.expiresAt <= Date.now()) {
       throw new InvalidGrantError("authorization code is invalid or expired");
     }
@@ -221,7 +236,11 @@ export class JunctioOAuthProvider {
   }
 
   async verifyAccessToken(token: string): Promise<AuthInfo> {
-    const row = this.db.select().from(oauthTokens).where(eq(oauthTokens.accessTokenHash, sha256Hex(token))).get();
+    const row = this.db
+      .select()
+      .from(oauthTokens)
+      .where(eq(oauthTokens.accessTokenHash, sha256Hex(token)))
+      .get();
     if (!row) throw new InvalidTokenError("unknown access token");
     if (row.expiresAt <= Date.now()) throw new InvalidTokenError("access token has expired");
     this.db.update(oauthTokens).set({ lastUsedAt: Date.now() }).where(eq(oauthTokens.id, row.id)).run();

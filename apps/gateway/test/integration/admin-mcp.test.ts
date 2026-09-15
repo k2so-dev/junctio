@@ -309,17 +309,18 @@ describe("management mcp over oauth", () => {
     oauthHarness = await startHarness({ withBaseUrl: true, env: { JUNCTIO_ADMIN_TOKEN: ADMIN_TOKEN } });
     harness = oauthHarness;
     await api("/v1/session/setup", {
-    method: "POST",
-    headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
-    body: JSON.stringify({ password: "supersecret" })
-  });
+      method: "POST",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      body: JSON.stringify({ password: "supersecret" })
+    });
     await enable();
   });
 
   test("publishes its discovery documents once it is on", async () => {
-    const resource = (await (
-      await fetch(`${harness.url}/.well-known/oauth-protected-resource/mcp/_admin`)
-    ).json()) as { resource: string; authorization_servers: string[] };
+    const resource = (await (await fetch(`${harness.url}/.well-known/oauth-protected-resource/mcp/_admin`)).json()) as {
+      resource: string;
+      authorization_servers: string[];
+    };
     expect(resource.resource).toBe(`${harness.url}/mcp/_admin`);
     expect(resource.authorization_servers).toEqual([harness.url]);
 
@@ -376,19 +377,19 @@ describe("installing from the registry", () => {
     registryHarness = await startHarness({ env: { JUNCTIO_ADMIN_TOKEN: ADMIN_TOKEN }, fetchImpl });
     harness = registryHarness;
     await api("/v1/session/setup", {
-    method: "POST",
-    headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
-    body: JSON.stringify({ password: "supersecret" })
-  });
+      method: "POST",
+      headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+      body: JSON.stringify({ password: "supersecret" })
+    });
     await enable();
   });
 
   test("creates a server from a registry entry with the values the agent supplies", async () => {
     const client = await adminClient();
 
-    const detail = payload(
-      await call(client, "get_registry_server", { name: "io.github.j0hanz/filesystem-mcp" })
-    ) as { options: { id: string; kind: string; supported: boolean }[] };
+    const detail = payload(await call(client, "get_registry_server", { name: "io.github.j0hanz/filesystem-mcp" })) as {
+      options: { id: string; kind: string; supported: boolean }[];
+    };
     const npm = detail.options.find((option) => option.kind === "npm");
     expect(npm?.supported).toBe(true);
 

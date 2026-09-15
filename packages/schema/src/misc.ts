@@ -72,9 +72,6 @@ export const TestResultDto = z.object({
 });
 export type TestResultDto = z.infer<typeof TestResultDto>;
 
-export const OAuthStartDto = z.object({ authorizationUrl: z.string() });
-export type OAuthStartDto = z.infer<typeof OAuthStartDto>;
-
 export const ApiError = z.object({
   error: z.string(),
   message: z.string(),

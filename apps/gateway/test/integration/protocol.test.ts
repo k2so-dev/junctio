@@ -148,11 +148,7 @@ describe("protocol eras", () => {
     await legacy.close();
 
     const endpoint = harness.core.db.select().from(endpoints).where(eq(endpoints.slug, "mixed")).get();
-    const rows = harness.core.db
-      .select()
-      .from(requestLog)
-      .where(eq(requestLog.endpointId, endpoint!.id))
-      .all();
+    const rows = harness.core.db.select().from(requestLog).where(eq(requestLog.endpointId, endpoint!.id)).all();
     const revisions = new Set(rows.map((row) => row.protocol));
     expect(revisions.has(MODERN)).toBe(true);
     expect(revisions.has("2025-11-25")).toBe(true);

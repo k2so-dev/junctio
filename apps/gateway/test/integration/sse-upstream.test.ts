@@ -22,9 +22,7 @@ async function setup(options: { token?: string } = {}) {
     name: "legacy",
     url: upstream.url,
     transport: "sse",
-    ...(options.token
-      ? { authMode: "header" as const, headers: { Authorization: `Bearer ${options.token}` } }
-      : {})
+    ...(options.token ? { authMode: "header" as const, headers: { Authorization: `Bearer ${options.token}` } } : {})
   });
   const namespaceId = seedNamespace(harness.core, "ns", [{ serverId }]);
   const endpointId = seedEndpoint(harness.core, { slug: "gw", namespaceId });

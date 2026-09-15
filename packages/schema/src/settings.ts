@@ -19,7 +19,12 @@ export const SettingsDto = z.object({
 export type SettingsDto = z.infer<typeof SettingsDto>;
 
 export const SettingsPatch = z.object({
-  toolSeparator: z.string().min(1).max(8).regex(/^[^a-zA-Z0-9\s]+$|^_+$/u, "use non-alphanumeric separator").optional(),
+  toolSeparator: z
+    .string()
+    .min(1)
+    .max(8)
+    .regex(/^[^a-zA-Z0-9\s]+$|^_+$/u, "use non-alphanumeric separator")
+    .optional(),
   runtimePath: z.string().min(1).optional(),
   apiKeyQueryParam: z.boolean().optional(),
   requestLogRetentionDays: z.number().int().min(1).max(365).optional(),

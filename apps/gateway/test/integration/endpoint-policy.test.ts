@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { endpoints, requestLog } from "../../src/db/schema.ts";
-import { seedEndpoint, seedHttpServer, seedNamespace, seedStdioServer, startHarness, type Harness } from "../helpers.ts";
+import {
+  seedEndpoint,
+  seedHttpServer,
+  seedNamespace,
+  seedStdioServer,
+  startHarness,
+  type Harness
+} from "../helpers.ts";
 
 let harness: Harness;
 
@@ -38,7 +45,10 @@ async function post(slug: string, body: BodyInit, headers: Record<string, string
   });
 }
 
-async function prepare(slug: string, patch: Partial<{ protocolMin: string; rateLimit: { perMinute: number } }> = {}): Promise<void> {
+async function prepare(
+  slug: string,
+  patch: Partial<{ protocolMin: string; rateLimit: { perMinute: number } }> = {}
+): Promise<void> {
   const serverId = await seedStdioServer(harness.core, { name: "alpha" });
   const namespaceId = seedNamespace(harness.core, "team", [{ serverId }]);
   const endpointId = seedEndpoint(harness.core, { slug, namespaceId, authMode: "none" });

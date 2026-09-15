@@ -1,4 +1,5 @@
 import { z } from "zod";
+import pkg from "../package.json" with { type: "json" };
 
 const KNOWN_KEYS = [
   "JUNCTIO_SECRET",
@@ -52,7 +53,7 @@ export type Config = {
   version: string;
 };
 
-export const VERSION = "0.1.0";
+export const VERSION: string = pkg.version;
 
 export function loadConfig(env: Record<string, string | undefined> = Bun.env): Config {
   const parsed = EnvSchema.safeParse(present(env));

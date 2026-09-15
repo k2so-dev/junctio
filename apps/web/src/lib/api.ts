@@ -85,12 +85,7 @@ async function request<T>(method: string, path: string, body?: Body): Promise<T>
   if (!response.ok) {
     const shape = payload as { error?: string; message?: string; details?: unknown } | null;
     if (response.status === 401 && !path.startsWith("/v1/session")) onUnauthorized?.();
-    throw new ApiError(
-      response.status,
-      shape?.error ?? "error",
-      shape?.message ?? response.statusText,
-      shape?.details
-    );
+    throw new ApiError(response.status, shape?.error ?? "error", shape?.message ?? response.statusText, shape?.details);
   }
 
   return payload as T;
@@ -147,8 +142,7 @@ export const api = {
     tools: (id: string, refresh = false) =>
       request<ServerCatalog>("GET", `/v1/servers/${id}/tools${refresh ? "?refresh=1" : ""}`),
     logStreamUrl: (id: string, tail = 200) => `/api/v1/servers/${id}/logs?stream=1&tail=${tail}`,
-    oauthStart: (id: string) =>
-      request<{ authorizationUrl: string }>("POST", `/v1/servers/${id}/oauth/start`, {}),
+    oauthStart: (id: string) => request<{ authorizationUrl: string }>("POST", `/v1/servers/${id}/oauth/start`, {}),
     oauthRefresh: (id: string) =>
       request<{ refreshed: boolean; oauth: ServerDto["oauth"] }>("POST", `/v1/servers/${id}/oauth/refresh`, {}),
     oauthClear: (id: string) => request<void>("DELETE", `/v1/servers/${id}/oauth`),
@@ -176,8 +170,7 @@ export const api = {
     remove: (id: string) => request<void>("DELETE", `/v1/namespaces/${id}`),
     putServer: (id: string, input: NamespaceServerInput) =>
       request<NamespaceDto>("POST", `/v1/namespaces/${id}/servers`, input),
-    removeServer: (id: string, serverId: string) =>
-      request<void>("DELETE", `/v1/namespaces/${id}/servers/${serverId}`),
+    removeServer: (id: string, serverId: string) => request<void>("DELETE", `/v1/namespaces/${id}/servers/${serverId}`),
     tools: (id: string) => request<NamespaceToolDto[]>("GET", `/v1/namespaces/${id}/tools`),
     putTool: (id: string, input: ToolOverrideInput) =>
       request<{ ok: boolean }>("PUT", `/v1/namespaces/${id}/tools`, input),
@@ -217,10 +210,7 @@ export const api = {
     list: (params: { search?: string; cursor?: string; limit?: number; refresh?: string }) =>
       request<RegistryListDto>("GET", `/v1/registry/servers${query(params)}`),
     get: (name: string, refresh = false) =>
-      request<RegistryDetailDto>(
-        "GET",
-        `/v1/registry/server${query({ name, refresh: refresh ? "1" : undefined })}`
-      )
+      request<RegistryDetailDto>("GET", `/v1/registry/server${query({ name, refresh: refresh ? "1" : undefined })}`)
   },
 
   docker: {

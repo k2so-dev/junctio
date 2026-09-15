@@ -14,7 +14,7 @@ import { ServerRegistry } from "./upstream/registry.ts";
 import { UpstreamPool } from "./upstream/pool.ts";
 import { createLaunchGate, type LaunchGate } from "./upstream/gate.ts";
 import { Aggregator } from "./aggregate/aggregator.ts";
-import { type UpstreamAuth } from "./upstream/types.ts";
+import type { UpstreamAuth } from "./upstream/types.ts";
 import { UpstreamAuthService } from "./auth/upstream/index.ts";
 import { JunctioOAuthProvider } from "./auth/downstream/as/provider.ts";
 import { RegistryClient } from "./registry/client.ts";

@@ -179,13 +179,7 @@ function entriesOf(root: unknown): [string, unknown][] | null {
   return null;
 }
 
-function remoteDraft(
-  key: string,
-  raw: RawServer,
-  url: string,
-  transport: TransportKind,
-  notes: string[]
-): ServerInput {
+function remoteDraft(key: string, raw: RawServer, url: string, transport: TransportKind, notes: string[]): ServerInput {
   const headers = stringMap(raw.headers);
   for (const [name, value] of Object.entries(headers)) {
     if (templated(value)) {

@@ -12,7 +12,9 @@ function pkce(): { verifier: string; challenge: string } {
 
 let admin: (path: string, init?: RequestInit) => Promise<Response>;
 
-async function register(overrides: Record<string, unknown> = {}): Promise<{ client_id: string; client_secret?: string }> {
+async function register(
+  overrides: Record<string, unknown> = {}
+): Promise<{ client_id: string; client_secret?: string }> {
   const response = await fetch(`${harness.url}/oauth/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },

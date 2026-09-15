@@ -8,7 +8,7 @@ import type { OAuthStatus } from "@junctio/schema";
 import type { Db } from "../../db/index.ts";
 import { servers } from "../../db/schema.ts";
 import type { Logger } from "../../log.ts";
-import { TokenStore, tokenSetFrom, type UpstreamOauthState } from "./store.ts";
+import { type TokenStore, tokenSetFrom, type UpstreamOauthState } from "./store.ts";
 
 export const SCHEDULER_INTERVAL_MS = 60_000;
 const LONG_TTL_MS = 600_000;
@@ -108,7 +108,8 @@ export class UpstreamRefresher {
       if (!state?.tokens) continue;
       if (state.status === "needs_reauth") continue;
       if (!state.tokens.refreshToken) {
-        if (state.status !== "no_refresh") this.setStatus(row.id, "no_refresh", "upstream did not issue a refresh token");
+        if (state.status !== "no_refresh")
+          this.setStatus(row.id, "no_refresh", "upstream did not issue a refresh token");
         continue;
       }
       if (!needsRefresh(state)) continue;

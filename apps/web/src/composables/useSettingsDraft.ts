@@ -18,9 +18,9 @@ export function useSettingsDraft<K extends DraftKey>(keys: readonly K[]) {
     if (!current) return;
     for (const key of keys) {
       const value = current[key];
-      draft[key] = (typeof value === "object" && value !== null
-        ? (JSON.parse(JSON.stringify(value)) as unknown)
-        : value) as Pick<SettingsDto, K>[K];
+      draft[key] = (
+        typeof value === "object" && value !== null ? (JSON.parse(JSON.stringify(value)) as unknown) : value
+      ) as Pick<SettingsDto, K>[K];
     }
     loaded.value = true;
   }

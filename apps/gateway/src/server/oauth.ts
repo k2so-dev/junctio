@@ -36,10 +36,10 @@ export function createUpstreamOauthRoute(core: Core): Hono {
 }
 
 function page(title: string, message: string): string {
-  const escape = (value: string) =>
+  const html = (value: string) =>
     value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${escape(title)}</title><style>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${html(title)}</title><style>
 body{background:#0a0a0a;color:#fafafa;font:15px/1.6 ui-sans-serif,system-ui,sans-serif;display:grid;place-items:center;height:100vh;margin:0}
 main{max-width:32rem;padding:2rem;text-align:center}h1{font-size:1.25rem;margin:0 0 .5rem}p{color:#a1a1aa;margin:0}
-</style></head><body><main><h1>${escape(title)}</h1><p>${escape(message)}</p></main></body></html>`;
+</style></head><body><main><h1>${html(title)}</h1><p>${html(message)}</p></main></body></html>`;
 }

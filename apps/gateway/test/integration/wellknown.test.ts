@@ -79,7 +79,9 @@ describe("oauth resource server mode", () => {
     });
     expect(response.status).toBe(401);
     const challenge = response.headers.get("www-authenticate") ?? "";
-    expect(challenge).toContain('resource_metadata="http://127.0.0.1:9999/.well-known/oauth-protected-resource/mcp/secured"');
+    expect(challenge).toContain(
+      'resource_metadata="http://127.0.0.1:9999/.well-known/oauth-protected-resource/mcp/secured"'
+    );
   });
 
   test("accepts a valid token with the endpoint audience", async () => {

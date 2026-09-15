@@ -131,7 +131,10 @@ export class OsvPypiEngine implements AuditEngine {
     return value;
   }
 
-  private async resolve(target: Extract<AuditTarget, { kind: "pypi" }>, ctx: EngineContext): Promise<{ name: string; version: string }[]> {
+  private async resolve(
+    target: Extract<AuditTarget, { kind: "pypi" }>,
+    ctx: EngineContext
+  ): Promise<{ name: string; version: string }[]> {
     const uv = this.options.uvPath();
     if (!uv) throw new Error("uv is not on the runtime path, python packages cannot be resolved");
     return withTempDir(ctx.tmpRoot, async (dir) => {
@@ -174,7 +177,10 @@ export class OsvPypiEngine implements AuditEngine {
     });
   }
 
-  private async query(ctx: EngineContext, packages: { name: string; version: string }[]): Promise<Map<number, string[]>> {
+  private async query(
+    ctx: EngineContext,
+    packages: { name: string; version: string }[]
+  ): Promise<Map<number, string[]>> {
     const hits = new Map<number, string[]>();
     for (let offset = 0; offset < packages.length; offset += BATCH_SIZE) {
       const chunk = packages.slice(offset, offset + BATCH_SIZE);

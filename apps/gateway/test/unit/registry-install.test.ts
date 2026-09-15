@@ -115,9 +115,7 @@ describe("links", () => {
 
   test("sends a python package to pypi", () => {
     const links = serverLinks(entry("io.github.Oncorporation/filesystem-server"));
-    expect(links.find((link) => link.kind === "pypi")?.url).toBe(
-      "https://pypi.org/project/vs-filesystem-mcp-server/"
-    );
+    expect(links.find((link) => link.kind === "pypi")?.url).toBe("https://pypi.org/project/vs-filesystem-mcp-server/");
   });
 
   test("always offers the registry entry, even with nothing else to link", () => {

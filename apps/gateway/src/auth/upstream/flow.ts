@@ -11,7 +11,7 @@ import type { Db } from "../../db/index.ts";
 import { oauthStates, servers } from "../../db/schema.ts";
 import type { Logger } from "../../log.ts";
 import { randomToken } from "../../crypto.ts";
-import { TokenStore, tokenSetFrom, type ClientRegistration } from "./store.ts";
+import { type TokenStore, tokenSetFrom, type ClientRegistration } from "./store.ts";
 
 export const CALLBACK_PATH = "/oauth/upstream/callback";
 export const STATE_TTL_MS = 600_000;
@@ -156,6 +156,9 @@ export class UpstreamOauthFlow {
   }
 
   pruneStates(maxAgeMs = STATE_TTL_MS): void {
-    this.options.db.delete(oauthStates).where(lt(oauthStates.createdAt, Date.now() - maxAgeMs)).run();
+    this.options.db
+      .delete(oauthStates)
+      .where(lt(oauthStates.createdAt, Date.now() - maxAgeMs))
+      .run();
   }
 }

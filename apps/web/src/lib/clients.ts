@@ -45,7 +45,7 @@ function bearer(ctx: SnippetContext): string {
   return ctx.kind === "oauth" ? "Bearer <access-token>" : `Bearer ${ctx.token}`;
 }
 
-function headerEntry(ctx: SnippetContext, value: string = bearer(ctx)): { headers: { Authorization: string } } | {} {
+function headerEntry(ctx: SnippetContext, value: string = bearer(ctx)): { headers?: { Authorization: string } } {
   return ctx.kind === "key" ? { headers: { Authorization: value } } : {};
 }
 
@@ -59,8 +59,11 @@ function connectorGuide(ctx: SnippetContext, product: string, steps: string[]): 
     };
   }
   const url = ctx.kind === "key" ? (ctx.queryUrl as string) : ctx.url;
-  const notes = [`The gateway must be reachable from the internet over HTTPS; ${product} cannot reach localhost or a LAN address.`];
-  if (ctx.kind === "key") notes.push("The key is part of the URL, so anyone who can see the connector settings has it.");
+  const notes = [
+    `The gateway must be reachable from the internet over HTTPS; ${product} cannot reach localhost or a LAN address.`
+  ];
+  if (ctx.kind === "key")
+    notes.push("The key is part of the URL, so anyone who can see the connector settings has it.");
   return { blocks: [{ title: "Remote MCP server URL", code: url }], steps, notes };
 }
 
@@ -90,7 +93,9 @@ export const CLIENTS: ClientSpec[] = [
       steps.push("claude mcp list, or /mcp inside a session, shows the connection status.");
       const notes =
         ctx.kind === "key"
-          ? [`\${${envKey(ctx)}} in .mcp.json is expanded from the environment, so the key stays out of the file. A literal key works too.`]
+          ? [
+              `\${${envKey(ctx)}} in .mcp.json is expanded from the environment, so the key stays out of the file. A literal key works too.`
+            ]
           : [];
       return {
         blocks: [
@@ -113,9 +118,13 @@ export const CLIENTS: ClientSpec[] = [
         "Click + → Add custom connector, paste the URL and click Add."
       ];
       if (ctx.kind === "oauth") {
-        steps.push("Click Connect. The browser opens this gateway's sign-in page; approve once and the connector stays signed in.");
+        steps.push(
+          "Click Connect. The browser opens this gateway's sign-in page; approve once and the connector stays signed in."
+        );
       }
-      steps.push("Team and Enterprise: an owner adds the connector under Organization settings → Connectors first, then members click Connect.");
+      steps.push(
+        "Team and Enterprise: an owner adds the connector under Organization settings → Connectors first, then members click Connect."
+      );
       return connectorGuide(ctx, "claude.ai", steps);
     }
   },
@@ -129,7 +138,8 @@ export const CLIENTS: ClientSpec[] = [
         "Open Settings → Apps & Connectors → Advanced settings and enable Developer mode.",
         `Back in Apps & Connectors click Create, paste the URL and choose ${ctx.kind === "oauth" ? "OAuth" : "No authentication"}.`
       ];
-      if (ctx.kind === "oauth") steps.push("Saving opens the browser sign-in; ChatGPT registers itself with the gateway automatically.");
+      if (ctx.kind === "oauth")
+        steps.push("Saving opens the browser sign-in; ChatGPT registers itself with the gateway automatically.");
       steps.push("Enable the connector in a chat under Tools → Developer mode.");
       return connectorGuide(ctx, "ChatGPT", steps);
     }
@@ -150,11 +160,16 @@ export const CLIENTS: ClientSpec[] = [
       if (ctx.kind === "key") toml.push(`bearer_token_env_var = "${envKey(ctx)}"`);
       const steps = ["Run the command, or add the table to ~/.codex/config.toml."];
       if (ctx.kind === "key") {
-        steps.push(`Export ${envKey(ctx)} in your shell profile; Codex reads it at startup and sends it as the Authorization header.`);
+        steps.push(
+          `Export ${envKey(ctx)} in your shell profile; Codex reads it at startup and sends it as the Authorization header.`
+        );
       }
       if (ctx.kind === "oauth") steps.push("codex mcp login opens the browser; Codex stores the tokens itself.");
       steps.push("codex mcp list shows the configured servers.");
-      const notes = ctx.kind === "key" ? ['To inline the key instead, use http_headers = { Authorization = "Bearer …" } in the table.'] : [];
+      const notes =
+        ctx.kind === "key"
+          ? ['To inline the key instead, use http_headers = { Authorization = "Bearer …" } in the table.']
+          : [];
       return {
         blocks: [
           { title: "Terminal", code: terminal },
@@ -172,11 +187,16 @@ export const CLIENTS: ClientSpec[] = [
     build(ctx) {
       const entry = { url: ctx.url, ...headerEntry(ctx) };
       const config = btoa(JSON.stringify(entry));
-      const steps = ["Save as .cursor/mcp.json in the project, or ~/.cursor/mcp.json for every project — or click Add to Cursor."];
-      if (ctx.kind === "oauth") steps.push("Cursor lists the server with Needs login; click it to sign in in the browser.");
+      const steps = [
+        "Save as .cursor/mcp.json in the project, or ~/.cursor/mcp.json for every project — or click Add to Cursor."
+      ];
+      if (ctx.kind === "oauth")
+        steps.push("Cursor lists the server with Needs login; click it to sign in in the browser.");
       steps.push("Cursor Settings → MCP shows the tools once the server is connected.");
       const notes =
-        ctx.kind === "key" ? [`Use \${env:${envKey(ctx)}} as the header value to read the key from the environment instead of the file.`] : [];
+        ctx.kind === "key"
+          ? [`Use \${env:${envKey(ctx)}} as the header value to read the key from the environment instead of the file.`]
+          : [];
       return {
         blocks: [{ title: "mcp.json", code: json({ mcpServers: { [ctx.slug]: entry } }) }],
         steps,
@@ -197,21 +217,30 @@ export const CLIENTS: ClientSpec[] = [
       const entry = { type: "http", url: ctx.url, ...headerEntry(ctx, `Bearer \${input:${inputId}}`) };
       const file =
         ctx.kind === "key"
-          ? { servers: { [ctx.slug]: entry }, inputs: [{ type: "promptString", id: inputId, description: "Junctio API key", password: true }] }
+          ? {
+              servers: { [ctx.slug]: entry },
+              inputs: [{ type: "promptString", id: inputId, description: "Junctio API key", password: true }]
+            }
           : { servers: { [ctx.slug]: entry } };
       const blocks: Snippet[] = [{ title: ".vscode/mcp.json", code: json(file) }];
       if (ctx.kind !== "key") {
         blocks.push({ title: "Terminal", code: `code --add-mcp '${JSON.stringify({ name: ctx.slug, ...entry })}'` });
       }
-      const steps = ["Save as .vscode/mcp.json in the workspace, or run MCP: Open User Configuration from the Command Palette for all workspaces."];
-      if (ctx.kind === "key") steps.push("VS Code prompts for the key the first time the server starts and keeps it in its secret storage.");
+      const steps = [
+        "Save as .vscode/mcp.json in the workspace, or run MCP: Open User Configuration from the Command Palette for all workspaces."
+      ];
+      if (ctx.kind === "key")
+        steps.push("VS Code prompts for the key the first time the server starts and keeps it in its secret storage.");
       if (ctx.kind === "oauth") steps.push("VS Code opens the browser for the sign-in on the first connection.");
       steps.push("MCP: List Servers shows the status; Chat → Tools lists what the server exposes.");
       return {
         blocks,
         steps,
         notes: [],
-        link: { label: "Add to VS Code", href: `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: ctx.slug, ...entry }))}` }
+        link: {
+          label: "Add to VS Code",
+          href: `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: ctx.slug, ...entry }))}`
+        }
       };
     }
   },
@@ -223,8 +252,11 @@ export const CLIENTS: ClientSpec[] = [
       const add = `gemini mcp add --transport http ${ctx.slug} ${ctx.url}`;
       const terminal = ctx.kind === "key" ? `${add} \\\n  --header "Authorization: Bearer ${ctx.token}"` : add;
       const entry = { httpUrl: ctx.url, ...headerEntry(ctx, `Bearer $${envKey(ctx)}`) };
-      const steps = ["Run the command, or add the entry to ~/.gemini/settings.json (.gemini/settings.json with --scope project for one project)."];
-      if (ctx.kind === "oauth") steps.push(`Type /mcp auth ${ctx.slug} inside Gemini CLI to sign in; tokens are refreshed automatically.`);
+      const steps = [
+        "Run the command, or add the entry to ~/.gemini/settings.json (.gemini/settings.json with --scope project for one project)."
+      ];
+      if (ctx.kind === "oauth")
+        steps.push(`Type /mcp auth ${ctx.slug} inside Gemini CLI to sign in; tokens are refreshed automatically.`);
       steps.push("/mcp lists the servers and their tools.");
       const notes = ctx.kind === "key" ? [`$${envKey(ctx)} in settings.json reads the key from the environment.`] : [];
       return {
@@ -243,11 +275,18 @@ export const CLIENTS: ClientSpec[] = [
     hint: "mcp_config.json",
     build(ctx) {
       const entry = { serverUrl: ctx.url, ...headerEntry(ctx) };
-      const steps = ["Add the entry to ~/.codeium/windsurf/mcp_config.json, or open Windsurf Settings → Cascade → MCP servers."];
+      const steps = [
+        "Add the entry to ~/.codeium/windsurf/mcp_config.json, or open Windsurf Settings → Cascade → MCP servers."
+      ];
       if (ctx.kind === "oauth") steps.push("Windsurf prompts to sign in when the server is enabled.");
       steps.push("Refresh the MCP list in Cascade to load the tools.");
-      const notes = ctx.kind === "key" ? [`\${env:${envKey(ctx)}} in the header value reads the key from the environment.`] : [];
-      return { blocks: [{ title: "mcp_config.json", code: json({ mcpServers: { [ctx.slug]: entry } }) }], steps, notes };
+      const notes =
+        ctx.kind === "key" ? [`\${env:${envKey(ctx)}} in the header value reads the key from the environment.`] : [];
+      return {
+        blocks: [{ title: "mcp_config.json", code: json({ mcpServers: { [ctx.slug]: entry } }) }],
+        steps,
+        notes
+      };
     }
   },
   {
@@ -257,9 +296,14 @@ export const CLIENTS: ClientSpec[] = [
     build(ctx) {
       const entry = { url: ctx.url, ...headerEntry(ctx) };
       const steps = ["Add the entry to Zed settings (zed: open settings)."];
-      if (ctx.kind === "oauth") steps.push("Without an Authorization header Zed starts the MCP OAuth flow and opens the browser.");
+      if (ctx.kind === "oauth")
+        steps.push("Without an Authorization header Zed starts the MCP OAuth flow and opens the browser.");
       steps.push("Agent panel → Settings shows the server status and its tools.");
-      return { blocks: [{ title: "settings.json", code: json({ context_servers: { [ctx.slug]: entry } }) }], steps, notes: [] };
+      return {
+        blocks: [{ title: "settings.json", code: json({ context_servers: { [ctx.slug]: entry } }) }],
+        steps,
+        notes: []
+      };
     }
   },
   {
@@ -269,17 +313,28 @@ export const CLIENTS: ClientSpec[] = [
     build(ctx) {
       const args = ["-y", "mcp-remote", ctx.url, "--transport", "http-only"];
       if (ctx.kind === "key") args.push("--header", "Authorization:${AUTH_HEADER}");
-      const entry = { command: "npx", args, ...(ctx.kind === "key" ? { env: { AUTH_HEADER: `Bearer ${ctx.token}` } } : {}) };
+      const entry = {
+        command: "npx",
+        args,
+        ...(ctx.kind === "key" ? { env: { AUTH_HEADER: `Bearer ${ctx.token}` } } : {})
+      };
       const steps = [
         "For clients that only launch stdio servers: the Claude Desktop config file, older editors and plugins. Paste the entry into the client's mcpServers config."
       ];
-      if (ctx.kind === "oauth") steps.push("mcp-remote opens the browser on the first start and stores the tokens under ~/.mcp-auth.");
+      if (ctx.kind === "oauth")
+        steps.push("mcp-remote opens the browser on the first start and stores the tokens under ~/.mcp-auth.");
       steps.push("Needs Node 18+ on the client machine.");
       const notes =
         ctx.kind === "key"
-          ? ["Authorization:${AUTH_HEADER} has no space on purpose: some clients mangle spaces inside args, so the value comes from the env block."]
+          ? [
+              "Authorization:${AUTH_HEADER} has no space on purpose: some clients mangle spaces inside args, so the value comes from the env block."
+            ]
           : [];
-      return { blocks: [{ title: "mcpServers entry", code: json({ mcpServers: { [ctx.slug]: entry } }) }], steps, notes };
+      return {
+        blocks: [{ title: "mcpServers entry", code: json({ mcpServers: { [ctx.slug]: entry } }) }],
+        steps,
+        notes
+      };
     }
   },
   {
@@ -308,10 +363,15 @@ export const CLIENTS: ClientSpec[] = [
         `Drop both the header and params._meta to talk to the endpoint the 2025 way, if its minimum protocol is below ${MODERN_PROTOCOL}.`
       ];
       if (ctx.kind === "key") notes.push("X-API-Key: <key> works as an alternative to the Authorization header.");
-      if (ctx.kind === "oauth") notes.push("OAuth endpoints need an access token from the sign-in flow; for a quick check switch the endpoint to Either and use an API key.");
+      if (ctx.kind === "oauth")
+        notes.push(
+          "OAuth endpoints need an access token from the sign-in flow; for a quick check switch the endpoint to Either and use an API key."
+        );
       return {
         blocks: [{ title: "Terminal", code: lines.join("\n") }],
-        steps: ["Lists the tools the endpoint exposes. Swap the body for tools/call with params.name and params.arguments to invoke one."],
+        steps: [
+          "Lists the tools the endpoint exposes. Swap the body for tools/call with params.name and params.arguments to invoke one."
+        ],
         notes
       };
     }

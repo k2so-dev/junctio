@@ -51,7 +51,10 @@ function affectsConnection(before: ServerRow, after: ServerRow, secrets: SecretC
   return CONNECTION_FIELDS.some((field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
 }
 
-async function encodeSecrets(core: Core, values: Record<string, string> | undefined): Promise<string | null | undefined> {
+async function encodeSecrets(
+  core: Core,
+  values: Record<string, string> | undefined
+): Promise<string | null | undefined> {
   if (values === undefined) return undefined;
   const filtered = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== ""));
   if (Object.keys(filtered).length === 0) return null;

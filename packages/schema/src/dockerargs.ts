@@ -91,12 +91,7 @@ function parseMount(value: string): { bind: string | null; error: string | null 
   return { bind: `${source}:${target}${readonly ? ":ro" : ""}`, error: null };
 }
 
-function assignEnv(
-  spec: ContainerSpec,
-  value: string,
-  ambient: Record<string, string>,
-  errors: string[]
-): void {
+function assignEnv(spec: ContainerSpec, value: string, ambient: Record<string, string>, errors: string[]): void {
   const index = value.indexOf("=");
   if (index !== -1) {
     spec.env[value.slice(0, index)] = value.slice(index + 1);

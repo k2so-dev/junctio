@@ -103,7 +103,7 @@ function parseOptions(args: string[], spec: OptionSpec): Parsed {
     if (spec.boolean.has(flag)) continue;
     if (inline !== null) continue;
     const next = args[i + 1];
-    if (next !== undefined && next.startsWith("-")) continue;
+    if (next?.startsWith("-")) continue;
   }
   return { collected, positionals, blocked };
 }

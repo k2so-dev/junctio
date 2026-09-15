@@ -1,6 +1,12 @@
 import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
-import { NamespaceInput, NamespacePatch, NamespaceServerInput, ToolOverrideInput, type NamespaceToolDto } from "@junctio/schema";
+import {
+  NamespaceInput,
+  NamespacePatch,
+  NamespaceServerInput,
+  ToolOverrideInput,
+  type NamespaceToolDto
+} from "@junctio/schema";
 import type { Core } from "../core.ts";
 import { namespaceServers, namespaces, servers, toolOverrides } from "../db/schema.ts";
 import type { NamespaceRow } from "../db/schema.ts";

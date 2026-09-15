@@ -1,6 +1,12 @@
 import { Hono } from "hono";
 import type { Context, Next } from "hono";
-import { authenticateClient, authorizeHandler, clientRegistrationHandler, revokeHandler, tokenHandler } from "@hono/mcp/auth";
+import {
+  authenticateClient,
+  authorizeHandler,
+  clientRegistrationHandler,
+  revokeHandler,
+  tokenHandler
+} from "@hono/mcp/auth";
 import type { OAuthServerProvider } from "@modelcontextprotocol/sdk/server/auth/provider.js";
 import type { JunctioOAuthProvider } from "./provider.ts";
 import type { AppEnv } from "../../../server/env.ts";
@@ -47,12 +53,17 @@ export function createAuthorizationServerRoute(
     return next();
   };
 
-  app.on(["GET", "POST"], "/authorize", throttle(grants, "too many authorization requests"), authorizeHandler(sdkProvider));
+  app.on(
+    ["GET", "POST"],
+    "/authorize",
+    throttle(grants, "too many authorization requests"),
+    authorizeHandler(sdkProvider)
+  );
   app.post("/token", throttle(grants, "too many token requests"), clientAuth, tokenHandler(sdkProvider));
   app.post(
     "/register",
     throttle(registrations, "too many client registrations"),
-    async (c, next) => {
+    async (_c, next) => {
       provider.prune();
       return next();
     },

@@ -5,7 +5,7 @@ import type { Core } from "../core.ts";
 import { oauthClients, oauthTokens } from "../db/schema.ts";
 import { badRequest, notFound } from "./util.ts";
 
-function slugOf(core: Core, resource: string | null): string | null {
+function slugOf(_core: Core, resource: string | null): string | null {
   if (!resource) return null;
   const match = /\/mcp\/([^/?#]+)/.exec(resource);
   return match?.[1] ?? null;

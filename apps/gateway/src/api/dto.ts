@@ -1,19 +1,12 @@
 import { eq } from "drizzle-orm";
-import type {
-  ApiKeyDto,
-  EndpointDto,
-  NamespaceDto,
-  ServerDto,
-  ServerOAuthInfo,
-  ServerStatus
-} from "@junctio/schema";
+import type { ApiKeyDto, EndpointDto, NamespaceDto, ServerDto, ServerOAuthInfo, ServerStatus } from "@junctio/schema";
 import type { ApiKeyRow, EndpointRow, NamespaceRow, ServerRow } from "../db/schema.ts";
 import { apiKeys, endpoints, namespaceServers, namespaces, servers } from "../db/schema.ts";
 import type { Core } from "../core.ts";
 
 export const MASKED = "***";
 
-export function maskSecrets(values: Record<string, string>): Record<string, string> {
+function maskSecrets(values: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const key of Object.keys(values)) out[key] = MASKED;
   return out;
@@ -31,7 +24,7 @@ export function mergeSecrets(
   return out;
 }
 
-export function serverStatus(core: Core, row: ServerRow, oauth: ServerOAuthInfo | null): ServerStatus {
+function serverStatus(core: Core, row: ServerRow, oauth: ServerOAuthInfo | null): ServerStatus {
   if (!row.enabled) return "stopped";
   if (row.quarantinedAt !== null) return "quarantined";
   if (oauth && (oauth.status === "needs_reauth" || oauth.status === "no_refresh")) return oauth.status;
@@ -59,7 +52,14 @@ export async function readOauthInfo(core: Core, row: ServerRow): Promise<ServerO
     };
   }
   if (!state) {
-    return { status: "needs_reauth", expiresAt: null, hasRefreshToken: false, scope: null, lastRefreshAt: null, lastError: null };
+    return {
+      status: "needs_reauth",
+      expiresAt: null,
+      hasRefreshToken: false,
+      scope: null,
+      lastRefreshAt: null,
+      lastError: null
+    };
   }
   return {
     status: state.status,
@@ -136,7 +136,7 @@ export function toNamespaceDto(core: Core, row: NamespaceRow): NamespaceDto {
   };
 }
 
-export function endpointUrl(core: Core, slug: string): string {
+function endpointUrl(core: Core, slug: string): string {
   return `${core.config.baseUrl ?? `http://localhost:${core.config.port}`}/mcp/${slug}`;
 }
 

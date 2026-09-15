@@ -279,7 +279,9 @@ describe("servers api", () => {
 
   test("keeps the process alive when only the name changes", async () => {
     const created = await createStdioServer();
-    const started = await json<{ pid: number | null }>(await api(`/v1/servers/${created.id}/start`, { method: "POST" }));
+    const started = await json<{ pid: number | null }>(
+      await api(`/v1/servers/${created.id}/start`, { method: "POST" })
+    );
 
     const renamed = await json<{ name: string; status: string; pid: number | null }>(
       await api(`/v1/servers/${created.id}`, { method: "PATCH", body: JSON.stringify({ name: "renamed" }) })

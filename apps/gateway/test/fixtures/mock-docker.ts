@@ -191,7 +191,9 @@ export async function startMockDocker(path: string): Promise<MockDocker> {
       case "attach":
         container.attached = socket;
         socket.data.hijacked = container;
-        socket.write("HTTP/1.1 101 UPGRADED\r\nContent-Type: application/vnd.docker.raw-stream\r\nConnection: Upgrade\r\nUpgrade: tcp\r\n\r\n");
+        socket.write(
+          "HTTP/1.1 101 UPGRADED\r\nContent-Type: application/vnd.docker.raw-stream\r\nConnection: Upgrade\r\nUpgrade: tcp\r\n\r\n"
+        );
         return;
       case "start": {
         const argv = [...(container.entrypoint ?? []), ...container.cmd];

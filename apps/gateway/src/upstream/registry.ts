@@ -31,7 +31,9 @@ export class ServerRegistry {
     if (cached) return cached;
     const row = this.row(serverId);
     if (!row) return null;
-    const headers = row.headersEnc ? (JSON.parse(await this.cipher.decrypt(row.headersEnc)) as Record<string, string>) : {};
+    const headers = row.headersEnc
+      ? (JSON.parse(await this.cipher.decrypt(row.headersEnc)) as Record<string, string>)
+      : {};
     const env = row.envEnc ? (JSON.parse(await this.cipher.decrypt(row.envEnc)) as Record<string, string>) : {};
     const resolved: ResolvedServer = { row, headers, env };
     this.cache.set(serverId, resolved);
@@ -40,7 +42,7 @@ export class ServerRegistry {
 
   async spawnSpec(serverId: string): Promise<SpawnSpec | null> {
     const resolved = await this.resolve(serverId);
-    if (!resolved || resolved.row.transport !== "stdio") return null;
+    if (resolved?.row.transport !== "stdio") return null;
     const { row } = resolved;
     const idleTimeoutSec = row.idleTimeoutSec;
     const warm = row.warm;

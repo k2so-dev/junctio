@@ -55,12 +55,9 @@ server.registerTool(
   async () => ({ content: [{ type: "text", text: Bun.env.MOCK_TOKEN ?? "none" }] })
 );
 
-server.registerResource(
-  "readme",
-  "mock://readme",
-  { title: "Readme", mimeType: "text/plain" },
-  async (uri) => ({ contents: [{ uri: uri.href, text: `readme of ${name}` }] })
-);
+server.registerResource("readme", "mock://readme", { title: "Readme", mimeType: "text/plain" }, async (uri) => ({
+  contents: [{ uri: uri.href, text: `readme of ${name}` }]
+}));
 
 server.registerPrompt(
   "greet",

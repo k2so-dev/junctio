@@ -9,7 +9,6 @@ export const ProtocolVersion = z.enum(protocolVersions);
 export type ProtocolVersion = z.infer<typeof ProtocolVersion>;
 
 export const latestProtocolVersion: ProtocolVersion = protocolVersions[protocolVersions.length - 1]!;
-export const protocolVersionsNewestFirst = [...protocolVersions].reverse() as ProtocolVersion[];
 
 export const RateLimit = z.object({
   perMinute: z.number().int().min(0).max(100000).default(0)

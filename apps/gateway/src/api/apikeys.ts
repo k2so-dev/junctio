@@ -27,7 +27,11 @@ export function createApiKeysApi(core: Core): Hono {
   });
 
   app.delete("/:id", (c) => {
-    const row = core.db.select().from(apiKeys).where(eq(apiKeys.id, c.req.param("id"))).get();
+    const row = core.db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys.id, c.req.param("id")))
+      .get();
     if (!row) return notFound(c, "api key");
     core.db.delete(apiKeys).where(eq(apiKeys.id, row.id)).run();
     return c.body(null, 204);

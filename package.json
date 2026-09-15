@@ -16,9 +16,13 @@
     "test": "bun test",
     "typecheck": "bun run --cwd apps/gateway typecheck && bun run --cwd apps/web typecheck",
     "db:generate": "bun run --cwd apps/gateway db:generate",
-    "check:links": "bun run --cwd apps/web check:links"
+    "check:links": "bun run --cwd apps/web check:links",
+    "check": "biome check",
+    "lint": "biome lint",
+    "format": "biome check --write"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.13",
     "typescript": "^5.9.3"
   }
 }

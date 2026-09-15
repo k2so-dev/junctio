@@ -35,11 +35,7 @@ export class AuditStore {
 
   save(result: SaveResult): void {
     const row = { ...result, checkedAt: Date.now() };
-    this.db
-      .insert(auditResults)
-      .values(row)
-      .onConflictDoUpdate({ target: auditResults.serverId, set: row })
-      .run();
+    this.db.insert(auditResults).values(row).onConflictDoUpdate({ target: auditResults.serverId, set: row }).run();
   }
 
   delete(serverId: string): void {
@@ -113,7 +109,13 @@ export class AuditStore {
   }
 
   pruneOrphans(): number {
-    const known = new Set(this.db.select({ id: servers.id }).from(servers).all().map((row) => row.id));
+    const known = new Set(
+      this.db
+        .select({ id: servers.id })
+        .from(servers)
+        .all()
+        .map((row) => row.id)
+    );
     known.add(SELF_ID);
     let removed = 0;
     for (const row of this.all()) {

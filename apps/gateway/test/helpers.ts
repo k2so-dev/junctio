@@ -223,7 +223,10 @@ export async function connectClient(
   token: string | null,
   mode: VersionNegotiationMode = "legacy"
 ): Promise<Client> {
-  const client = new Client({ name: "test-client", version: "1.0.0" }, { capabilities: {}, versionNegotiation: { mode } });
+  const client = new Client(
+    { name: "test-client", version: "1.0.0" },
+    { capabilities: {}, versionNegotiation: { mode } }
+  );
   const transport = new StreamableHTTPClientTransport(new URL(url), {
     requestInit: token ? { headers: { authorization: `Bearer ${token}` } } : undefined
   });

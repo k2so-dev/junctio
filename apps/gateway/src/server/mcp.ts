@@ -11,7 +11,12 @@ import { latestProtocolVersion, protocolVersions } from "@junctio/schema";
 import type { Core } from "../core.ts";
 import { VERSION } from "../config.ts";
 import type { EndpointRow } from "../db/schema.ts";
-import { authenticateEndpoint, challengeHeader, endpointBySlug, type JwtVerifier } from "../auth/downstream/middleware.ts";
+import {
+  authenticateEndpoint,
+  challengeHeader,
+  endpointBySlug,
+  type JwtVerifier
+} from "../auth/downstream/middleware.ts";
 import { recordRequest } from "./requestlog.ts";
 import { checkOrigin } from "./origin.ts";
 import { EndpointLimiter, clientAddress } from "./ratelimit.ts";
@@ -213,7 +218,7 @@ export function createMcpRoute(options: McpRouteOptions): Hono<AppEnv> {
     if (originError) return jsonRpcError(403, -32000, originError);
 
     const endpoint = endpointBySlug(core.db, slug);
-    if (!endpoint || !endpoint.enabled) return jsonRpcError(404, -32001, "endpoint not found");
+    if (!endpoint?.enabled) return jsonRpcError(404, -32001, "endpoint not found");
 
     const audience = `${core.config.baseUrl ?? new URL(request.url).origin}/mcp/${endpoint.slug}`;
     const auth = await authenticateEndpoint(core.db, endpoint, request, options.verifier, audience);

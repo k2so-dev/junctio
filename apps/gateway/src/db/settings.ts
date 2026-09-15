@@ -46,10 +46,7 @@ export function getSetting(db: Db, key: SettingKey): string {
 }
 
 export function setSetting(db: Db, key: SettingKey, value: string): void {
-  db.insert(settings)
-    .values({ key, value })
-    .onConflictDoUpdate({ target: settings.key, set: { value } })
-    .run();
+  db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
 }
 
 export function cipherSalt(db: Db): Uint8Array {

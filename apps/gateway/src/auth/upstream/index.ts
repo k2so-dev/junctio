@@ -25,7 +25,7 @@ export class UpstreamAuthService implements UpstreamAuth {
   readonly flow: UpstreamOauthFlow | null;
   private stateTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(private readonly options: UpstreamAuthServiceOptions) {
+  constructor(readonly options: UpstreamAuthServiceOptions) {
     this.store = new TokenStore(options.db, options.cipher);
     this.refresher = new UpstreamRefresher({
       db: options.db,

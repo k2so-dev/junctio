@@ -45,7 +45,7 @@ export function parseActionMap(raw: string): ActionMap {
   return out;
 }
 
-export function sanctionSeverity(severity: Severity): SanctionSeverity {
+function sanctionSeverity(severity: Severity): SanctionSeverity {
   return severity === "unknown" ? "high" : severity;
 }
 
@@ -53,7 +53,7 @@ export function emptyCounts(): SeverityCounts {
   return { critical: 0, high: 0, moderate: 0, low: 0, unknown: 0 };
 }
 
-export function countBySeverity(findings: AuditFinding[]): SeverityCounts {
+function countBySeverity(findings: AuditFinding[]): SeverityCounts {
   const counts = emptyCounts();
   for (const finding of findings) counts[finding.severity] += 1;
   return counts;

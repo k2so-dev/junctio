@@ -28,7 +28,15 @@ describe("splitNpmSpec", () => {
 
 describe("isRemoteSpec", () => {
   test("rejects anything that is not a registry package", () => {
-    for (const spec of ["git+https://x/y.git", "github:a/b", "https://x/y.tgz", "./local", "/abs", "file:../x", "pkg.tgz"]) {
+    for (const spec of [
+      "git+https://x/y.git",
+      "github:a/b",
+      "https://x/y.tgz",
+      "./local",
+      "/abs",
+      "file:../x",
+      "pkg.tgz"
+    ]) {
       expect(isRemoteSpec(spec)).toBe(true);
     }
   });

@@ -84,7 +84,9 @@ export function registerRegistryTools(server: McpServer, deps: AdminDeps): void 
         return failure(`no install option ${input.optionId} for ${input.name}. Known options: ${known || "none"}`);
       }
       if (!option.supported || !option.draft) {
-        return failure(`option ${option.id} cannot be installed: ${option.reason ?? "the gateway does not support it"}`);
+        return failure(
+          `option ${option.id} cannot be installed: ${option.reason ?? "the gateway does not support it"}`
+        );
       }
 
       const draft: ServerInput = {

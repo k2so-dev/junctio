@@ -36,7 +36,13 @@ function resolvePublicDir(explicit?: string | null): string | null {
 
 export function buildHealth(core: Core): HealthDto {
   const rows = core.db.select().from(servers).all();
-  const oauthStatus = new Map(core.db.select().from(upstreamOauth).all().map((row) => [row.serverId, row.status]));
+  const oauthStatus = new Map(
+    core.db
+      .select()
+      .from(upstreamOauth)
+      .all()
+      .map((row) => [row.serverId, row.status])
+  );
   let running = 0;
   let failed = 0;
   let needsReauth = 0;

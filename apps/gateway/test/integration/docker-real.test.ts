@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ServerDto } from "@junctio/schema";
 import { startHarness } from "../helpers.ts";
 import { DockerClient } from "../../src/upstream/docker/client.ts";
 import { SERVER_LABEL } from "../../src/upstream/docker/launcher.ts";

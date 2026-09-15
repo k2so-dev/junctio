@@ -1,6 +1,6 @@
 import type { Logger } from "../../log.ts";
 import type { ContainerLaunch, Handle } from "../launch.ts";
-import { DockerClient, DockerError, type CreateBody } from "./client.ts";
+import { type DockerClient, DockerError, type CreateBody } from "./client.ts";
 import { attachContainer } from "./stream.ts";
 
 export const GATEWAY_LABEL = "junctio.gateway";
@@ -63,7 +63,8 @@ export async function spawnContainer(
   await removeOwn(client, launch);
 
   if (spec.pull === "always" || !(await client.hasImage(spec.image))) {
-    if (spec.pull === "never") throw new Error(`image ${spec.image} is not present and --pull never forbids fetching it`);
+    if (spec.pull === "never")
+      throw new Error(`image ${spec.image} is not present and --pull never forbids fetching it`);
     log(`pulling ${spec.image}`);
     await client.pull(spec.image, (status) => log(`pull: ${status}`));
   }
@@ -72,7 +73,7 @@ export async function spawnContainer(
   const id = await create(client, launch, name);
   const short = id.slice(0, 12);
 
-  let attachment;
+  let attachment: Awaited<ReturnType<typeof attachContainer>>;
   try {
     attachment = await attachContainer(client.socket, id);
   } catch (error) {
@@ -121,7 +122,7 @@ export async function spawnContainer(
 }
 
 export async function reapContainers(client: DockerClient, logger: Logger, gatewayId: string): Promise<void> {
-  let leftovers;
+  let leftovers: Awaited<ReturnType<DockerClient["list"]>>;
   try {
     leftovers = await client.list(`${GATEWAY_LABEL}=${gatewayId}`);
   } catch (error) {

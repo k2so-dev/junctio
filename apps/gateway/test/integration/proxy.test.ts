@@ -71,7 +71,7 @@ describe("mcp proxy", () => {
     const { prompts } = await client.listPrompts();
     expect(prompts.map((p) => p.name)).toEqual(["mock__greet"]);
     const prompt = await client.getPrompt({ name: "mock__greet", arguments: { who: "bob" } });
-    expect((prompt.messages[0]?.content as { text: string }).text).toBe("Hello bob");
+    expect((prompt.messages[0]!.content as { text: string }).text).toBe("Hello bob");
     await client.close();
   }, 20_000);
 

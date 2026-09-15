@@ -28,8 +28,20 @@ export function createRequestLogApi(core: Core): Hono {
       .limit(query.limit)
       .all();
 
-    const endpointNames = new Map(core.db.select().from(endpoints).all().map((row) => [row.id, row.slug]));
-    const serverNames = new Map(core.db.select().from(servers).all().map((row) => [row.id, row.name]));
+    const endpointNames = new Map(
+      core.db
+        .select()
+        .from(endpoints)
+        .all()
+        .map((row) => [row.id, row.slug])
+    );
+    const serverNames = new Map(
+      core.db
+        .select()
+        .from(servers)
+        .all()
+        .map((row) => [row.id, row.name])
+    );
 
     const items: RequestLogDto[] = rows.map((row) => ({
       id: row.id,

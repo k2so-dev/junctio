@@ -1,8 +1,7 @@
 import { SourceCatalog, type SourceDto } from "@junctio/schema";
 import catalog from "../src/data/sources.json" with { type: "json" };
 
-const AGENT =
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+const AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 const TIMEOUT_MS = 20000;
 
 type Verdict = "alive" | "moved" | "unverified" | "dead";

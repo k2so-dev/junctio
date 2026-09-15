@@ -98,8 +98,7 @@ describe("ProcessSupervisor", () => {
     active = supervisor;
     for (let i = 0; i < 40; i++) {
       try {
-        const handle = await supervisor.acquire("s1");
-        await handle.transport.close();
+        await supervisor.acquire("s1");
         await Bun.sleep(80);
       } catch {
         await Bun.sleep(80);
@@ -117,8 +116,7 @@ describe("ProcessSupervisor", () => {
   test("says so when a process dies without writing anything", async () => {
     const { supervisor, logs } = makeSupervisor({ env: { MOCK_SILENT_EXIT: "1" } });
     active = supervisor;
-    const handle = await supervisor.acquire("s1");
-    await handle.transport.close();
+    await supervisor.acquire("s1");
     await Bun.sleep(200);
     const lines = logs.tail("s1").map((entry) => entry.line);
     expect(lines.some((line) => /exited with code 1 after \d+ms without writing anything/.test(line))).toBe(true);
@@ -131,11 +129,48 @@ describe("ProcessSupervisor", () => {
     const handle = await supervisor.acquire("s1");
     await handle.transport.start();
     await Bun.sleep(300);
-    await handle.transport.close();
     const entry = logs.tail("s1").find((line) => line.stream === "stdout");
     expect(entry?.line).toBe("Usage: mock-server <package>");
-    expect(supervisor.getInfo("s1").lastError).not.toContain("without writing anything");
+    expect(supervisor.getInfo("s1").lastError ?? "").not.toContain("without writing anything");
   }, 15_000);
+
+  test("a stop and an acquire in flight never overlap", async () => {
+    const { supervisor } = makeSupervisor({ env: { MOCK_IGNORE_SIGTERM: "1" }, stopGraceMs: 300 });
+    active = supervisor;
+    const baseline = childCount();
+    const first = await supervisor.acquire("s1");
+    expect(childCount()).toBe(baseline + 1);
+
+    const stopping = supervisor.stop("s1");
+    const acquiring = supervisor.acquire("s1");
+    let peak = 0;
+    while (true) {
+      peak = Math.max(peak, childCount() - baseline);
+      const settled = await Promise.race([stopping.then(() => true), Bun.sleep(20).then(() => false)]);
+      if (settled) break;
+    }
+    const second = await acquiring;
+    expect(peak).toBeLessThanOrEqual(1);
+    expect(second.generation).toBeGreaterThan(first.generation);
+    expect(zombieCount()).toBe(0);
+  }, 30_000);
+
+  test("replaces a process whose connection was closed", async () => {
+    const { supervisor } = makeSupervisor();
+    active = supervisor;
+    const first = await supervisor.acquire("s1");
+    const firstPid = supervisor.getInfo("s1").pid;
+    await first.transport.close();
+
+    await Bun.sleep(600);
+    expect(supervisor.isRunning("s1")).toBe(false);
+
+    const second = await supervisor.acquire("s1");
+    expect(second.generation).toBeGreaterThan(first.generation);
+    expect(second.transport.closed).toBe(false);
+    expect(supervisor.getInfo("s1").pid).not.toBe(firstPid);
+    expect(zombieCount()).toBe(0);
+  }, 30_000);
 
   test("stops the process after the idle timeout", async () => {
     const { supervisor } = makeSupervisor({ idleTimeoutSec: 1 });

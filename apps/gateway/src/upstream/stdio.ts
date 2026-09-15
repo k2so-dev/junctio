@@ -9,6 +9,7 @@ export type StdioProcess = {
   stdin: StdioSink | null;
   stdout: ReadableStream<Uint8Array>;
   onUnparsed?: (line: string) => void;
+  onClosed?: () => void;
 };
 
 export class ChildProcessTransport implements Transport {
@@ -19,7 +20,7 @@ export class ChildProcessTransport implements Transport {
   private readonly decoder = new TextDecoder();
   private pending = "";
   private reading?: Promise<void>;
-  private closed = false;
+  private done = false;
 
   constructor(private readonly proc: StdioProcess) {}
 
@@ -38,7 +39,7 @@ export class ChildProcessTransport implements Transport {
         this.drain();
       }
     } catch (error) {
-      if (!this.closed) this.onerror?.(error instanceof Error ? error : new Error(String(error)));
+      if (!this.done) this.onerror?.(error instanceof Error ? error : new Error(String(error)));
     } finally {
       reader.releaseLock();
       this.handleClose();
@@ -64,17 +65,22 @@ export class ChildProcessTransport implements Transport {
     }
   }
 
+  get closed(): boolean {
+    return this.done;
+  }
+
   private handleClose(): void {
-    if (this.closed) return;
-    this.closed = true;
+    if (this.done) return;
+    this.done = true;
     if (this.pending.trim() !== "") this.proc.onUnparsed?.(this.pending.trim());
     this.pending = "";
     this.onclose?.();
+    this.proc.onClosed?.();
   }
 
   async send(message: JSONRPCMessage): Promise<void> {
     const stdin = this.proc.stdin;
-    if (!stdin || this.closed) throw new Error("stdio transport is not writable");
+    if (!stdin || this.done) throw new Error("stdio transport is not writable");
     await stdin.write(new TextEncoder().encode(serializeMessage(message)));
     await stdin.flush();
   }

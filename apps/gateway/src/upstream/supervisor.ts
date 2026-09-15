@@ -42,6 +42,7 @@ export type SupervisorOptions = {
 };
 
 const HEALTHY_AFTER_MS = 5_000;
+const TRANSPORT_CLOSE_GRACE_MS = 100;
 const HINT = "check the arguments the runtime received and that TMPDIR allows execution";
 
 const MAX_REASON = 200;
@@ -89,6 +90,7 @@ async function defaultLauncher(launch: Launch, log: (line: string) => void): Pro
 export class ProcessSupervisor {
   private readonly running = new Map<string, Managed>();
   private readonly starting = new Map<string, Promise<AcquireResult>>();
+  private readonly halting = new Map<string, Promise<void>>();
   private readonly info = new Map<string, ProcessInfo>();
   private readonly backoffUntil = new Map<string, number>();
   private generationSeq = 0;
@@ -150,12 +152,17 @@ export class ProcessSupervisor {
   async acquire(serverId: string): Promise<AcquireResult> {
     if (this.shuttingDown) throw new Error("gateway is shutting down");
     const managed = this.running.get(serverId);
-    if (managed && !managed.stopping) {
+    if (managed && !managed.stopping && !managed.transport.closed) {
       managed.lastActivity = Date.now();
       return { transport: managed.transport, generation: managed.generation };
     }
     const pending = this.starting.get(serverId);
     if (pending) return pending;
+    const halting = this.halting.get(serverId);
+    if (halting) {
+      await halting;
+      return this.acquire(serverId);
+    }
 
     const info = this.getInfo(serverId);
     if (info.state === "failed") {
@@ -222,6 +229,7 @@ export class ProcessSupervisor {
     const transport = new ChildProcessTransport({
       stdin: handle.stdin,
       stdout: handle.stdout,
+      onClosed: () => this.onTransportClosed(managed),
       onUnparsed: (line) => {
         remember(managed, line);
         this.options.logs.append(serverId, "stdout", line);
@@ -364,6 +372,8 @@ export class ProcessSupervisor {
   async stop(serverId: string, state: ProcessState = "stopped"): Promise<void> {
     const pending = this.starting.get(serverId);
     if (pending) await pending.catch(() => undefined);
+    const inflight = this.halting.get(serverId);
+    if (inflight) await inflight;
     const managed = this.running.get(serverId);
     if (!managed) {
       if (this.getInfo(serverId).state !== "failed") {
@@ -374,13 +384,28 @@ export class ProcessSupervisor {
     managed.stopping = true;
     this.running.delete(serverId);
     this.patchInfo(serverId, { state, pid: null, containerId: null });
-    await this.halt(managed);
+    const halt = this.halt(managed).finally(() => {
+      if (this.halting.get(serverId) === halt) this.halting.delete(serverId);
+    });
+    this.halting.set(serverId, halt);
+    await halt;
   }
 
-  async restart(serverId: string): Promise<void> {
-    await this.stop(serverId);
-    this.reset(serverId);
-    await this.acquire(serverId);
+  private onTransportClosed(managed: Managed): void {
+    if (this.shuttingDown || managed.stopping) return;
+    if (this.running.get(managed.serverId) !== managed) return;
+    const timer = setTimeout(() => {
+      if (managed.stopping || this.running.get(managed.serverId) !== managed) return;
+      this.options.logs.append(managed.serverId, "system", "connection closed, stopping the process");
+      managed.handle.terminate(this.stopGraceMs);
+      const kill = setTimeout(() => managed.handle.kill(), this.stopGraceMs);
+      kill.unref?.();
+      void managed.exited.finally(() => {
+        clearTimeout(kill);
+        managed.handle.dispose();
+      });
+    }, TRANSPORT_CLOSE_GRACE_MS);
+    timer.unref?.();
   }
 
   private async sweepIdle(): Promise<void> {
@@ -399,6 +424,7 @@ export class ProcessSupervisor {
     this.idleTimer = null;
     const pending = [...this.starting.values()];
     await Promise.allSettled(pending);
+    await Promise.allSettled([...this.halting.values()]);
     const all = [...this.running.values()];
     await Promise.allSettled(
       all.map(async (managed) => {

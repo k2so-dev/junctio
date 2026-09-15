@@ -15,7 +15,7 @@ const KNOWN_KEYS = [
 ] as const;
 
 const EnvSchema = z.object({
-  JUNCTIO_SECRET: z.string().min(16, "JUNCTIO_SECRET must be at least 16 characters"),
+  JUNCTIO_SECRET: z.string().min(32, "JUNCTIO_SECRET must be at least 32 characters"),
   JUNCTIO_BASE_URL: z.string().url().optional(),
   JUNCTIO_ADMIN_TOKEN: z.string().min(16).optional(),
   JUNCTIO_OAUTH_ISSUER: z.string().url().optional(),

@@ -20,7 +20,7 @@ afterEach(async () => {
 });
 
 async function setup(options: { authMode?: "none" | "api_key" } = {}) {
-  const serverId = seedStdioServer(harness.core, { name: "mock" });
+  const serverId = await seedStdioServer(harness.core, { name: "mock" });
   const namespaceId = seedNamespace(harness.core, "default", [{ serverId }]);
   const endpointId = seedEndpoint(harness.core, {
     slug: "default",
@@ -76,8 +76,8 @@ describe("mcp proxy", () => {
   }, 20_000);
 
   test("merges two upstreams under distinct prefixes", async () => {
-    const first = seedStdioServer(harness.core, { name: "alpha" });
-    const second = seedStdioServer(harness.core, { name: "beta" });
+    const first = await seedStdioServer(harness.core, { name: "alpha" });
+    const second = await seedStdioServer(harness.core, { name: "beta" });
     const namespaceId = seedNamespace(harness.core, "multi", [{ serverId: first }, { serverId: second }]);
     const endpointId = seedEndpoint(harness.core, { slug: "multi", namespaceId });
     const token = await seedApiKey(harness.core, endpointId);
@@ -91,8 +91,8 @@ describe("mcp proxy", () => {
   }, 30_000);
 
   test("keeps working when one upstream is dead", async () => {
-    const good = seedStdioServer(harness.core, { name: "good" });
-    const bad = seedStdioServer(harness.core, { name: "bad", env: { MOCK_EXIT_IMMEDIATELY: "1" } });
+    const good = await seedStdioServer(harness.core, { name: "good" });
+    const bad = await seedStdioServer(harness.core, { name: "bad", env: { MOCK_EXIT_IMMEDIATELY: "1" } });
     const namespaceId = seedNamespace(harness.core, "mixed", [{ serverId: good }, { serverId: bad }]);
     const endpointId = seedEndpoint(harness.core, { slug: "mixed", namespaceId });
     const token = await seedApiKey(harness.core, endpointId);
@@ -106,7 +106,7 @@ describe("mcp proxy", () => {
   }, 30_000);
 
   test("passes the configured environment to the child process", async () => {
-    const serverId = seedStdioServer(harness.core, { name: "mock", env: { MOCK_TOKEN: "from-config" } });
+    const serverId = await seedStdioServer(harness.core, { name: "mock", env: { MOCK_TOKEN: "from-config" } });
     const namespaceId = seedNamespace(harness.core, "envns", [{ serverId }]);
     const endpointId = seedEndpoint(harness.core, { slug: "envns", namespaceId });
     const token = await seedApiKey(harness.core, endpointId);

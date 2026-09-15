@@ -38,8 +38,8 @@ async function post(slug: string, body: BodyInit, headers: Record<string, string
   });
 }
 
-function prepare(slug: string, patch: Partial<{ protocolMin: string; rateLimit: { perMinute: number } }> = {}): void {
-  const serverId = seedStdioServer(harness.core, { name: "alpha" });
+async function prepare(slug: string, patch: Partial<{ protocolMin: string; rateLimit: { perMinute: number } }> = {}): Promise<void> {
+  const serverId = await seedStdioServer(harness.core, { name: "alpha" });
   const namespaceId = seedNamespace(harness.core, "team", [{ serverId }]);
   const endpointId = seedEndpoint(harness.core, { slug, namespaceId, authMode: "none" });
   if (Object.keys(patch).length > 0) {
@@ -49,7 +49,7 @@ function prepare(slug: string, patch: Partial<{ protocolMin: string; rateLimit: 
 
 describe("endpoint protocol floor", () => {
   test("rejects an initialize below the endpoint minimum", async () => {
-    prepare("team", { protocolMin: "2025-11-25" });
+    await prepare("team", { protocolMin: "2025-11-25" });
     const response = await post("team", initialize("2025-06-18"));
     expect(response.status).toBe(400);
     const body = (await response.json()) as {
@@ -62,7 +62,7 @@ describe("endpoint protocol floor", () => {
   });
 
   test("rejects a follow-up request carrying an older protocol header", async () => {
-    prepare("team", { protocolMin: "2025-11-25" });
+    await prepare("team", { protocolMin: "2025-11-25" });
     const response = await post("team", JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }), {
       "mcp-protocol-version": "2025-06-18"
     });
@@ -70,7 +70,7 @@ describe("endpoint protocol floor", () => {
   });
 
   test("logs the refusal so the endpoint page can explain it", async () => {
-    prepare("team", { protocolMin: "2026-07-28" });
+    await prepare("team", { protocolMin: "2026-07-28" });
     await post("team", initialize("2025-11-25"));
     const logged = harness.core.db.select().from(requestLog).all();
     expect(logged).toHaveLength(1);
@@ -80,7 +80,7 @@ describe("endpoint protocol floor", () => {
   });
 
   test("authenticates before looking at the protocol", async () => {
-    const serverId = seedStdioServer(harness.core, { name: "alpha" });
+    const serverId = await seedStdioServer(harness.core, { name: "alpha" });
     const namespaceId = seedNamespace(harness.core, "team", [{ serverId }]);
     const endpointId = seedEndpoint(harness.core, { slug: "team", namespaceId, authMode: "api_key" });
     harness.core.db.update(endpoints).set({ protocolMin: "2025-11-25" }).where(eq(endpoints.id, endpointId)).run();
@@ -89,7 +89,7 @@ describe("endpoint protocol floor", () => {
   });
 
   test("accepts a client at or above the minimum", async () => {
-    prepare("team", { protocolMin: "2025-06-18" });
+    await prepare("team", { protocolMin: "2025-06-18" });
     const response = await post("team", initialize("2025-11-25"));
     expect(response.status).toBe(200);
   });
@@ -97,7 +97,7 @@ describe("endpoint protocol floor", () => {
 
 describe("endpoint rate limit", () => {
   test("allows every request when the limit is zero", async () => {
-    prepare("team");
+    await prepare("team");
     for (let i = 0; i < 5; i += 1) {
       const response = await post("team", initialize("2025-06-18"));
       expect(response.status).toBe(200);
@@ -105,7 +105,7 @@ describe("endpoint rate limit", () => {
   });
 
   test("returns 429 with retry-after once the budget is spent", async () => {
-    prepare("team", { rateLimit: { perMinute: 2 } });
+    await prepare("team", { rateLimit: { perMinute: 2 } });
     expect((await post("team", initialize("2025-06-18"))).status).toBe(200);
     expect((await post("team", initialize("2025-06-18"))).status).toBe(200);
 

@@ -14,7 +14,7 @@ There is no isolation between upstream servers. They share a process namespace, 
 
 ## What is protected
 
-- Access tokens, refresh tokens, upstream client secrets and static headers are encrypted with AES-GCM using a key derived from `JUNCTIO_SECRET`. The process refuses to start without that variable.
+- Access tokens, refresh tokens, upstream client secrets and static headers are encrypted with AES-GCM. The key is derived with scrypt from `JUNCTIO_SECRET` and a random per-database salt kept in the settings table; the salt is not a secret, so a copy of the database plus the variable is enough to decrypt. `JUNCTIO_SECRET` must be at least 32 characters and the process refuses to start without it.
 - API keys are stored as argon2id hashes and displayed exactly once.
 - The admin password is stored as an argon2id hash.
 - Child processes receive an explicitly constructed environment. The gateway's own variables, including `JUNCTIO_SECRET`, are never inherited by an upstream.

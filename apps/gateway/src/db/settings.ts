@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Db } from "./index.ts";
 import { settings } from "./schema.ts";
-import { randomId } from "../crypto.ts";
+import { newCipherSalt, randomId } from "../crypto.ts";
 import { DEFAULT_ACTIONS } from "../audit/policy.ts";
 
 const RUNTIME_BINARIES = ["bun", "bunx", "node", "npx", "uv", "uvx"];
@@ -25,6 +25,7 @@ export function defaultRuntimePath(): string {
 
 export const DEFAULT_SETTINGS = {
   gateway_id: "",
+  cipher_salt: "",
   tool_separator: "__",
   runtime_path: defaultRuntimePath(),
   api_key_query_param: "false",
@@ -49,6 +50,14 @@ export function setSetting(db: Db, key: SettingKey, value: string): void {
     .values({ key, value })
     .onConflictDoUpdate({ target: settings.key, set: { value } })
     .run();
+}
+
+export function cipherSalt(db: Db): Uint8Array {
+  const current = getSetting(db, "cipher_salt");
+  if (current !== "") return Uint8Array.from(Buffer.from(current, "hex"));
+  const salt = newCipherSalt();
+  setSetting(db, "cipher_salt", Buffer.from(salt).toString("hex"));
+  return salt;
 }
 
 export function gatewayId(db: Db): string {

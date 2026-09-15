@@ -24,7 +24,6 @@ export const servers = sqliteTable("servers", {
     .notNull()
     .default("custom"),
   args: text("args", { mode: "json" }).$type<string[]>().notNull().default([]),
-  env: text("env", { mode: "json" }).$type<Record<string, string>>().notNull().default({}),
   envEnc: text("env_enc"),
   cwd: text("cwd"),
   url: text("url"),

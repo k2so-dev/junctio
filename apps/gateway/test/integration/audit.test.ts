@@ -82,7 +82,7 @@ afterEach(async () => {
 });
 
 async function seedPublished(name = "mock") {
-  const serverId = seedStdioServer(harness.core, { name });
+  const serverId = await seedStdioServer(harness.core, { name });
   await harness.core.audit.runServer(serverId, "manual");
   const namespaceId = seedNamespace(harness.core, `ns-${name}`, [{ serverId }]);
   const endpointId = seedEndpoint(harness.core, { slug: `ep-${name}`, namespaceId, authMode: "api_key" });
@@ -240,7 +240,7 @@ describe("audit sanctions", () => {
 
 describe("launch gate", () => {
   test("refuses to launch a server the audit has never checked", async () => {
-    const serverId = seedStdioServer(harness.core, { name: "unchecked" });
+    const serverId = await seedStdioServer(harness.core, { name: "unchecked" });
     const error = await harness.core.pool.acquire(serverId).catch((caught: unknown) => caught);
     expect((error as UpstreamError).code).toBe("audit_pending");
     expect(harness.core.supervisor.isRunning(serverId)).toBe(false);
@@ -251,7 +251,7 @@ describe("launch gate", () => {
   });
 
   test("refuses to launch while the last audit is an error", async () => {
-    const serverId = seedStdioServer(harness.core, { name: "broken" });
+    const serverId = await seedStdioServer(harness.core, { name: "broken" });
     engine.error = new Error("registry unreachable");
     await harness.core.audit.runServer(serverId, "manual");
 
@@ -266,7 +266,7 @@ describe("launch gate", () => {
   });
 
   test("answers start and test with the audit reason", async () => {
-    const serverId = seedStdioServer(harness.core, { name: "pending" });
+    const serverId = await seedStdioServer(harness.core, { name: "pending" });
     engine.error = new Error("registry unreachable");
     await harness.core.audit.runServer(serverId, "manual");
 
@@ -292,7 +292,7 @@ describe("launch gate", () => {
     });
     try {
       setSetting(plain.core.db, "audit_enabled", "true");
-      const serverId = seedStdioServer(plain.core, { name: "opaque" });
+      const serverId = await seedStdioServer(plain.core, { name: "opaque" });
       await plain.core.pool.acquire(serverId);
       expect(plain.core.supervisor.isRunning(serverId)).toBe(true);
     } finally {
@@ -349,7 +349,7 @@ describe("audit failures", () => {
       }
     });
     setSetting(slow.core.db, "audit_enabled", "true");
-    const serverId = seedStdioServer(slow.core, { name: "slow" });
+    const serverId = await seedStdioServer(slow.core, { name: "slow" });
     const result = await slow.core.audit.runServer(serverId, "manual");
     expect(result.status).toBe("error");
     expect(result.error).toContain("timed out");
@@ -359,7 +359,7 @@ describe("audit failures", () => {
   test("marks a docker server as unsupported without running an engine", async () => {
     const plain = await startHarness({ audit: { engines: [engine], startupDelayMs: 0 } });
     setSetting(plain.core.db, "audit_enabled", "true");
-    const serverId = seedStdioServer(plain.core, { name: "docker-ish" });
+    const serverId = await seedStdioServer(plain.core, { name: "docker-ish" });
     plain.core.db
       .update(servers)
       .set({ runtime: "docker", args: ["run", "--rm", "img"] })
@@ -374,7 +374,7 @@ describe("audit failures", () => {
 
 describe("audit scheduling", () => {
   test("coalesces two concurrent full runs", async () => {
-    seedStdioServer(harness.core, { name: "one" });
+    await seedStdioServer(harness.core, { name: "one" });
     const [first, second] = await Promise.all([
       harness.core.audit.runAll("manual"),
       harness.core.audit.runAll("manual")
@@ -384,7 +384,7 @@ describe("audit scheduling", () => {
   });
 
   test("runs periodically once the interval elapses", async () => {
-    seedStdioServer(harness.core, { name: "ticker" });
+    await seedStdioServer(harness.core, { name: "ticker" });
     harness.core.audit.start();
     await Bun.sleep(150);
     const first = harness.core.audit.lastRun();

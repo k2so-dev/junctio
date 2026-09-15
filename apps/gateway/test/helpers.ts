@@ -83,11 +83,17 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
   };
 }
 
-export function seedStdioServer(
+export async function seedStdioServer(
   core: Core,
   options: { name?: string; env?: Record<string, string>; idleTimeoutSec?: number; fixture?: string } = {}
-): string {
+): Promise<string> {
   const id = randomId();
+  const env = {
+    PATH: Bun.env.PATH ?? "/usr/bin",
+    HOME: Bun.env.HOME ?? "/tmp",
+    MOCK_NAME: options.name ?? "mock",
+    ...(options.env ?? {})
+  };
   core.db
     .insert(servers)
     .values({
@@ -96,12 +102,7 @@ export function seedStdioServer(
       transport: "stdio",
       runtime: "custom",
       args: ["bun", options.fixture ?? MOCK_STDIO],
-      env: {
-        PATH: Bun.env.PATH ?? "/usr/bin",
-        HOME: Bun.env.HOME ?? "/tmp",
-        MOCK_NAME: options.name ?? "mock",
-        ...(options.env ?? {})
-      },
+      envEnc: await core.cipher.encrypt(JSON.stringify(env)),
       cwd: null,
       url: null,
       headersEnc: null,
@@ -136,7 +137,6 @@ export async function seedHttpServer(
       transport: options.transport ?? "http",
       runtime: "custom",
       args: [],
-      env: {},
       cwd: null,
       url: options.url,
       headersEnc: options.headers ? await core.cipher.encrypt(JSON.stringify(options.headers)) : null,

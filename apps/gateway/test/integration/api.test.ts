@@ -262,7 +262,6 @@ describe("servers api", () => {
     });
     const resolved = await harness.core.registry.resolve(created.id);
     expect(resolved?.env.GITHUB_TOKEN).toBe("ghp_super_secret_value");
-    expect(resolved?.row.env).toEqual({});
     expect(resolved?.row.envEnc).toBeTruthy();
   });
 

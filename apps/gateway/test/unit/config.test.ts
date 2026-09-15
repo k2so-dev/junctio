@@ -6,6 +6,10 @@ describe("config", () => {
     expect(() => loadConfig({})).toThrow(/JUNCTIO_SECRET/);
   });
 
+  test("rejects a secret that is too short", () => {
+    expect(() => loadConfig({ JUNCTIO_SECRET: "a".repeat(31) })).toThrow(/at least 32/);
+  });
+
   test("applies defaults", () => {
     const config = loadConfig({ JUNCTIO_SECRET: "a".repeat(32) });
     expect(config.port).toBe(3000);

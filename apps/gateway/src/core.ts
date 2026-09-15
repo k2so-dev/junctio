@@ -4,6 +4,7 @@ import type { Config } from "./config.ts";
 import { createLogger, setLogLevel, type Logger } from "./log.ts";
 import { createCipher, type Cipher } from "./crypto.ts";
 import { initDatabase, type Db } from "./db/index.ts";
+import { cipherSalt } from "./db/settings.ts";
 import { LogRegistry } from "./upstream/logbuffer.ts";
 import { ProcessSupervisor } from "./upstream/supervisor.ts";
 import { DockerClient } from "./upstream/docker/client.ts";
@@ -65,7 +66,7 @@ export function createCore(options: CoreOptions): Core {
   setLogLevel(config.logLevel);
   const logger = createLogger();
   const { db, sqlite } = initDatabase(options.dbFile ?? databaseFile(config));
-  const cipher = createCipher(config.secret);
+  const cipher = createCipher(config.secret, cipherSalt(db));
   const logs = new LogRegistry();
   const registry = new ServerRegistry(db, cipher);
 

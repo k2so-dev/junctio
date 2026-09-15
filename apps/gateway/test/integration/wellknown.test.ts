@@ -19,21 +19,21 @@ afterEach(async () => {
   await as.stop();
 });
 
-function makeEndpoint(slug: string, authMode: "none" | "api_key" | "oauth" | "any") {
-  const serverId = seedStdioServer(harness.core, { name: slug });
+async function makeEndpoint(slug: string, authMode: "none" | "api_key" | "oauth" | "any") {
+  const serverId = await seedStdioServer(harness.core, { name: slug });
   const namespaceId = seedNamespace(harness.core, slug, [{ serverId }]);
   return seedEndpoint(harness.core, { slug, namespaceId, authMode });
 }
 
 describe("protected resource metadata", () => {
   test("returns 404 for an api key only endpoint", async () => {
-    makeEndpoint("keyonly", "api_key");
+    await makeEndpoint("keyonly", "api_key");
     const response = await fetch(`${harness.url}/.well-known/oauth-protected-resource/mcp/keyonly`);
     expect(response.status).toBe(404);
   });
 
   test("returns 404 for an endpoint without auth", async () => {
-    makeEndpoint("open", "none");
+    await makeEndpoint("open", "none");
     const response = await fetch(`${harness.url}/.well-known/oauth-protected-resource/mcp/open`);
     expect(response.status).toBe(404);
   });
@@ -44,7 +44,7 @@ describe("protected resource metadata", () => {
   });
 
   test("serves metadata for an oauth endpoint", async () => {
-    makeEndpoint("secured", "oauth");
+    await makeEndpoint("secured", "oauth");
     const response = await fetch(`${harness.url}/.well-known/oauth-protected-resource/mcp/secured`);
     expect(response.status).toBe(200);
     const body = (await response.json()) as { resource: string; authorization_servers: string[] };
@@ -53,15 +53,15 @@ describe("protected resource metadata", () => {
   });
 
   test("serves metadata for an endpoint accepting any credential", async () => {
-    makeEndpoint("mixed", "any");
+    await makeEndpoint("mixed", "any");
     const response = await fetch(`${harness.url}/.well-known/oauth-protected-resource/mcp/mixed`);
     expect(response.status).toBe(200);
   });
 
   test("proxies authorization server metadata only for oauth endpoints", async () => {
-    makeEndpoint("keyonly", "api_key");
+    await makeEndpoint("keyonly", "api_key");
     expect((await fetch(`${harness.url}/.well-known/oauth-authorization-server/mcp/keyonly`)).status).toBe(404);
-    makeEndpoint("secured", "oauth");
+    await makeEndpoint("secured", "oauth");
     const response = await fetch(`${harness.url}/.well-known/oauth-authorization-server/mcp/secured`);
     expect(response.status).toBe(200);
     const body = (await response.json()) as { issuer: string };
@@ -71,7 +71,7 @@ describe("protected resource metadata", () => {
 
 describe("oauth resource server mode", () => {
   test("rejects a request without a token and advertises resource metadata", async () => {
-    makeEndpoint("secured", "oauth");
+    await makeEndpoint("secured", "oauth");
     const response = await fetch(`${harness.url}/mcp/secured`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -83,7 +83,7 @@ describe("oauth resource server mode", () => {
   });
 
   test("accepts a valid token with the endpoint audience", async () => {
-    makeEndpoint("secured", "oauth");
+    await makeEndpoint("secured", "oauth");
     const token = await as.mintAccessToken({ audience: "http://127.0.0.1:9999/mcp/secured" });
     const response = await fetch(`${harness.url}/mcp/secured`, {
       method: "POST",
@@ -103,7 +103,7 @@ describe("oauth resource server mode", () => {
   });
 
   test("rejects a token minted for another audience", async () => {
-    makeEndpoint("secured", "oauth");
+    await makeEndpoint("secured", "oauth");
     const token = await as.mintAccessToken({ audience: "http://127.0.0.1:9999/mcp/other" });
     const response = await fetch(`${harness.url}/mcp/secured`, {
       method: "POST",
@@ -114,7 +114,7 @@ describe("oauth resource server mode", () => {
   });
 
   test("rejects an expired token", async () => {
-    makeEndpoint("secured", "oauth");
+    await makeEndpoint("secured", "oauth");
     const token = await as.mintAccessToken({ audience: "http://127.0.0.1:9999/mcp/secured", ttlSec: -10 });
     const response = await fetch(`${harness.url}/mcp/secured`, {
       method: "POST",
@@ -125,7 +125,7 @@ describe("oauth resource server mode", () => {
   });
 
   test("accepts either credential when the endpoint allows any", async () => {
-    const endpointId = makeEndpoint("mixed", "any");
+    const endpointId = await makeEndpoint("mixed", "any");
     const { createApiKey } = await import("../../src/auth/downstream/apikey.ts");
     const { token: apiKey } = await createApiKey(harness.core.db, { name: "k", endpointId, expiresAt: null });
     const jwt = await as.mintAccessToken({ audience: "http://127.0.0.1:9999/mcp/mixed" });

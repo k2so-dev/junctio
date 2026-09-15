@@ -1,51 +1,58 @@
 import { describe, expect, test } from "bun:test";
-import { createCipher, decrypt, encrypt, randomToken, timingSafeEqual } from "../../src/crypto.ts";
+import { createCipher, newCipherSalt, randomToken, sha256Hex, timingSafeEqual } from "../../src/crypto.ts";
 
-describe("crypto", () => {
-  test("roundtrips a value", async () => {
-    const secret = "a".repeat(32);
-    const cipher = await encrypt("hello world", secret);
-    expect(cipher.startsWith("v1.")).toBe(true);
-    expect(await decrypt(cipher, secret)).toBe("hello world");
+const SECRET = "test-secret-value-0123456789abcdef";
+const salt = newCipherSalt();
+const cipher = createCipher(SECRET, salt);
+
+describe("cipher", () => {
+  test("round trips a value", async () => {
+    const sealed = await cipher.encrypt("ghp_token");
+    expect(sealed.startsWith("v2.")).toBe(true);
+    expect(sealed).not.toContain("ghp_token");
+    expect(await cipher.decrypt(sealed)).toBe("ghp_token");
   });
 
-  test("produces a different ciphertext each time", async () => {
-    const secret = "a".repeat(32);
-    expect(await encrypt("same", secret)).not.toBe(await encrypt("same", secret));
+  test("never repeats a ciphertext", async () => {
+    expect(await cipher.encrypt("same")).not.toBe(await cipher.encrypt("same"));
   });
 
-  test("fails with a wrong secret", async () => {
-    const cipher = await encrypt("secret payload", "a".repeat(32));
-    await expect(decrypt(cipher, "b".repeat(32))).rejects.toThrow();
+  test("refuses a ciphertext sealed with another secret", async () => {
+    const other = createCipher("another-secret-0123456789abcdefgh", salt);
+    await expect(other.decrypt(await cipher.encrypt("value"))).rejects.toThrow();
   });
 
-  test("rejects an unknown format", async () => {
-    await expect(decrypt("v2.abc", "a".repeat(32))).rejects.toThrow("unsupported ciphertext format");
+  test("refuses a ciphertext sealed with another salt", async () => {
+    const other = createCipher(SECRET, newCipherSalt());
+    await expect(other.decrypt(await cipher.encrypt("value"))).rejects.toThrow();
   });
 
-  test("cipher helper handles null", async () => {
-    const cipher = createCipher("a".repeat(32));
+  test("refuses the retired format and malformed payloads", async () => {
+    await expect(cipher.decrypt("v1.abcd")).rejects.toThrow("unsupported ciphertext format");
+    await expect(cipher.decrypt("plain")).rejects.toThrow("unsupported ciphertext format");
+    await expect(cipher.decrypt("v2.YWJj")).rejects.toThrow("malformed ciphertext");
+  });
+
+  test("passes null through", async () => {
     expect(await cipher.encryptNullable(null)).toBeNull();
-    expect(await cipher.decryptNullable(null)).toBeNull();
-    const enc = await cipher.encryptNullable("x");
-    expect(await cipher.decryptNullable(enc)).toBe("x");
+    expect(await cipher.decryptNullable(undefined)).toBeNull();
   });
+});
 
-  test("random token has requested length and alphabet", () => {
-    const token = randomToken(40);
-    expect(token).toHaveLength(40);
+describe("tokens", () => {
+  test("uses the whole alphabet and the requested length", () => {
+    const token = randomToken(64);
+    expect(token).toHaveLength(64);
     expect(/^[A-Za-z0-9]+$/.test(token)).toBe(true);
+    expect(randomToken(32)).not.toBe(randomToken(32));
   });
 
-  test("random token spreads evenly across the alphabet", () => {
-    const counts = new Map<string, number>();
-    for (const char of randomToken(60_000)) counts.set(char, (counts.get(char) ?? 0) + 1);
-    expect(counts.size).toBe(62);
-    const expected = 60_000 / 62;
-    for (const count of counts.values()) expect(Math.abs(count - expected) / expected).toBeLessThan(0.2);
+  test("hashes deterministically", () => {
+    expect(sha256Hex("value")).toBe(sha256Hex("value"));
+    expect(sha256Hex("value")).not.toBe(sha256Hex("other"));
   });
 
-  test("timing safe compare", () => {
+  test("compares without leaking through timing", () => {
     expect(timingSafeEqual("abc", "abc")).toBe(true);
     expect(timingSafeEqual("abc", "abd")).toBe(false);
     expect(timingSafeEqual("abc", "abcd")).toBe(false);

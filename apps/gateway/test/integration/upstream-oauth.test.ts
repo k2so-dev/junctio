@@ -70,7 +70,7 @@ describe("upstream oauth flow", () => {
     const { serverId } = await setupOauthServer();
     await authorize(serverId);
     const row = harness.core.upstreamAuth.store.row(serverId);
-    expect(row?.refreshTokenEnc?.startsWith("v1.")).toBe(true);
+    expect(row?.refreshTokenEnc?.startsWith("v2.")).toBe(true);
     expect(row?.refreshTokenEnc).not.toContain("rt_");
     expect(row?.accessTokenEnc).not.toContain("eyJ");
   }, 20_000);

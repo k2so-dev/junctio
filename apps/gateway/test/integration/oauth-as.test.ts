@@ -106,7 +106,7 @@ beforeEach(async () => {
   slug = "team";
   harness = await startHarness({ withBaseUrl: true });
   await admin("/v1/session/setup", { method: "POST", body: JSON.stringify({ password: "supersecret" }) });
-  const serverId = seedStdioServer(harness.core, { name: "alpha" });
+  const serverId = await seedStdioServer(harness.core, { name: "alpha" });
   const namespaceId = seedNamespace(harness.core, "team", [{ serverId }]);
   seedEndpoint(harness.core, { slug: "team", namespaceId, authMode: "oauth" });
   seedEndpoint(harness.core, { slug: "other", namespaceId, authMode: "oauth" });

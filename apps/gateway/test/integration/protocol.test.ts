@@ -34,10 +34,10 @@ describe("protocol eras", () => {
   beforeAll(async () => {
     harness = await startHarness({ env: { JUNCTIO_ADMIN_TOKEN: ADMIN_TOKEN } });
     remote = await startMockHttpMcp({ issuer: null, requireAuth: false, modern: true });
-    legacyUpstream = seedStdioServer(harness.core, { name: "legacy" });
-    modernUpstream = seedStdioServer(harness.core, { name: "modern", fixture: MOCK_STDIO_MODERN });
+    legacyUpstream = await seedStdioServer(harness.core, { name: "legacy" });
+    modernUpstream = await seedStdioServer(harness.core, { name: "modern", fixture: MOCK_STDIO_MODERN });
     httpUpstream = await seedHttpServer(harness.core, { name: "remote", url: remote.url });
-    fragileUpstream = seedStdioServer(harness.core, { name: "fragile", env: { MOCK_EXIT_ON_PROBE: "1" } });
+    fragileUpstream = await seedStdioServer(harness.core, { name: "fragile", env: { MOCK_EXIT_ON_PROBE: "1" } });
 
     const mixed = seedNamespace(harness.core, "mixed", [
       { serverId: legacyUpstream },

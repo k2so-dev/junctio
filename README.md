@@ -42,7 +42,7 @@ claude mcp add --transport http junctio https://mcp.example.com/mcp/main \
 
 | Variable | Required | Meaning |
 |---|---|---|
-| `JUNCTIO_SECRET` | yes | Key used to encrypt stored tokens and headers. The process refuses to start without it. |
+| `JUNCTIO_SECRET` | yes | Key used to encrypt stored tokens and headers. At least 32 characters; generate one with `openssl rand -hex 32`. The process refuses to start without it. |
 | `JUNCTIO_BASE_URL` | for OAuth | Public URL of the gateway. Redirect URIs and resource identifiers are built from it. |
 | `JUNCTIO_ADMIN_TOKEN` | no | Bearer token for headless admin access, as an alternative to the password login. Also the key to the management MCP server. When set, it is also required to choose the admin password on first start. |
 | `JUNCTIO_OAUTH_ISSUER` | no | Issuer URL of an external identity provider. Leave it empty to use the gateway's own authorization server. |

@@ -50,7 +50,7 @@ describe.skipIf(!available)("a real docker daemon", () => {
           "bun",
           "/repo/apps/gateway/test/fixtures/mock-stdio-server.ts"
         ],
-        env: { MOCK_NAME: "in-a-container" },
+        envEnc: await harness.core.cipher.encrypt(JSON.stringify({ MOCK_NAME: "in-a-container" })),
         cwd: null,
         url: null,
         headersEnc: null,

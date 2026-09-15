@@ -420,7 +420,7 @@ describe("installing from the registry", () => {
 
     const resolved = await harness.core.registry.resolve(created.id);
     expect(resolved?.env.FS_ALLOWED_DIRS).toBe("/tmp");
-    expect(resolved?.row.env).toEqual({});
+    expect(resolved?.row.envEnc).toBeTruthy();
 
     await client.close();
   });

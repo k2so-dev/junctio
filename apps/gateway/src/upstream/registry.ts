@@ -32,7 +32,7 @@ export class ServerRegistry {
     const row = this.row(serverId);
     if (!row) return null;
     const headers = row.headersEnc ? (JSON.parse(await this.cipher.decrypt(row.headersEnc)) as Record<string, string>) : {};
-    const env = row.envEnc ? (JSON.parse(await this.cipher.decrypt(row.envEnc)) as Record<string, string>) : row.env;
+    const env = row.envEnc ? (JSON.parse(await this.cipher.decrypt(row.envEnc)) as Record<string, string>) : {};
     const resolved: ResolvedServer = { row, headers, env };
     this.cache.set(serverId, resolved);
     return resolved;

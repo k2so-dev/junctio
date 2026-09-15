@@ -8,7 +8,7 @@ Usage:
   junctio --help                Print this message
 
 Environment:
-  JUNCTIO_SECRET        Required. Encryption key for stored credentials.
+  JUNCTIO_SECRET        Required. Encryption key for stored credentials, 32+ characters.
   JUNCTIO_BASE_URL      Public base url. Required for any oauth flow.
   JUNCTIO_ADMIN_TOKEN   Optional bearer token for headless admin access.
   JUNCTIO_OAUTH_ISSUER  Optional issuer url for resource server mode.

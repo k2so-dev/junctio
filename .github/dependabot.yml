@@ -1,0 +1,38 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      all:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /apps/gateway
+    schedule:
+      interval: weekly
+    groups:
+      all:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /apps/web
+    schedule:
+      interval: weekly
+    groups:
+      all:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /packages/schema
+    schedule:
+      interval: weekly
+    groups:
+      all:
+        patterns: ["*"]
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

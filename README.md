@@ -288,3 +288,7 @@ The gateway runs arbitrary packages and holds tokens for every integration you c
 ## License
 
 MIT
+
+## Contributing
+
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the setup, the checks a pull request has to pass, and the repository layout. Report a vulnerability privately as described in [SECURITY.md](.github/SECURITY.md).

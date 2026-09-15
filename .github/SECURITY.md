@@ -43,3 +43,11 @@ The image already runs as a non-root user and the bundled `compose.yml` mounts t
 ## Reporting
 
 Open a private security advisory on the repository. Please do not file a public issue for anything that lets someone read tokens or execute code.
+
+## Known limits
+
+- On a fresh install in password mode, the first caller to reach `POST /v1/session/setup` chooses the admin password. Set `JUNCTIO_ADMIN_TOKEN` before the first start, which makes that endpoint require the token, or complete the setup before the gateway is reachable by anyone else.
+- Refresh tokens rotate on every exchange and a replayed token is rejected, but a replay does not revoke the rest of the family. The 30-day lifetime is absolute from the original grant.
+- `JUNCTIO_TRUST_PROXY` makes the gateway read the client address from the right-most `x-forwarded-for` entry. Enable it only behind a proxy that appends that header itself; enabling it on a directly exposed gateway lets a client forge its own rate-limit bucket.
+- Enabling the API key query parameter puts the key in request URLs, where proxies log it and browsers send it in `Referer`. Prefer the `Authorization` header.
+- The admin UI is served with a `script-src 'self'` policy and `frame-ancestors 'none'`. Serving it from another origin, or embedding it, is not supported.

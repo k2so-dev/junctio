@@ -1,0 +1,44 @@
+name: Bug report
+description: Something the gateway does wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not report a vulnerability here. See .github/SECURITY.md for how to report one privately.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The smallest set of steps that shows the problem.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The value of `junctio --version`, or the image tag you ran.
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How you run it
+      options:
+        - Docker image
+        - docker compose
+        - From the source tree
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant gateway output. Remove tokens and secrets first.
+      render: text

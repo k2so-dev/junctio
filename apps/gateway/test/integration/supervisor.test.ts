@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync, readdirSync } from "node:fs";
 import { ProcessSupervisor, type SpawnSpec } from "../../src/upstream/supervisor.ts";
 import { LogRegistry } from "../../src/upstream/logbuffer.ts";
 import { createLogger, setLogLevel } from "../../src/log.ts";
@@ -44,22 +45,33 @@ function makeSupervisor(spec: SupervisorSpec = {}) {
   return { supervisor, logs };
 }
 
+type ProcEntry = { pid: number; ppid: number; state: string };
+
+function children(): ProcEntry[] {
+  const out: ProcEntry[] = [];
+  for (const name of readdirSync("/proc")) {
+    if (!/^\d+$/.test(name)) continue;
+    let stat: string;
+    try {
+      stat = readFileSync(`/proc/${name}/stat`, "utf8");
+    } catch {
+      continue;
+    }
+    const tail = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+    const state = tail[0] ?? "";
+    const ppid = Number(tail[1]);
+    if (ppid !== process.pid) continue;
+    out.push({ pid: Number(name), ppid, state });
+  }
+  return out;
+}
+
 function zombieCount(): number {
-  const out = Bun.spawnSync(["ps", "-o", "pid=,ppid=,stat=", "-A"]).stdout.toString();
-  const pid = String(process.pid);
-  return out
-    .split("\n")
-    .map((line) => line.trim().split(/\s+/))
-    .filter((parts) => parts[1] === pid && (parts[2] ?? "").startsWith("Z")).length;
+  return children().filter((entry) => entry.state === "Z").length;
 }
 
 function childCount(): number {
-  const out = Bun.spawnSync(["ps", "-o", "pid=,ppid=", "-A"]).stdout.toString();
-  const pid = String(process.pid);
-  return out
-    .split("\n")
-    .map((line) => line.trim().split(/\s+/))
-    .filter((parts) => parts[1] === pid).length;
+  return children().length;
 }
 
 let active: ProcessSupervisor | null = null;
@@ -200,23 +212,11 @@ describe("ProcessSupervisor", () => {
   });
 
   test("notifies on unexpected exit", async () => {
-    const logs = new LogRegistry();
-    const exits: number[] = [];
-    const supervisor = new ProcessSupervisor({
-      getSpec: () => ({
-        launch: {
-          kind: "process",
-          argv: ["bun", FIXTURE],
-          cwd: null,
-          env: { PATH: Bun.env.PATH ?? "/usr/bin", HOME: Bun.env.HOME ?? "/tmp", MOCK_CRASH_AFTER_MS: "150" }
-        },
-        idleTimeoutSec: 0,
-        warm: false
-      }),
-      logs,
-      logger: createLogger(),
-      backoffBaseMs: 10,
-      idleCheckMs: 0
+    const exits: { serverId: string; generation: number }[] = [];
+    const { supervisor, logs } = makeSupervisor({
+      env: { MOCK_CRASH_AFTER_MS: "150" },
+      idleCheckMs: 0,
+      onExit: (serverId, generation) => exits.push({ serverId, generation })
     });
     active = supervisor;
     const handle = await supervisor.acquire("s1");
@@ -224,7 +224,8 @@ describe("ProcessSupervisor", () => {
     expect(supervisor.isRunning("s1")).toBe(false);
     expect(supervisor.getInfo("s1").lastError).toContain("exited");
     expect(handle.generation).toBeGreaterThan(0);
-    expect(exits.length).toBe(0);
+    expect(exits).toEqual([{ serverId: "s1", generation: handle.generation }]);
+    expect(logs.tail("s1").length).toBeGreaterThan(0);
   }, 15_000);
 
   test("shutdown terminates every child", async () => {

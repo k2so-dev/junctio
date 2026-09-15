@@ -2,12 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { RegistryDetailDto, RegistryListDto } from "@junctio/schema";
 import fixture from "../fixtures/registry-list.json" with { type: "json" };
 import { registryCache } from "../../src/db/schema.ts";
-import { startHarness, type Harness } from "../helpers.ts";
+import { adminApi, startHarness, type Harness } from "../helpers.ts";
 
 type Entry = { server: { name: string } };
 
 let harness: Harness;
-let cookie = "";
 let calls: string[] = [];
 let respond: (url: string, init: RequestInit | undefined) => Promise<Response>;
 
@@ -29,24 +28,16 @@ const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
   return await respond(url, init);
 }) as typeof fetch;
 
-async function api(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  if (cookie) headers.set("cookie", cookie);
-  if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
-  const response = await fetch(`${harness.url}/api${path}`, { ...init, headers });
-  const setCookie = response.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0] ?? cookie;
-  return response;
-}
+let api: (path: string, init?: RequestInit) => Promise<Response>;
 
 beforeEach(async () => {
-  cookie = "";
   calls = [];
   respond = async (url) =>
     url.includes("/versions/latest")
       ? ok(entryNamed(decodeURIComponent(url.split("/servers/")[1]?.split("/versions")[0] ?? "")))
       : ok(list);
   harness = await startHarness({ fetchImpl, registryTimeoutMs: 200 });
+  api = adminApi(() => harness);
   await api("/v1/session/setup", { method: "POST", body: JSON.stringify({ password: "supersecret" }) });
 });
 

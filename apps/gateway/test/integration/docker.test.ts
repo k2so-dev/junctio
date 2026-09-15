@@ -3,7 +3,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DockerStatusDto, ServerDto } from "@junctio/schema";
-import { startHarness, MOCK_STDIO, type Harness } from "../helpers.ts";
+import { MOCK_STDIO, adminApi, startHarness, type Harness } from "../helpers.ts";
 import { startMockDocker, type MockDocker } from "../fixtures/mock-docker.ts";
 import { GATEWAY_LABEL, reapContainers, SERVER_LABEL } from "../../src/upstream/docker/launcher.ts";
 import { gatewayId } from "../../src/db/settings.ts";
@@ -14,17 +14,8 @@ const IMAGE = "mcp/mock:latest";
 let dir: string;
 let docker: MockDocker;
 let harness: Harness;
-let cookie = "";
 
-async function api(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  if (cookie) headers.set("cookie", cookie);
-  if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
-  const response = await fetch(`${harness.url}/api${path}`, { ...init, headers });
-  const setCookie = response.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0] ?? cookie;
-  return response;
-}
+let api: (path: string, init?: RequestInit) => Promise<Response>;
 
 async function post(path: string, body?: unknown): Promise<Response> {
   return api(path, { method: "POST", body: JSON.stringify(body ?? {}) });
@@ -48,11 +39,11 @@ async function createServer(args: string[], env: Record<string, string> = {}): P
 }
 
 beforeEach(async () => {
-  cookie = "";
   dir = mkdtempSync(join(tmpdir(), "junctio-docker-"));
   docker = await startMockDocker(join(dir, "docker.sock"));
   docker.seedImage(IMAGE);
   harness = await startHarness({ env: { JUNCTIO_DOCKER_SOCKET: docker.path } });
+  api = adminApi(() => harness);
   await post("/v1/session/setup", { password: "supersecret" });
 });
 
@@ -201,7 +192,7 @@ describe("docker runtime without a reachable daemon", () => {
     expect(status.error).toContain("mount it");
   });
 
-  test("says how to get permission", async () => {
+  test.skipIf(process.getuid?.() === 0)("says how to get permission", async () => {
     chmodSync(docker.path, 0o000);
     try {
       const status = await statusFor(docker.path);

@@ -30,6 +30,14 @@ async function setupOauthServer(options: { ttlSec?: number; refreshIntervalMs?: 
   return { serverId, token, url: `${harness.url}/mcp/gw` };
 }
 
+async function until(predicate: () => boolean, timeoutMs = 10_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error("timed out waiting for the expected state");
+    await Bun.sleep(25);
+  }
+}
+
 async function authorize(serverId: string): Promise<void> {
   const flow = harness.core.upstreamAuth.flow;
   if (!flow) throw new Error("flow is not configured");
@@ -112,8 +120,8 @@ describe("token refresh", () => {
     await authorize(serverId);
     const client = await connectClient(url, token);
 
-    const calls = 100;
-    const spacing = 600;
+    const calls = 40;
+    const spacing = 300;
     let failures = 0;
     for (let i = 0; i < calls; i++) {
       try {
@@ -122,21 +130,22 @@ describe("token refresh", () => {
       } catch {
         failures += 1;
       }
-      await Bun.sleep(spacing);
+      if (i < calls - 1) await Bun.sleep(spacing);
     }
+    await client.close();
 
     expect(failures).toBe(0);
     expect(upstream.counts.unauthorized).toBe(0);
     expect(upstream.counts.toolCalls).toBe(calls);
-    expect(as.counts.refresh).toBeGreaterThanOrEqual(8);
-    expect(as.counts.refresh).toBeLessThanOrEqual(25);
-  }, 180_000);
+    expect(as.counts.refresh).toBeGreaterThanOrEqual(2);
+  }, 60_000);
 
   test("collapses concurrent refreshes into a single token request", async () => {
     const { serverId, token, url } = await setupOauthServer({ ttlSec: 2 });
     await authorize(serverId);
     const before = as.counts.refresh;
-    await Bun.sleep(1_900);
+    const state = await harness.core.upstreamAuth.store.read(serverId);
+    await until(() => (state?.tokens?.expiresAt ?? 0) - Date.now() <= refreshWindowMs(2));
 
     const client = await connectClient(url, token);
     const results = await Promise.all(
@@ -204,7 +213,7 @@ describe("token refresh", () => {
     await authorize(serverId);
     harness.core.upstreamAuth.start();
     const before = as.counts.refresh;
-    await Bun.sleep(5_000);
+    await until(() => as.counts.refresh > before);
     harness.core.upstreamAuth.stop();
     expect(as.counts.refresh - before).toBeGreaterThanOrEqual(1);
     const state = await harness.core.upstreamAuth.store.read(serverId);

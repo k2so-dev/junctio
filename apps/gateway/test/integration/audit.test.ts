@@ -1,13 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import {
-  connectClient,
-  seedApiKey,
-  seedEndpoint,
-  seedNamespace,
-  seedStdioServer,
-  startHarness,
-  type Harness
-} from "../helpers.ts";
+import { adminApi, connectClient, seedApiKey, seedEndpoint, seedNamespace, seedStdioServer, startHarness, withHarness, type Harness } from "../helpers.ts";
 import { eq } from "drizzle-orm";
 import { setSetting } from "../../src/db/settings.ts";
 import { servers } from "../../src/db/schema.ts";
@@ -45,24 +37,14 @@ function finding(severity: AuditFinding["severity"], id?: string): AuditFinding 
 
 let harness: Harness;
 let engine: FakeEngine;
-let cookie = "";
 
-async function api(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  if (cookie) headers.set("cookie", cookie);
-  if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
-  const response = await fetch(`${harness.url}/api${path}`, { ...init, headers });
-  const setCookie = response.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0] ?? cookie;
-  return response;
-}
+let api: (path: string, init?: RequestInit) => Promise<Response>;
 
 async function body<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
 beforeEach(async () => {
-  cookie = "";
   engine = new FakeEngine();
   harness = await startHarness({
     audit: {
@@ -73,6 +55,7 @@ beforeEach(async () => {
       startupDelayMs: 0
     }
   });
+  api = adminApi(() => harness);
   setSetting(harness.core.db, "audit_enabled", "true");
   await api("/v1/session/setup", { method: "POST", body: JSON.stringify({ password: "supersecret" }) });
 });
@@ -283,21 +266,21 @@ describe("launch gate", () => {
   });
 
   test("keeps launching servers the audit cannot check", async () => {
-    const plain = await startHarness({
-      audit: {
-        engines: [new FakeEngine()],
-        targetFor: () => ({ kind: "unsupported", reason: "not auditable" }),
-        startupDelayMs: 0
+    await withHarness(
+      {
+        audit: {
+          engines: [new FakeEngine()],
+          targetFor: () => ({ kind: "unsupported", reason: "not auditable" }),
+          startupDelayMs: 0
+        }
+      },
+      async (plain) => {
+        setSetting(plain.core.db, "audit_enabled", "true");
+        const serverId = await seedStdioServer(plain.core, { name: "opaque" });
+        await plain.core.pool.acquire(serverId);
+        expect(plain.core.supervisor.isRunning(serverId)).toBe(true);
       }
-    });
-    try {
-      setSetting(plain.core.db, "audit_enabled", "true");
-      const serverId = await seedStdioServer(plain.core, { name: "opaque" });
-      await plain.core.pool.acquire(serverId);
-      expect(plain.core.supervisor.isRunning(serverId)).toBe(true);
-    } finally {
-      await plain.stop();
-    }
+    );
   });
 
   test("keeps the quarantine reason current", async () => {
@@ -340,35 +323,38 @@ describe("audit failures", () => {
   });
 
   test("times out a slow engine and reports it as an error", async () => {
-    const slow = await startHarness({
-      audit: {
-        engines: [Object.assign(new FakeEngine(), { delayMs: 5_000 })],
-        targetFor: () => ({ kind: "npm", specs: ["pkg"] }),
-        serverTimeoutMs: 50,
-        startupDelayMs: 0
+    await withHarness(
+      {
+        audit: {
+          engines: [Object.assign(new FakeEngine(), { delayMs: 5_000 })],
+          targetFor: () => ({ kind: "npm", specs: ["pkg"] }),
+          serverTimeoutMs: 50,
+          startupDelayMs: 0
+        }
+      },
+      async (slow) => {
+        setSetting(slow.core.db, "audit_enabled", "true");
+        const serverId = await seedStdioServer(slow.core, { name: "slow" });
+        const result = await slow.core.audit.runServer(serverId, "manual");
+        expect(result.status).toBe("error");
+        expect(result.error).toContain("timed out");
       }
-    });
-    setSetting(slow.core.db, "audit_enabled", "true");
-    const serverId = await seedStdioServer(slow.core, { name: "slow" });
-    const result = await slow.core.audit.runServer(serverId, "manual");
-    expect(result.status).toBe("error");
-    expect(result.error).toContain("timed out");
-    await slow.stop();
+    );
   });
 
   test("marks a docker server as unsupported without running an engine", async () => {
-    const plain = await startHarness({ audit: { engines: [engine], startupDelayMs: 0 } });
-    setSetting(plain.core.db, "audit_enabled", "true");
-    const serverId = await seedStdioServer(plain.core, { name: "docker-ish" });
-    plain.core.db
-      .update(servers)
-      .set({ runtime: "docker", args: ["run", "--rm", "img"] })
-      .where(eq(servers.id, serverId))
-      .run();
-    const result = await plain.core.audit.runServer(serverId, "manual");
-    expect(result.status).toBe("unsupported");
-    expect(result.reason).toContain("container images");
-    await plain.stop();
+    await withHarness({ audit: { engines: [engine], startupDelayMs: 0 } }, async (plain) => {
+      setSetting(plain.core.db, "audit_enabled", "true");
+      const serverId = await seedStdioServer(plain.core, { name: "docker-ish" });
+      plain.core.db
+        .update(servers)
+        .set({ runtime: "docker", args: ["run", "--rm", "img"] })
+        .where(eq(servers.id, serverId))
+        .run();
+      const result = await plain.core.audit.runServer(serverId, "manual");
+      expect(result.status).toBe("unsupported");
+      expect(result.reason).toContain("container images");
+    });
   });
 });
 

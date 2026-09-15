@@ -2,23 +2,14 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { desc } from "drizzle-orm";
 import type { CallToolResult, Tool } from "@modelcontextprotocol/client";
 import { requestLog } from "../../src/db/schema.ts";
-import { MOCK_STDIO, connectClient, seedApiKey, startHarness, type Harness } from "../helpers.ts";
+import { MOCK_STDIO, adminApi, connectClient, seedApiKey, startHarness, type Harness } from "../helpers.ts";
 import registryList from "../fixtures/registry-list.json" with { type: "json" };
 
 const ADMIN_TOKEN = "admin-token-0123456789abcdef";
 
 let harness: Harness;
-let cookie = "";
 
-async function api(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  if (cookie) headers.set("cookie", cookie);
-  if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
-  const response = await fetch(`${harness.url}/api${path}`, { ...init, headers });
-  const setCookie = response.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0] ?? cookie;
-  return response;
-}
+let api: (path: string, init?: RequestInit) => Promise<Response>;
 
 async function enable(value = true): Promise<void> {
   const response = await api("/v1/settings", { method: "PATCH", body: JSON.stringify({ adminMcp: value }) });
@@ -65,8 +56,8 @@ async function call(client: Awaited<ReturnType<typeof adminClient>>, name: strin
 }
 
 beforeEach(async () => {
-  cookie = "";
   harness = await startHarness({ env: { JUNCTIO_ADMIN_TOKEN: ADMIN_TOKEN } });
+  api = adminApi(() => harness);
   await api("/v1/session/setup", {
     method: "POST",
     headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
@@ -317,7 +308,6 @@ describe("management mcp over oauth", () => {
     await harness.stop();
     oauthHarness = await startHarness({ withBaseUrl: true, env: { JUNCTIO_ADMIN_TOKEN: ADMIN_TOKEN } });
     harness = oauthHarness;
-    cookie = "";
     await api("/v1/session/setup", {
     method: "POST",
     headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
@@ -385,7 +375,6 @@ describe("installing from the registry", () => {
 
     registryHarness = await startHarness({ env: { JUNCTIO_ADMIN_TOKEN: ADMIN_TOKEN }, fetchImpl });
     harness = registryHarness;
-    cookie = "";
     await api("/v1/session/setup", {
     method: "POST",
     headers: { authorization: `Bearer ${ADMIN_TOKEN}` },

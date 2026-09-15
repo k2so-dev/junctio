@@ -1,3 +1,4 @@
+import { count } from "drizzle-orm";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -59,10 +60,10 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
   const core = createCore({
     config,
     dbFile: join(dir, "junctio.db"),
-    ...(options.refreshIntervalMs ? { refreshIntervalMs: options.refreshIntervalMs } : {}),
-    ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-    ...(options.registryTimeoutMs ? { registryTimeoutMs: options.registryTimeoutMs } : {}),
-    ...(options.audit ? { audit: options.audit } : {})
+    ...(options.refreshIntervalMs !== undefined ? { refreshIntervalMs: options.refreshIntervalMs } : {}),
+    ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
+    ...(options.registryTimeoutMs !== undefined ? { registryTimeoutMs: options.registryTimeoutMs } : {}),
+    ...(options.audit !== undefined ? { audit: options.audit } : {})
   });
   const app = createApp({ core, verifier: options.verifier ?? null, publicDir: null });
   const server = Bun.serve({
@@ -191,7 +192,30 @@ export async function seedApiKey(core: Core, endpointId: string | null): Promise
 }
 
 export function keyCount(core: Core): number {
-  return core.db.select().from(apiKeys).all().length;
+  return core.db.select({ total: count() }).from(apiKeys).get()?.total ?? 0;
+}
+
+export async function withHarness<T>(options: HarnessOptions, fn: (harness: Harness) => Promise<T>): Promise<T> {
+  const harness = await startHarness(options);
+  try {
+    return await fn(harness);
+  } finally {
+    await harness.stop();
+  }
+}
+
+export function adminApi(target: Harness | (() => Harness)): (path: string, init?: RequestInit) => Promise<Response> {
+  let cookie = "";
+  return async (path, init = {}) => {
+    const harness = typeof target === "function" ? target() : target;
+    const headers = new Headers(init.headers);
+    if (cookie) headers.set("cookie", cookie);
+    if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+    const response = await fetch(`${harness.url}/api${path}`, { ...init, headers });
+    const setCookie = response.headers.get("set-cookie");
+    if (setCookie) cookie = setCookie.split(";")[0] ?? cookie;
+    return response;
+  };
 }
 
 export async function connectClient(

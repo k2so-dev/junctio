@@ -1,26 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { MOCK_STDIO, startHarness, type Harness } from "../helpers.ts";
+import { MOCK_STDIO, adminApi, startHarness, type Harness } from "../helpers.ts";
 
 let harness: Harness;
-let cookie = "";
 
-async function api(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  if (cookie) headers.set("cookie", cookie);
-  if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
-  const response = await fetch(`${harness.url}/api${path}`, { ...init, headers });
-  const setCookie = response.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0] ?? cookie;
-  return response;
-}
+let api: (path: string, init?: RequestInit) => Promise<Response>;
 
 async function json<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
 beforeEach(async () => {
-  cookie = "";
   harness = await startHarness();
+  api = adminApi(() => harness);
   await api("/v1/session/setup", { method: "POST", body: JSON.stringify({ password: "supersecret" }) });
 });
 
@@ -58,7 +49,6 @@ describe("session", () => {
   });
 
   test("logs in with the configured password", async () => {
-    cookie = "";
     const bad = await api("/v1/session/login", { method: "POST", body: JSON.stringify({ password: "wrong" }) });
     expect(bad.status).toBe(401);
     const good = await api("/v1/session/login", { method: "POST", body: JSON.stringify({ password: "supersecret" }) });
@@ -67,7 +57,6 @@ describe("session", () => {
   });
 
   test("rate limits repeated login attempts", async () => {
-    cookie = "";
     let limited = false;
     for (let i = 0; i < 14; i++) {
       const response = await api("/v1/session/login", { method: "POST", body: JSON.stringify({ password: "nope" }) });
@@ -80,9 +69,10 @@ describe("session", () => {
   });
 
   test("logs out and invalidates the cookie", async () => {
-    await api("/v1/session/logout", { method: "POST" });
-    const response = await fetch(`${harness.url}/api/v1/servers`, { headers: { cookie } });
-    expect(response.status).toBe(401);
+    expect((await api("/v1/servers")).status).toBe(200);
+    const loggedOut = await api("/v1/session/logout", { method: "POST" });
+    expect(loggedOut.status).toBe(200);
+    expect((await api("/v1/servers")).status).toBe(401);
   });
 
   test("accepts the admin token instead of a cookie", async () => {

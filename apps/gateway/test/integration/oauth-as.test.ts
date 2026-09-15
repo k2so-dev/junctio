@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { seedEndpoint, seedNamespace, seedStdioServer, startHarness, type Harness } from "../helpers.ts";
+import { adminApi, seedEndpoint, seedNamespace, seedStdioServer, startHarness, type Harness } from "../helpers.ts";
 
 let harness: Harness;
-let cookie = "";
 let slug = "team";
 
 function pkce(): { verifier: string; challenge: string } {
@@ -11,15 +10,7 @@ function pkce(): { verifier: string; challenge: string } {
   return { verifier, challenge: Buffer.from(digest).toString("base64url") };
 }
 
-async function admin(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  if (cookie) headers.set("cookie", cookie);
-  if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
-  const response = await fetch(`${harness.url}/api${path}`, { ...init, headers });
-  const setCookie = response.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0] ?? cookie;
-  return response;
-}
+let admin: (path: string, init?: RequestInit) => Promise<Response>;
 
 async function register(overrides: Record<string, unknown> = {}): Promise<{ client_id: string; client_secret?: string }> {
   const response = await fetch(`${harness.url}/oauth/register`, {
@@ -102,9 +93,9 @@ async function callMcp(accessToken: string | null, target = slug): Promise<Respo
 }
 
 beforeEach(async () => {
-  cookie = "";
   slug = "team";
   harness = await startHarness({ withBaseUrl: true });
+  admin = adminApi(() => harness);
   await admin("/v1/session/setup", { method: "POST", body: JSON.stringify({ password: "supersecret" }) });
   const serverId = await seedStdioServer(harness.core, { name: "alpha" });
   const namespaceId = seedNamespace(harness.core, "team", [{ serverId }]);

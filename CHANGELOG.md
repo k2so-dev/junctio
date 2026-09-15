@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-16
+
+First public release.
+
 ### Changed
 
 - `JUNCTIO_DATA_DIR` defaults to `./data` instead of `/data`, so a source-tree run no longer tries to write to the filesystem root. The image still sets it to `/data`, which is where the named volume is mounted, so a container deployment is unaffected.
@@ -50,7 +54,5 @@ All notable changes to this project are documented here. The format follows
 
 - The plaintext `servers.env` column and its backfill. Server environments have been stored encrypted for several releases.
 
-### Upgrading
-
-The ciphertext format changed and old values cannot be read. Start from a fresh
-`junctio.db` and re-enter upstream credentials, or keep the previous release.
+[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/k2so-dev/junctio/releases/tag/v0.1.0

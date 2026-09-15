@@ -32,19 +32,21 @@ export class ServerRegistry {
     const row = this.row(serverId);
     if (!row) return null;
     const headers = row.headersEnc ? (JSON.parse(await this.cipher.decrypt(row.headersEnc)) as Record<string, string>) : {};
-    const resolved: ResolvedServer = { row, headers };
+    const env = row.envEnc ? (JSON.parse(await this.cipher.decrypt(row.envEnc)) as Record<string, string>) : row.env;
+    const resolved: ResolvedServer = { row, headers, env };
     this.cache.set(serverId, resolved);
     return resolved;
   }
 
-  spawnSpec(serverId: string): SpawnSpec | null {
-    const row = this.row(serverId);
-    if (!row || row.transport !== "stdio") return null;
+  async spawnSpec(serverId: string): Promise<SpawnSpec | null> {
+    const resolved = await this.resolve(serverId);
+    if (!resolved || resolved.row.transport !== "stdio") return null;
+    const { row } = resolved;
     const idleTimeoutSec = row.idleTimeoutSec;
     const warm = row.warm;
 
     if (row.runtime === "docker") {
-      const env = Object.fromEntries(Object.entries(row.env).filter(([key]) => !key.startsWith("JUNCTIO_")));
+      const env = Object.fromEntries(Object.entries(resolved.env).filter(([key]) => !key.startsWith("JUNCTIO_")));
       const parsed = parseDockerRun(row.args, env);
       if (!parsed.spec) throw new Error(parsed.errors.join("; "));
       const container = { ...parsed.spec, workdir: parsed.spec.workdir ?? row.cwd };
@@ -67,7 +69,7 @@ export class ServerRegistry {
         argv: buildArgv({ runtime: row.runtime, args: row.args }),
         cwd: row.cwd,
         env: buildChildEnv({
-          env: row.env,
+          env: resolved.env,
           path: getSetting(this.db, "runtime_path"),
           home: Bun.env.HOME ?? "/tmp"
         })

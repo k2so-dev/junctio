@@ -3,6 +3,7 @@ import { loadConfig } from "./config.ts";
 import { createCore, databaseFile } from "./core.ts";
 import { createApp } from "./server/app.ts";
 import { servers } from "./db/schema.ts";
+import { backfillServerEnv } from "./db/backfill.ts";
 import { pruneRequestLog } from "./server/requestlog.ts";
 import { checkTmpdir } from "./upstream/tmpdir.ts";
 import { reapContainers } from "./upstream/docker/launcher.ts";
@@ -24,6 +25,8 @@ export async function serve(): Promise<void> {
     database: databaseFile(config),
     baseUrl: config.baseUrl
   });
+
+  await backfillServerEnv(core.db, core.sqlite, core.cipher, core.logger);
 
   const tmpdir = checkTmpdir();
   if (tmpdir.noexec) {

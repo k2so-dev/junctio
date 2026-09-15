@@ -28,7 +28,7 @@ export type AcquireResult = {
 };
 
 export type SupervisorOptions = {
-  getSpec: (serverId: string) => SpawnSpec | null;
+  getSpec: (serverId: string) => SpawnSpec | null | Promise<SpawnSpec | null>;
   logs: LogRegistry;
   logger: Logger;
   launcher?: Launcher;
@@ -171,10 +171,10 @@ export class ProcessSupervisor {
     return promise;
   }
 
-  private readSpec(serverId: string): SpawnSpec {
+  private async readSpec(serverId: string): Promise<SpawnSpec> {
     let spec: SpawnSpec | null;
     try {
-      spec = this.options.getSpec(serverId);
+      spec = await this.options.getSpec(serverId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.options.logs.append(serverId, "system", message);
@@ -186,7 +186,7 @@ export class ProcessSupervisor {
   }
 
   private async spawn(serverId: string): Promise<AcquireResult> {
-    const spec = this.readSpec(serverId);
+    const spec = await this.readSpec(serverId);
 
     this.patchInfo(serverId, { state: "starting", lastError: null });
     const generation = ++this.generationSeq;

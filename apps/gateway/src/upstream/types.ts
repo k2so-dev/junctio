@@ -3,6 +3,7 @@ import type { ServerRow } from "../db/schema.ts";
 export type ResolvedServer = {
   row: ServerRow;
   headers: Record<string, string>;
+  env: Record<string, string>;
 };
 
 export interface UpstreamAuth {

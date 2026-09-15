@@ -188,6 +188,31 @@ describe("servers api", () => {
     expect(resolved?.headers.authorization).toBe("Bearer super-secret-value");
   });
 
+  test("masks stored env and keeps it on update", async () => {
+    const created = await json<{ id: string; env: Record<string, string> }>(
+      await api("/v1/servers", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "secretive",
+          transport: "stdio",
+          runtime: "custom",
+          args: ["bun", MOCK_STDIO],
+          env: { GITHUB_TOKEN: "ghp_super_secret_value" }
+        })
+      })
+    );
+    expect(created.env).toEqual({ GITHUB_TOKEN: "***" });
+
+    await api(`/v1/servers/${created.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ env: { GITHUB_TOKEN: "***" }, idleTimeoutSec: 30 })
+    });
+    const resolved = await harness.core.registry.resolve(created.id);
+    expect(resolved?.env.GITHUB_TOKEN).toBe("ghp_super_secret_value");
+    expect(resolved?.row.env).toEqual({});
+    expect(resolved?.row.envEnc).toBeTruthy();
+  });
+
   test("starts, tests and stops a server", async () => {
     const created = await createStdioServer();
     const started = await json<{ status: string; pid: number | null }>(

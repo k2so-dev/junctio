@@ -372,12 +372,16 @@ describe("installing from the registry", () => {
         args: ["-y", "@j0hanz/filesystem-mcp@2.2.0", "/tmp"],
         env: { FS_ALLOWED_DIRS: "/tmp" }
       })
-    ) as { name: string; runtime: string; args: string[]; env: Record<string, string> };
+    ) as { id: string; name: string; runtime: string; args: string[]; env: Record<string, string> };
 
     expect(created.name).toBe("files");
     expect(created.runtime).toBe("npx");
     expect(created.args).toEqual(["-y", "@j0hanz/filesystem-mcp@2.2.0", "/tmp"]);
-    expect(created.env.FS_ALLOWED_DIRS).toBe("/tmp");
+    expect(created.env.FS_ALLOWED_DIRS).toBe("***");
+
+    const resolved = await harness.core.registry.resolve(created.id);
+    expect(resolved?.env.FS_ALLOWED_DIRS).toBe("/tmp");
+    expect(resolved?.row.env).toEqual({});
 
     await client.close();
   });

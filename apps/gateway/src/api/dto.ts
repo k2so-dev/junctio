@@ -13,13 +13,13 @@ import type { Core } from "../core.ts";
 
 export const MASKED = "***";
 
-export function maskHeaders(headers: Record<string, string>): Record<string, string> {
+export function maskSecrets(values: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const key of Object.keys(headers)) out[key] = MASKED;
+  for (const key of Object.keys(values)) out[key] = MASKED;
   return out;
 }
 
-export function mergeHeaders(
+export function mergeSecrets(
   incoming: Record<string, string> | undefined,
   stored: Record<string, string>
 ): Record<string, string> | undefined {
@@ -81,10 +81,10 @@ export async function toServerDto(core: Core, row: ServerRow): Promise<ServerDto
     transport: row.transport,
     runtime: row.runtime,
     args: row.args,
-    env: row.env,
+    env: maskSecrets(resolved?.env ?? {}),
     cwd: row.cwd,
     url: row.url,
-    headers: maskHeaders(resolved?.headers ?? {}),
+    headers: maskSecrets(resolved?.headers ?? {}),
     authMode: row.authMode,
     oauthScope: row.oauthScope,
     enabled: row.enabled,

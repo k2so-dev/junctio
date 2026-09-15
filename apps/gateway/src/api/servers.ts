@@ -5,7 +5,7 @@ import type { Core } from "../core.ts";
 import { servers } from "../db/schema.ts";
 import type { ServerRow } from "../db/schema.ts";
 import { randomId } from "../crypto.ts";
-import { mergeHeaders, toServerDto } from "./dto.ts";
+import { mergeSecrets, toServerDto } from "./dto.ts";
 import { badRequest, conflict, notFound, readJson } from "./util.ts";
 import { buildArgv, previewCommand } from "../upstream/command.ts";
 
@@ -13,7 +13,6 @@ const CONNECTION_FIELDS = [
   "transport",
   "runtime",
   "args",
-  "env",
   "cwd",
   "url",
   "authMode",
@@ -36,22 +35,22 @@ function findServer(core: Core, id: string): ServerRow | null {
   return core.db.select().from(servers).where(eq(servers.id, id)).get() ?? null;
 }
 
-function affectsConnection(
-  before: ServerRow,
-  after: ServerRow,
-  headersBefore: Record<string, string>,
-  headersAfter: Record<string, string> | undefined
-): boolean {
-  if (headersAfter !== undefined) {
-    const next = Object.fromEntries(Object.entries(headersAfter).filter(([, value]) => value !== ""));
-    if (JSON.stringify(headersBefore) !== JSON.stringify(next)) return true;
-  }
+type SecretChange = { before: Record<string, string>; after: Record<string, string> | undefined };
+
+function secretsChanged({ before, after }: SecretChange): boolean {
+  if (after === undefined) return false;
+  const next = Object.fromEntries(Object.entries(after).filter(([, value]) => value !== ""));
+  return JSON.stringify(before) !== JSON.stringify(next);
+}
+
+function affectsConnection(before: ServerRow, after: ServerRow, secrets: SecretChange[]): boolean {
+  if (secrets.some(secretsChanged)) return true;
   return CONNECTION_FIELDS.some((field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
 }
 
-async function encodeHeaders(core: Core, headers: Record<string, string> | undefined): Promise<string | null | undefined> {
-  if (headers === undefined) return undefined;
-  const filtered = Object.fromEntries(Object.entries(headers).filter(([, value]) => value !== ""));
+async function encodeSecrets(core: Core, values: Record<string, string> | undefined): Promise<string | null | undefined> {
+  if (values === undefined) return undefined;
+  const filtered = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== ""));
   if (Object.keys(filtered).length === 0) return null;
   return core.cipher.encrypt(JSON.stringify(filtered));
 }
@@ -90,10 +89,10 @@ export function createServersApi(core: Core): Hono {
         transport: input.transport,
         runtime: input.runtime,
         args: input.args,
-        env: input.env,
+        envEnc: (await encodeSecrets(core, input.env)) ?? null,
         cwd: input.cwd,
         url: input.url,
-        headersEnc: (await encodeHeaders(core, input.headers)) ?? null,
+        headersEnc: (await encodeSecrets(core, input.headers)) ?? null,
         authMode: input.authMode,
         oauthScope: input.oauthScope,
         enabled: input.enabled,
@@ -125,8 +124,10 @@ export function createServersApi(core: Core): Hono {
       if (clash) return conflict(c, `server "${patch.name}" already exists`);
     }
     const resolved = await core.registry.resolve(row.id);
-    const headers = mergeHeaders(patch.headers, resolved?.headers ?? {});
-    const headersEnc = await encodeHeaders(core, headers);
+    const headers = mergeSecrets(patch.headers, resolved?.headers ?? {});
+    const headersEnc = await encodeSecrets(core, headers);
+    const env = mergeSecrets(patch.env, resolved?.env ?? {});
+    const envEnc = await encodeSecrets(core, env);
 
     core.db
       .update(servers)
@@ -135,7 +136,7 @@ export function createServersApi(core: Core): Hono {
         ...(patch.transport !== undefined ? { transport: patch.transport } : {}),
         ...(patch.runtime !== undefined ? { runtime: patch.runtime } : {}),
         ...(patch.args !== undefined ? { args: patch.args } : {}),
-        ...(patch.env !== undefined ? { env: patch.env } : {}),
+        ...(envEnc !== undefined ? { envEnc } : {}),
         ...(patch.cwd !== undefined ? { cwd: patch.cwd } : {}),
         ...(patch.url !== undefined ? { url: patch.url } : {}),
         ...(headersEnc !== undefined ? { headersEnc } : {}),
@@ -151,7 +152,11 @@ export function createServersApi(core: Core): Hono {
 
     core.registry.invalidate(row.id);
     const updated = findServer(core, row.id);
-    if (updated && affectsConnection(row, updated, resolved?.headers ?? {}, headers)) {
+    const secrets: SecretChange[] = [
+      { before: resolved?.headers ?? {}, after: headers },
+      { before: resolved?.env ?? {}, after: env }
+    ];
+    if (updated && affectsConnection(row, updated, secrets)) {
       await core.pool.invalidate(row.id, "server updated");
       await core.supervisor.stop(row.id);
       core.supervisor.reset(row.id);

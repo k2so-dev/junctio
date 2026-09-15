@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { authenticateClient, authorizeHandler, clientRegistrationHandler, revokeHandler, tokenHandler } from "@hono/mcp/auth";
 import type { OAuthServerProvider } from "@modelcontextprotocol/sdk/server/auth/provider.js";
 import type { JunctioOAuthProvider } from "./provider.ts";
+import type { AppEnv } from "../../../server/env.ts";
+import { RateLimiter, clientAddress } from "../../../server/ratelimit.ts";
 
 export const OAUTH_BASE_PATH = "/oauth";
 export const AUTHORIZE_PATH = `${OAUTH_BASE_PATH}/authorize`;
@@ -24,15 +26,29 @@ export function authorizationServerMetadata(issuer: string): Record<string, unkn
   };
 }
 
-export function createAuthorizationServerRoute(provider: JunctioOAuthProvider): Hono {
-  const app = new Hono();
+export function createAuthorizationServerRoute(
+  provider: JunctioOAuthProvider,
+  options: { trustProxy: boolean }
+): Hono<AppEnv> {
+  const app = new Hono<AppEnv>();
   const sdkProvider = provider as unknown as OAuthServerProvider;
   const clientAuth = authenticateClient({ clientsStore: provider.clientsStore });
+  const registrations = new RateLimiter(5, 60_000);
 
   app.on(["GET", "POST"], "/authorize", authorizeHandler(sdkProvider));
   app.post("/token", clientAuth, tokenHandler(sdkProvider));
   app.post(
     "/register",
+    async (c, next) => {
+      const address = clientAddress(c.req.raw, { ip: c.env.ip, trustProxy: options.trustProxy });
+      const limit = registrations.check(address);
+      if (!limit.allowed) {
+        c.header("retry-after", String(limit.retryAfterSec));
+        return c.json({ error: "temporarily_unavailable", error_description: "too many client registrations" }, 429);
+      }
+      provider.prune();
+      return next();
+    },
     clientRegistrationHandler({
       clientsStore: provider.clientsStore,
       clientIdGeneration: false,

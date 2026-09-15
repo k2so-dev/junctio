@@ -1,4 +1,4 @@
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, isNull, lt } from "drizzle-orm";
 import type { Context } from "hono";
 import type { OAuthClientInformationFull, OAuthTokenRevocationRequest, OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
 import type { AuthorizationParams } from "@modelcontextprotocol/sdk/server/auth/provider.js";
@@ -14,6 +14,7 @@ export const ACCESS_TOKEN_TTL_SEC = 3600;
 export const REFRESH_TOKEN_TTL_SEC = 30 * 24 * 3600;
 const CODE_TTL_MS = 60_000;
 const REQUEST_TTL_MS = 10 * 60_000;
+const UNUSED_CLIENT_TTL_MS = 24 * 3600_000;
 
 export type PendingRequest = {
   id: string;
@@ -48,6 +49,10 @@ export class JunctioOAuthProvider {
     this.db.delete(oauthAuthRequests).where(lt(oauthAuthRequests.expiresAt, now)).run();
     this.db.delete(oauthAuthCodes).where(lt(oauthAuthCodes.expiresAt, now)).run();
     this.db.delete(oauthTokens).where(lt(oauthTokens.expiresAt, now - REFRESH_TOKEN_TTL_SEC * 1000)).run();
+    this.db
+      .delete(oauthClients)
+      .where(and(isNull(oauthClients.lastUsedAt), lt(oauthClients.createdAt, now - UNUSED_CLIENT_TTL_MS)))
+      .run();
   }
 
   async authorize(client: OAuthClientInformationFull, params: AuthorizationParams, c: Context): Promise<void> {

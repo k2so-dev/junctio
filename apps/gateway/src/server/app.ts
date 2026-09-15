@@ -76,7 +76,9 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
   app.route("/mcp", createAdminMcpRoute({ core, verifier: remote ? null : verifier }));
   app.route("/mcp", createMcpRoute({ core, verifier }));
   app.route("/oauth/upstream", createUpstreamOauthRoute(core));
-  if (!remote) app.route("/oauth", createAuthorizationServerRoute(core.oauthProvider));
+  if (!remote) {
+    app.route("/oauth", createAuthorizationServerRoute(core.oauthProvider, { trustProxy: core.config.trustProxy }));
+  }
   app.route("/api", createApi(core));
 
   if (publicDir) {

@@ -35,6 +35,10 @@ RUN bun install --frozen-lockfile --production --omit=optional
 
 FROM node:${NODE_VERSION}-bookworm-slim
 
+LABEL org.opencontainers.image.source="https://github.com/k2so-dev/junctio" \
+      org.opencontainers.image.description="Self-hosted MCP gateway: one endpoint per client, upstream OAuth that does not go stale" \
+      org.opencontainers.image.licenses="MIT"
+
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=uv /uv /uvx /usr/local/bin/
 

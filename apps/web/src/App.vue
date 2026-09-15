@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import AppSidebar from "@/components/AppSidebar.vue";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { useSession } from "@/stores/session";
 
@@ -17,13 +17,15 @@ const shell = computed(
 </script>
 
 <template>
-  <SidebarProvider v-if="shell">
+  <SidebarProvider
+    v-if="shell"
+    :style="{
+      '--sidebar-width': 'calc(var(--spacing) * 68)',
+      '--header-height': 'calc(var(--spacing) * 12)'
+    }"
+  >
     <AppSidebar />
-    <SidebarInset class="min-w-0 overflow-hidden">
-      <header class="flex h-11 shrink-0 items-center gap-2 border-b px-3 md:hidden">
-        <SidebarTrigger />
-        <span class="font-medium">junctio</span>
-      </header>
+    <SidebarInset class="flex h-svh min-w-0 flex-col overflow-hidden md:h-[calc(100svh-1rem)]">
       <RouterView />
     </SidebarInset>
   </SidebarProvider>

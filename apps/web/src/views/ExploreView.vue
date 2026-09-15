@@ -5,7 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import ImportConfig from "@/components/explore/ImportConfig.vue";
 import OfficialRegistry from "@/components/explore/OfficialRegistry.vue";
 import SourceGroups from "@/components/explore/SourceGroups.vue";
-import PageHeader from "@/components/PageHeader.vue";
+import PageLayout from "@/components/layout/PageLayout.vue";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -30,28 +30,30 @@ const tab = computed({
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-6">
-    <PageHeader title="Explore" :description="DESCRIPTIONS[tab]">
-      <template #actions>
-        <Button
-          v-if="tab === 'official'"
-          size="sm"
-          variant="outline"
-          :disabled="registry?.loading"
-          @click="registry?.load(true)"
-        >
-          <RefreshCw :class="registry?.loading ? 'animate-spin' : ''" />
-          Refresh
-        </Button>
-      </template>
-    </PageHeader>
+  <PageLayout title="Explore">
+    <template #actions>
+      <Button
+        v-if="tab === 'official'"
+        size="sm"
+        variant="outline"
+        :disabled="registry?.loading"
+        @click="registry?.load(true)"
+      >
+        <RefreshCw :class="registry?.loading ? 'animate-spin' : ''" />
+        Refresh
+      </Button>
+    </template>
 
-    <Tabs v-model="tab">
-      <TabsList>
-        <TabsTrigger value="official">Official registry</TabsTrigger>
-        <TabsTrigger value="sources">Other sources</TabsTrigger>
-      </TabsList>
-    </Tabs>
+    <template #toolbar>
+      <Tabs v-model="tab">
+        <TabsList class="h-8">
+          <TabsTrigger value="official">Official registry</TabsTrigger>
+          <TabsTrigger value="sources">Other sources</TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </template>
+
+    <p class="max-w-3xl text-muted-foreground">{{ DESCRIPTIONS[tab] }}</p>
 
     <OfficialRegistry v-show="tab === 'official'" ref="registry" />
 
@@ -59,5 +61,5 @@ const tab = computed({
       <ImportConfig />
       <SourceGroups />
     </div>
-  </div>
+  </PageLayout>
 </template>

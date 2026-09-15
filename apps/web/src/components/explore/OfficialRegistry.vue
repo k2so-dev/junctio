@@ -8,6 +8,7 @@ import EmptyState from "@/components/EmptyState.vue";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -163,7 +164,7 @@ defineExpose({ load, loading });
       description="The registry searches by name only. Try a shorter term, or a part of the package name."
     />
 
-    <div v-else class="overflow-x-auto rounded-lg border bg-card">
+    <Card v-else class="gap-0 overflow-x-auto py-0">
       <Table>
         <TableHeader>
           <TableRow>
@@ -227,7 +228,7 @@ defineExpose({ load, loading });
           </TableRow>
         </TableBody>
       </Table>
-    </div>
+    </Card>
 
     <Dialog v-model:open="open">
       <DialogContent class="max-w-xl">

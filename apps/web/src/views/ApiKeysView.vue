@@ -5,9 +5,10 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { toast } from "vue-sonner";
 import EmptyState from "@/components/EmptyState.vue";
-import PageHeader from "@/components/PageHeader.vue";
+import PageLayout from "@/components/layout/PageLayout.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -100,45 +101,43 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-6">
-    <PageHeader title="API Keys">
-      <template #description>
-        Sent as <span class="font-mono text-foreground">Authorization: Bearer jn_…</span> or
-        <span class="font-mono text-foreground">X-API-Key</span>. Stored as argon2id hashes and shown once.
-      </template>
-      <template #actions>
-        <Button size="sm" :disabled="creating" @click="creating = true">
-          <Plus />
-          Create key
-        </Button>
-      </template>
-    </PageHeader>
+  <PageLayout title="API keys">
+    <template #actions>
+      <Button size="sm" :disabled="creating" @click="creating = true">
+        <Plus />
+        Create key
+      </Button>
+    </template>
 
-    <form
-      v-if="creating"
-      class="grid items-end gap-3 rounded-lg border bg-card p-4 md:grid-cols-[minmax(180px,1.4fr)_minmax(160px,1fr)_minmax(140px,1fr)_auto]"
-      @submit.prevent="create"
-    >
-      <div class="grid gap-2">
-        <Label for="key-name">Name</Label>
-        <Input id="key-name" v-model="draft.name" placeholder="work laptop · Claude Code" class="h-8" autofocus />
-      </div>
-      <div class="grid gap-2">
-        <Label>Scope</Label>
-        <SearchSelect v-model="draft.endpointId" :options="endpointOptions" trigger-class="h-8" />
-      </div>
-      <div class="grid gap-2">
-        <Label>Expires</Label>
-        <SearchSelect v-model="draft.expires" :options="EXPIRY" trigger-class="h-8" />
-      </div>
-      <div class="flex gap-2">
-        <Button type="submit" size="sm" :disabled="busy || draft.name === ''">
-          <Loader2 v-if="busy" class="animate-spin" />
-          Generate
-        </Button>
-        <Button type="button" variant="outline" size="sm" @click="creating = false">Cancel</Button>
-      </div>
-    </form>
+    <Card v-if="creating" class="gap-0 py-0">
+      <CardHeader class="gap-1 border-b py-3 [.border-b]:pb-3">
+        <CardTitle class="text-sm font-medium">New key</CardTitle>
+        <CardDescription class="text-xs">The token is shown once, right after it is generated.</CardDescription>
+      </CardHeader>
+      <form @submit.prevent="create">
+        <CardContent class="grid items-end gap-3 py-4 md:grid-cols-[minmax(180px,1.4fr)_minmax(160px,1fr)_minmax(140px,1fr)]">
+          <div class="grid gap-2">
+            <Label for="key-name">Name</Label>
+            <Input id="key-name" v-model="draft.name" placeholder="work laptop · Claude Code" class="h-8" autofocus />
+          </div>
+          <div class="grid gap-2">
+            <Label>Scope</Label>
+            <SearchSelect v-model="draft.endpointId" :options="endpointOptions" trigger-class="h-8" />
+          </div>
+          <div class="grid gap-2">
+            <Label>Expires</Label>
+            <SearchSelect v-model="draft.expires" :options="EXPIRY" trigger-class="h-8" />
+          </div>
+        </CardContent>
+        <CardFooter class="flex justify-end gap-2 border-t py-3">
+          <Button type="button" variant="outline" size="sm" @click="creating = false">Cancel</Button>
+          <Button type="submit" size="sm" :disabled="busy || draft.name === ''">
+            <Loader2 v-if="busy" class="animate-spin" />
+            Generate
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
 
     <div v-if="revealed" class="flex flex-col gap-2.5 rounded-lg border border-success/50 bg-success/8 p-4">
       <div class="flex items-center gap-2 font-medium text-success">
@@ -164,7 +163,7 @@ onMounted(async () => {
       description="A key authenticates one client against one endpoint, or against all of them."
     />
 
-    <div v-else class="overflow-x-auto rounded-lg border bg-card">
+    <Card v-else class="gap-0 overflow-x-auto py-0">
       <Table>
         <TableHeader>
           <TableRow>
@@ -201,6 +200,11 @@ onMounted(async () => {
           </TableRow>
         </TableBody>
       </Table>
-    </div>
-  </div>
+    </Card>
+
+    <p class="text-xs text-muted-foreground">
+      Sent as <span class="font-mono text-foreground">Authorization: Bearer jn_…</span> or
+      <span class="font-mono text-foreground">X-API-Key</span>. Stored as argon2id hashes and shown once.
+    </p>
+  </PageLayout>
 </template>

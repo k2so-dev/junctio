@@ -3,9 +3,10 @@ import type { EndpointDto, RequestLogDto, ServerDto } from "@junctio/schema";
 import { RefreshCw } from "@lucide/vue";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import EmptyState from "@/components/EmptyState.vue";
-import PageHeader from "@/components/PageHeader.vue";
+import PageLayout from "@/components/layout/PageLayout.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
@@ -67,20 +68,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-6">
-    <PageHeader
-      title="Request log"
-      :description="`Every call that passed through the gateway. Retained ${settings?.requestLogRetentionDays ?? 7} days.`"
-    >
-      <template #actions>
-        <Button variant="outline" size="sm" :disabled="loading" @click="load">
-          <RefreshCw :class="loading && 'animate-spin'" />
-          Refresh
-        </Button>
-      </template>
-    </PageHeader>
+  <PageLayout title="Request log">
+    <template #actions>
+      <Button variant="outline" size="sm" :disabled="loading" @click="load">
+        <RefreshCw :class="loading && 'animate-spin'" />
+        Refresh
+      </Button>
+    </template>
 
-    <div class="flex flex-wrap items-center gap-2">
+    <template #toolbar>
       <SearchSelect v-model="endpointId" :options="endpointOptions" trigger-class="h-8 w-48" />
       <SearchSelect v-model="serverId" :options="serverOptions" trigger-class="h-8 w-48" />
       <Tabs v-model="status">
@@ -91,7 +87,7 @@ onUnmounted(() => {
         </TabsList>
       </Tabs>
       <span class="ml-auto font-mono text-xs text-muted-foreground">{{ rows.length }} entries</span>
-    </div>
+    </template>
 
     <EmptyState
       v-if="rows.length === 0 && !loading"
@@ -100,7 +96,7 @@ onUnmounted(() => {
       description="Calls appear here as soon as a client talks to an endpoint."
     />
 
-    <div v-else class="overflow-x-auto rounded-lg border bg-card">
+    <Card v-else class="gap-0 overflow-x-auto py-0">
       <Table>
         <TableHeader>
           <TableRow>
@@ -140,6 +136,10 @@ onUnmounted(() => {
           </TableRow>
         </TableBody>
       </Table>
-    </div>
-  </div>
+    </Card>
+
+    <p class="text-xs text-muted-foreground">
+      Every call that passed through the gateway. Retained {{ settings?.requestLogRetentionDays ?? 7 }} days.
+    </p>
+  </PageLayout>
 </template>

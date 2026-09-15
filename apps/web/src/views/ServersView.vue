@@ -5,11 +5,12 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import EmptyState from "@/components/EmptyState.vue";
-import PageHeader from "@/components/PageHeader.vue";
+import PageLayout from "@/components/layout/PageLayout.vue";
 import StatusDot from "@/components/StatusDot.vue";
 import AuditBadge from "@/components/server/AuditBadge.vue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -108,30 +109,25 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-6">
-    <PageHeader
-      title="Servers"
-      description="Upstream MCP servers this gateway proxies. Processes start lazily on first request."
-    >
-      <template #actions>
-        <Button size="sm" @click="router.push({ name: 'server-new' })">
-          <Plus />
-          Add server
-        </Button>
-      </template>
-    </PageHeader>
+  <PageLayout title="Servers">
+    <template #actions>
+      <Button size="sm" @click="router.push({ name: 'server-new' })">
+        <Plus />
+        Add server
+      </Button>
+    </template>
 
-    <div class="flex flex-wrap items-center justify-between gap-3">
+    <template #toolbar>
       <Tabs v-model="filter">
-        <TabsList>
+        <TabsList class="h-8">
           <TabsTrigger value="all">All <span class="ml-1.5 font-mono text-xs opacity-60">{{ counts.all }}</span></TabsTrigger>
           <TabsTrigger value="running">Running <span class="ml-1.5 font-mono text-xs opacity-60">{{ counts.running }}</span></TabsTrigger>
           <TabsTrigger value="attention">Needs attention <span class="ml-1.5 font-mono text-xs opacity-60">{{ counts.attention }}</span></TabsTrigger>
           <TabsTrigger value="idle">Idle <span class="ml-1.5 font-mono text-xs opacity-60">{{ counts.idle }}</span></TabsTrigger>
         </TabsList>
       </Tabs>
-      <Input v-model="search" placeholder="Search servers…" class="h-8 w-60" />
-    </div>
+      <Input v-model="search" placeholder="Search servers…" class="ml-auto h-8 w-60" />
+    </template>
 
     <EmptyState
       v-if="!loading && servers.length === 0"
@@ -145,7 +141,7 @@ onUnmounted(() => {
       </Button>
     </EmptyState>
 
-    <div v-else class="overflow-x-auto rounded-lg border bg-card">
+    <Card v-else class="gap-0 overflow-x-auto py-0">
       <Table>
         <TableHeader>
           <TableRow>
@@ -250,6 +246,6 @@ onUnmounted(() => {
           </TableRow>
         </TableBody>
       </Table>
-    </div>
-  </div>
+    </Card>
+  </PageLayout>
 </template>

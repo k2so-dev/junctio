@@ -6,11 +6,12 @@ import {
   type TransportKind,
   type UpstreamAuthMode
 } from "@junctio/schema";
-import { ArrowLeft, Eye, EyeOff, Loader2, Plus, X } from "@lucide/vue";
+import { Eye, EyeOff, Loader2, Plus, X } from "@lucide/vue";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import CodeBlock from "@/components/CodeBlock.vue";
+import PageLayout from "@/components/layout/PageLayout.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import DockerStatus from "@/components/server/DockerStatus.vue";
 import { Button } from "@/components/ui/button";
@@ -284,22 +285,20 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col overflow-auto p-6">
-    <Button variant="ghost" size="sm" class="mb-3 -ml-2 self-start text-muted-foreground" @click="router.back()">
-      <ArrowLeft />
-      Servers
-    </Button>
-
-    <h1 class="text-lg font-semibold tracking-tight">{{ editing ? "Edit server" : "Add server" }}</h1>
-    <p class="mt-1 text-muted-foreground">
+  <PageLayout
+    :breadcrumbs="[
+      { label: 'Servers', to: { name: 'servers' } },
+      { label: editing ? form.name || 'Edit server' : 'Add server' }
+    ]"
+  >
+    <p class="max-w-3xl text-muted-foreground">
       The process gets an explicit PATH and only the env you set here. Nothing from the gateway leaks in.
     </p>
-    <p v-if="prefilledFrom" class="mt-2 rounded-lg border bg-card px-3 py-2 text-muted-foreground">
+    <p v-if="prefilledFrom" class="max-w-3xl rounded-lg border bg-card px-3 py-2 text-muted-foreground">
       {{ prefilledBy === "import" ? "Prefilled from the config you pasted, entry" : "Prefilled from the registry entry" }}
       <span class="font-mono text-foreground">{{ prefilledFrom }}</span
       >. Nothing is saved until you press save, so fill in the secrets and check the command first.
     </p>
-    <div class="mb-6" />
 
     <div class="grid items-start gap-7 lg:grid-cols-[minmax(320px,540px)_minmax(280px,1fr)]">
       <form class="flex flex-col gap-4" @submit.prevent="submit">
@@ -551,5 +550,5 @@ onMounted(load);
         </div>
       </div>
     </div>
-  </div>
+  </PageLayout>
 </template>

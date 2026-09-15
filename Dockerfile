@@ -5,6 +5,11 @@ ARG UV_VERSION=0.11.7
 FROM oven/bun:${BUN_VERSION}-slim AS bun
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
+FROM node:${NODE_VERSION}-bookworm-slim AS tools
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+RUN ln -s /usr/local/bin/bun /usr/local/bin/bunx
+WORKDIR /app
+
 FROM bun AS deps
 WORKDIR /app
 COPY package.json bun.lock ./

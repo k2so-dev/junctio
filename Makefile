@@ -1,11 +1,12 @@
 .DEFAULT_GOAL := help
-.PHONY: help cache tools tools-rebuild install check lint format typecheck test build-web db-generate check-links ci run shell image up up-docker down restart logs ps serve dev clean
+.PHONY: help cache tools tools-rebuild dev-web install check lint format typecheck test build-web db-generate check-links ci run shell image up up-docker down restart logs ps serve dev clean
 
 IMAGE ?= junctio:local
 TOOLS_IMAGE ?= junctio:tools
 COMPOSE ?= docker compose
 SERVICE ?= junctio
 PORT ?= 3000
+WEB_PORT ?= 5173
 CMD ?=
 
 ROOT := $(CURDIR)
@@ -45,6 +46,7 @@ help:
 	@printf 'Gateway:\n'
 	@printf '  serve          run the gateway on PORT=%s\n' '$(PORT)'
 	@printf '  dev            run the gateway with a file watcher\n'
+	@printf '  dev-web        run the admin ui dev server on WEB_PORT=%s\n' '$(WEB_PORT)'
 	@printf '\n'
 	@printf 'Image and compose:\n'
 	@printf '  image          build %s\n' '$(IMAGE)'
@@ -109,6 +111,9 @@ serve: cache
 
 dev: cache
 	$(call in_container,-t -p $(PORT):3000 -e HOST=0.0.0.0 -e PORT=3000 $(ENV_ARG),bun --watch apps/gateway/src/cli/index.ts serve)
+
+dev-web: cache
+	$(call in_container,-t --network host,bun run --cwd apps/web dev --host 0.0.0.0 --port $(WEB_PORT))
 
 image:
 	docker build -t $(IMAGE) .

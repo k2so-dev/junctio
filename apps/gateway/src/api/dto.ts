@@ -74,8 +74,18 @@ export async function readOauthInfo(core: Core, row: ServerRow): Promise<ServerO
 export async function toServerDto(core: Core, row: ServerRow): Promise<ServerDto> {
   const oauth = await readOauthInfo(core, row);
   const info = core.supervisor.getInfo(row.id);
-  const resolved = await core.registry.resolve(row.id);
   const catalog = core.pool.cachedCatalog(row.id);
+  let resolved: Awaited<ReturnType<Core["registry"]["resolve"]>> = null;
+  let secretsError: string | null = null;
+  try {
+    resolved = await core.registry.resolve(row.id);
+  } catch (error) {
+    core.logger.error("could not read the stored secrets of a server", {
+      server: row.id,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    secretsError = "stored env or headers could not be read, re-enter them for this server";
+  }
   return {
     id: row.id,
     name: row.name,
@@ -96,7 +106,7 @@ export async function toServerDto(core: Core, row: ServerRow): Promise<ServerDto
     pid: info.pid,
     containerId: info.containerId,
     restarts: info.restarts,
-    lastError: info.lastError ?? core.pool.getLastError(row.id),
+    lastError: secretsError ?? info.lastError ?? core.pool.getLastError(row.id),
     toolCount: catalog ? catalog.tools.length : null,
     protocolVersion: core.pool.negotiated(row.id)?.protocolVersion ?? null,
     commandPreview: core.registry.preview(row),

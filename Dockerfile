@@ -47,7 +47,7 @@ WORKDIR /app
 COPY --from=runtime-deps --chown=junctio:junctio /app/node_modules node_modules
 COPY --from=runtime-deps --chown=junctio:junctio /app/apps/gateway/node_modules apps/gateway/node_modules
 COPY --from=runtime-deps --chown=junctio:junctio /app/packages/schema/node_modules packages/schema/node_modules
-COPY --chown=junctio:junctio package.json tsconfig.base.json ./
+COPY --chown=junctio:junctio package.json bun.lock tsconfig.base.json ./
 COPY --chown=junctio:junctio LICENSE README.md ./
 COPY --chown=junctio:junctio .github/SECURITY.md ./
 COPY --chown=junctio:junctio packages packages

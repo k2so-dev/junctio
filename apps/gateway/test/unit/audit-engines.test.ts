@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { manifestFor, parseBunAuditOutput, parseLockVersions, toFindings, toSeverity } from "../../src/audit/engines/npm.ts";
+import {
+  affectedVersions,
+  manifestFor,
+  parseBunAuditOutput,
+  parseLockVersions,
+  toFindings,
+  toSeverity
+} from "../../src/audit/engines/npm.ts";
 import {
   canonicalId,
   cvssScore,
@@ -47,7 +54,7 @@ describe("parseBunAuditOutput", () => {
 
 describe("toFindings", () => {
   test("uses the advisory identifier from the url and attaches the resolved version", () => {
-    const findings = toFindings(REPORT, new Map([["esbuild", "0.24.0"]]));
+    const findings = toFindings(REPORT, new Map([["esbuild", ["0.24.0"]]]));
     expect(findings).toHaveLength(1);
     expect(findings[0]?.id).toBe("GHSA-67MH-4WV8-2F99");
     expect(findings[0]?.aliases).toEqual(["NPM:1102341"]);
@@ -55,6 +62,16 @@ describe("toFindings", () => {
     expect(findings[0]?.version).toBe("0.24.0");
     expect(findings[0]?.severity).toBe("moderate");
     expect(findings[0]?.cvss).toBe(5.3);
+  });
+
+  test("names only the versions the advisory covers", () => {
+    const findings = toFindings(REPORT, new Map([["esbuild", ["0.18.20", "0.25.12", "0.28.2"]]]));
+    expect(findings[0]?.version).toBe("0.18.20");
+  });
+
+  test("lists every installed version when the range cannot be matched", () => {
+    const findings = toFindings({ pkg: [{ id: 1, severity: "high" }] }, new Map([["pkg", ["1.0.0", "2.0.0"]]]));
+    expect(findings[0]?.version).toBe("1.0.0, 2.0.0");
   });
 
   test("falls back to the numeric advisory id", () => {
@@ -83,10 +100,10 @@ describe("manifestFor", () => {
 
 describe("parseLockVersions", () => {
   test("reads names and versions out of a bun lockfile", () => {
-    const lock = `{\n  "packages": {\n    "esbuild": ["esbuild@0.24.0", {}, "sha"],\n    "@scope/pkg": ["@scope/pkg@2.1.0", {}, "sha"]\n  }\n}`;
+    const lock = `{\n  "packages": {\n    "esbuild": ["esbuild@0.24.0", {}, "sha"],\n    "web/esbuild": ["esbuild@0.18.20", {}, "sha"],\n    "@scope/pkg": ["@scope/pkg@2.1.0", {}, "sha"]\n  }\n}`;
     const versions = parseLockVersions(lock);
-    expect(versions.get("esbuild")).toBe("0.24.0");
-    expect(versions.get("@scope/pkg")).toBe("2.1.0");
+    expect(versions.get("esbuild")).toEqual(["0.18.20", "0.24.0"]);
+    expect(versions.get("@scope/pkg")).toEqual(["2.1.0"]);
   });
 });
 
@@ -160,5 +177,19 @@ describe("canonicalId", () => {
       id: "GHSA-AAAA-BBBB-CCCC",
       aliases: ["CVE-2024-1"]
     });
+  });
+});
+
+describe("affectedVersions", () => {
+  test("keeps only what the vulnerable range covers", () => {
+    expect(affectedVersions(["0.18.20", "0.25.12"], "<=0.24.2")).toBe("0.18.20");
+  });
+
+  test("returns every version when there is no range", () => {
+    expect(affectedVersions(["1.0.0", "2.0.0"], undefined)).toBe("1.0.0, 2.0.0");
+  });
+
+  test("returns nothing when nothing is installed", () => {
+    expect(affectedVersions([], "<1")).toBeNull();
   });
 });

@@ -60,7 +60,21 @@ function advisoryId(advisory: BunAuditAdvisory): { id: string; aliases: string[]
   return { id: `NPM:${advisory.id}`, aliases: [] };
 }
 
-export function toFindings(report: BunAuditReport, versions: Map<string, string>): AuditFinding[] {
+export function affectedVersions(installed: string[], range: string | undefined): string | null {
+  if (installed.length === 0) return null;
+  if (!range) return installed.join(", ");
+  const matching = installed.filter((version) => {
+    try {
+      return Bun.semver.satisfies(version, range);
+    } catch {
+      return false;
+    }
+  });
+  if (matching.length > 0) return matching.join(", ");
+  return installed.length === 1 ? installed[0]! : null;
+}
+
+export function toFindings(report: BunAuditReport, versions: Map<string, string[]>): AuditFinding[] {
   const out: AuditFinding[] = [];
   for (const [name, advisories] of Object.entries(report)) {
     if (!Array.isArray(advisories)) continue;
@@ -70,7 +84,7 @@ export function toFindings(report: BunAuditReport, versions: Map<string, string>
         id,
         aliases,
         package: name,
-        version: versions.get(name) ?? null,
+        version: affectedVersions(versions.get(name) ?? [], advisory.vulnerable_versions),
         vulnerableRange: advisory.vulnerable_versions ?? null,
         title: advisory.title ?? "vulnerability reported by the npm advisory database",
         severity: toSeverity(advisory.severity),
@@ -93,16 +107,19 @@ export function manifestFor(specs: string[]): string {
   return `${JSON.stringify({ name: "junctio-audit", version: "0.0.0", private: true, dependencies }, null, 2)}\n`;
 }
 
-export function parseLockVersions(lock: string): Map<string, string> {
-  const versions = new Map<string, string>();
+export function parseLockVersions(lock: string): Map<string, string[]> {
+  const versions = new Map<string, string[]>();
   const pattern = /"((?:@[^"/]+\/)?[^"@]+)@([^"]+)"/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(lock)) !== null) {
     const name = match[1]!;
     const version = match[2]!;
     if (!/^\d/.test(version)) continue;
-    if (!versions.has(name)) versions.set(name, version);
+    const list = versions.get(name) ?? [];
+    if (!list.includes(version)) list.push(version);
+    versions.set(name, list);
   }
+  for (const list of versions.values()) list.sort();
   return versions;
 }
 
@@ -139,7 +156,7 @@ export class BunAuditEngine implements AuditEngine {
     return { stdout, stderr, code };
   }
 
-  private async auditIn(cwd: string, ctx: EngineContext, versions: Map<string, string>): Promise<EngineResult> {
+  private async auditIn(cwd: string, ctx: EngineContext, versions: Map<string, string[]>): Promise<EngineResult> {
     const audit = await this.run(["audit", "--json"], cwd, ctx);
     if (audit.code > 1) {
       const detail = lastLines(audit.stderr) || lastLines(audit.stdout) || `exit code ${audit.code}`;
@@ -157,12 +174,12 @@ export class BunAuditEngine implements AuditEngine {
     }
     return {
       findings: toFindings(report, versions),
-      resolved: [...versions].map(([name, version]) => `${name}@${version}`).sort(),
+      resolved: [...versions].flatMap(([name, list]) => list.map((version) => `${name}@${version}`)).sort(),
       engine: "bun audit"
     };
   }
 
-  private lockVersions(cwd: string): Map<string, string> {
+  private lockVersions(cwd: string): Map<string, string[]> {
     const lock = join(cwd, "bun.lock");
     if (!existsSync(lock)) return new Map();
     try {

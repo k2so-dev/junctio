@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { endpoints, requestLog } from "../../src/db/schema.ts";
 import {
+  seedApiKey,
   seedEndpoint,
   seedHttpServer,
   seedNamespace,
@@ -9,6 +10,7 @@ import {
   startHarness,
   type Harness
 } from "../helpers.ts";
+import { setSetting } from "../../src/db/settings.ts";
 
 let harness: Harness;
 
@@ -124,6 +126,54 @@ describe("endpoint rate limit", () => {
     expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
     const body = (await limited.json()) as { error: { message: string } };
     expect(body.error.message).toContain("rate limit");
+  });
+});
+
+describe("api key policy", () => {
+  test("refuses an expired key", async () => {
+    const serverId = await seedStdioServer(harness.core, { name: "alpha" });
+    const namespaceId = seedNamespace(harness.core, "team", [{ serverId }]);
+    const endpointId = seedEndpoint(harness.core, { slug: "keyed", namespaceId, authMode: "api_key" });
+    const live = await seedApiKey(harness.core, endpointId);
+    const stale = await seedApiKey(harness.core, endpointId, { expiresAt: Date.now() - 1000 });
+
+    const accepted = await post("keyed", initialize("2025-06-18"), { authorization: `Bearer ${live}` });
+    expect(accepted.status).toBe(200);
+
+    const refused = await post("keyed", initialize("2025-06-18"), { authorization: `Bearer ${stale}` });
+    expect(refused.status).toBe(401);
+    expect(refused.headers.get("www-authenticate")).toContain("invalid_token");
+  });
+
+  test("takes a key from the query string only when that is switched on", async () => {
+    const serverId = await seedStdioServer(harness.core, { name: "alpha" });
+    const namespaceId = seedNamespace(harness.core, "team", [{ serverId }]);
+    const endpointId = seedEndpoint(harness.core, { slug: "query", namespaceId, authMode: "api_key" });
+    const token = await seedApiKey(harness.core, endpointId);
+
+    const url = `${harness.url}/mcp/query?api_key=${encodeURIComponent(token)}`;
+    const send = () =>
+      fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+        body: initialize("2025-06-18")
+      });
+
+    expect((await send()).status).toBe(401);
+
+    setSetting(harness.core.db, "api_key_query_param", "true");
+    expect((await send()).status).toBe(200);
+  });
+
+  test("keeps a key bound to its own endpoint", async () => {
+    const serverId = await seedStdioServer(harness.core, { name: "alpha" });
+    const namespaceId = seedNamespace(harness.core, "team", [{ serverId }]);
+    const mine = seedEndpoint(harness.core, { slug: "mine", namespaceId, authMode: "api_key" });
+    seedEndpoint(harness.core, { slug: "yours", namespaceId, authMode: "api_key" });
+    const token = await seedApiKey(harness.core, mine);
+
+    expect((await post("mine", initialize("2025-06-18"), { authorization: `Bearer ${token}` })).status).toBe(200);
+    expect((await post("yours", initialize("2025-06-18"), { authorization: `Bearer ${token}` })).status).toBe(403);
   });
 });
 

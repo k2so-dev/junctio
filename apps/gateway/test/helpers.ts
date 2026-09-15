@@ -186,8 +186,16 @@ export function seedEndpoint(
   return id;
 }
 
-export async function seedApiKey(core: Core, endpointId: string | null): Promise<string> {
-  const { token } = await createApiKey(core.db, { name: "test", endpointId, expiresAt: null });
+export async function seedApiKey(
+  core: Core,
+  endpointId: string | null,
+  options: { expiresAt?: number | null } = {}
+): Promise<string> {
+  const { token } = await createApiKey(core.db, {
+    name: "test",
+    endpointId,
+    expiresAt: options.expiresAt ?? null
+  });
   return token;
 }
 

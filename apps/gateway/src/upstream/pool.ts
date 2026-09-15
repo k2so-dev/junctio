@@ -59,6 +59,8 @@ export type PoolOptions = {
   callTimeoutMs?: number;
   probeTimeoutMs?: number;
   verdictTtlMs?: number;
+  backoffBaseMs?: number;
+  backoffCapMs?: number;
 };
 
 const EMPTY_CATALOG: Catalog = {
@@ -86,16 +88,21 @@ export class UpstreamPool {
   private readonly connecting = new Map<string, Promise<Entry>>();
   private readonly lastError = new Map<string, string>();
   private readonly verdicts = new Map<string, Verdict>();
+  private readonly backoff = new Map<string, { failures: number; until: number }>();
   readonly listTimeoutMs: number;
   readonly callTimeoutMs: number;
   readonly probeTimeoutMs: number;
   readonly verdictTtlMs: number;
+  readonly backoffBaseMs: number;
+  readonly backoffCapMs: number;
 
   constructor(private readonly options: PoolOptions) {
     this.listTimeoutMs = options.listTimeoutMs ?? 5_000;
     this.callTimeoutMs = options.callTimeoutMs ?? 120_000;
     this.probeTimeoutMs = options.probeTimeoutMs ?? 3_000;
     this.verdictTtlMs = options.verdictTtlMs ?? 24 * 60 * 60_000;
+    this.backoffBaseMs = options.backoffBaseMs ?? 1_000;
+    this.backoffCapMs = options.backoffCapMs ?? 60_000;
   }
 
   getLastError(serverId: string): string | null {
@@ -119,15 +126,20 @@ export class UpstreamPool {
     await entry.client.close().catch(() => undefined);
   }
 
-  async invalidate(serverId: string, reason = "config changed"): Promise<void> {
-    this.options.registry.invalidate(serverId);
-    this.verdicts.delete(serverId);
+  private async drop(serverId: string, reason: string): Promise<void> {
     const entry = this.entries.get(serverId);
     if (!entry) return;
     this.entries.delete(serverId);
     entry.closing = true;
     this.options.logger.debug("closing upstream client", { server: serverId, reason });
     await this.closeEntry(entry);
+  }
+
+  async invalidate(serverId: string, reason = "config changed"): Promise<void> {
+    this.options.registry.invalidate(serverId);
+    this.verdicts.delete(serverId);
+    this.backoff.delete(serverId);
+    await this.drop(serverId, reason);
   }
 
   invalidateCatalog(serverId: string): void {
@@ -280,6 +292,14 @@ export class UpstreamPool {
     return entry;
   }
 
+  private recordFailure(serverId: string): void {
+    if (this.options.registry.row(serverId)?.transport === "stdio") return;
+    const failures = (this.backoff.get(serverId)?.failures ?? 0) + 1;
+    const delay = Math.min(this.backoffCapMs, this.backoffBaseMs * 2 ** (failures - 1));
+    this.backoff.set(serverId, { failures, until: Date.now() + delay });
+    this.options.logger.debug("upstream connect failed, backing off", { server: serverId, failures, delay });
+  }
+
   async acquire(serverId: string): Promise<Client> {
     const existing = this.entries.get(serverId);
     if (existing && !existing.closing) {
@@ -288,13 +308,20 @@ export class UpstreamPool {
     }
     const pending = this.connecting.get(serverId);
     if (pending) return (await pending).client;
+    const blocked = this.backoff.get(serverId);
+    if (blocked && Date.now() < blocked.until) {
+      throw new UpstreamError(this.lastError.get(serverId) ?? "upstream is unavailable", "backoff", serverId);
+    }
     const promise = this.connect(serverId).finally(() => this.connecting.delete(serverId));
     this.connecting.set(serverId, promise);
     try {
-      return (await promise).client;
+      const entry = await promise;
+      this.backoff.delete(serverId);
+      return entry.client;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.lastError.set(serverId, message);
+      this.recordFailure(serverId);
       throw error;
     }
   }
@@ -322,7 +349,7 @@ export class UpstreamPool {
         server: serverId,
         error: String(error)
       });
-      await this.invalidate(serverId, "recoverable error");
+      await this.drop(serverId, "recoverable error");
       const retryClient = await this.acquire(serverId);
       return fn(retryClient);
     }

@@ -41,8 +41,8 @@ jobs:
           push: false
           load: true
           tags: junctio:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=linux-amd64
+          cache-to: type=gha,mode=max,scope=linux-amd64
       - name: start the gateway
         run: |
           docker run -d --name junctio \

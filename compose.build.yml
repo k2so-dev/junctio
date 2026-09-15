@@ -1,0 +1,4 @@
+services:
+  junctio:
+    image: ${IMAGE:-junctio:local}
+    build: .

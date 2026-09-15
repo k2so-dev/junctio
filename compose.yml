@@ -1,7 +1,6 @@
 services:
   junctio:
-    image: junctio:local
-    build: .
+    image: ghcr.io/k2so-dev/junctio:latest
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"

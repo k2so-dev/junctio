@@ -4,6 +4,7 @@
 IMAGE ?= junctio:local
 TOOLS_IMAGE ?= junctio:tools
 COMPOSE ?= docker compose
+COMPOSE_FILES ?= -f compose.yml -f compose.build.yml
 SERVICE ?= junctio
 PORT ?= 3000
 WEB_PORT ?= 5173
@@ -14,6 +15,7 @@ UID := $(shell id -u)
 GID := $(shell id -g)
 CACHE := $(ROOT)/.cache
 ENV_ARG := $(if $(wildcard $(ROOT)/.env),--env-file $(ROOT)/.env,)
+STACK := IMAGE=$(IMAGE) $(COMPOSE) $(COMPOSE_FILES)
 
 define in_container
 docker run --rm $(1) \
@@ -49,9 +51,9 @@ help:
 	@printf '  dev-web        run the admin ui dev server on WEB_PORT=%s\n' '$(WEB_PORT)'
 	@printf '\n'
 	@printf 'Image and compose:\n'
-	@printf '  image          build %s\n' '$(IMAGE)'
-	@printf '  up             start the stack in the background\n'
-	@printf '  up-docker      start the stack with the docker socket mounted\n'
+	@printf '  image          build %s from the source tree\n' '$(IMAGE)'
+	@printf '  up             build %s and start the stack\n' '$(IMAGE)'
+	@printf '  up-docker      the same with the docker socket mounted\n'
 	@printf '  down           stop the stack\n'
 	@printf '  restart        restart the gateway service\n'
 	@printf '  logs           follow the gateway logs\n'
@@ -119,22 +121,22 @@ image:
 	docker build -t $(IMAGE) .
 
 up:
-	$(COMPOSE) up -d
+	$(STACK) up -d --build
 
 up-docker:
-	$(COMPOSE) -f compose.yml -f compose.docker.yml up -d
+	$(STACK) -f compose.docker.yml up -d --build
 
 down:
-	$(COMPOSE) down
+	$(STACK) down
 
 restart:
-	$(COMPOSE) restart $(SERVICE)
+	$(STACK) restart $(SERVICE)
 
 logs:
-	$(COMPOSE) logs -f $(SERVICE)
+	$(STACK) logs -f $(SERVICE)
 
 ps:
-	$(COMPOSE) ps
+	$(STACK) ps
 
 clean:
 	rm -rf $(ROOT)/node_modules $(ROOT)/apps/gateway/node_modules $(ROOT)/apps/web/node_modules $(ROOT)/packages/schema/node_modules $(CACHE)

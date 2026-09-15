@@ -13,3 +13,4 @@ CHANGELOG.md
 Dockerfile
 compose.yml
 compose.docker.yml
+compose.build.yml

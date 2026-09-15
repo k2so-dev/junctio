@@ -60,7 +60,7 @@ onMounted(load);
     <template v-if="status && !status.available">
       <p class="text-xs leading-relaxed text-warning">{{ status.error }}</p>
       <template v-if="!compact">
-        <CodeBlock title="docker-compose.yml" :code="COMPOSE" />
+        <CodeBlock title="compose.docker.yml" :code="COMPOSE" />
         <p class="text-xs leading-relaxed text-muted-foreground">
           Read the group id with
           <span class="font-mono text-foreground">stat -c %g /var/run/docker.sock</span>. Reaching that socket is

@@ -33,7 +33,7 @@ export function createWellKnownRoute(options: WellKnownOptions): Hono {
       authorization_servers: [core.config.oauthIssuer ?? base],
       bearer_methods_supported: ["header"],
       resource_name: name,
-      resource_documentation: "https://github.com/junctio/junctio"
+      resource_documentation: "https://github.com/k2so-dev/junctio"
     });
 
   const protectedResource = async (slug: string, request: Request): Promise<Response> => {

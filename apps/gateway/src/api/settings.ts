@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { SettingsPatch, type SettingsDto } from "@junctio/schema";
+import { AgentSettingsPatch, SettingsPatch, type SettingsDto } from "@junctio/schema";
 import type { Core } from "../core.ts";
 import { getSetting, getSettings, setSetting } from "../db/settings.ts";
 import { parseActionMap } from "../audit/policy.ts";
@@ -14,8 +14,11 @@ export function adminMcpUrl(core: Core): string {
   return `${base}/mcp/_admin`;
 }
 
-export function createSettingsApi(core: Core): Hono {
+export type SettingsApiOptions = { agent?: boolean };
+
+export function createSettingsApi(core: Core, options: SettingsApiOptions = {}): Hono {
   const app = new Hono();
+  const schema = options.agent ? AgentSettingsPatch : SettingsPatch;
 
   app.get("/", (c) => {
     const stored = getSettings(core.db);
@@ -38,9 +41,9 @@ export function createSettingsApi(core: Core): Hono {
   });
 
   app.patch("/", async (c) => {
-    const parsed = SettingsPatch.safeParse(await readJson(c));
+    const parsed = schema.safeParse(await readJson(c));
     if (!parsed.success) return badRequest(c, parsed.error);
-    const patch = parsed.data;
+    const patch: SettingsPatch = parsed.data;
     if (patch.toolSeparator !== undefined) setSetting(core.db, "tool_separator", patch.toolSeparator);
     if (patch.runtimePath !== undefined) setSetting(core.db, "runtime_path", patch.runtimePath);
     if (patch.apiKeyQueryParam !== undefined) {

@@ -2,9 +2,9 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { EndpointInput, EndpointPatch } from "@junctio/schema";
 import { z } from "zod";
 import { callApi } from "../call.ts";
-import { DESTROYS, MUTATES, READ_ONLY, UPDATES, defineTool, type AdminDeps } from "./kit.ts";
+import { DESTROYS, MUTATES, READ_ONLY, UPDATES, defineTool, resourceId, type AdminDeps } from "./kit.ts";
 
-const Id = z.object({ id: z.string().min(1).describe("endpoint id, as returned by list_endpoints") });
+const Id = z.object({ id: resourceId("endpoint id, as returned by list_endpoints") });
 
 export function registerEndpointTools(server: McpServer, deps: AdminDeps): void {
   const api = deps.apis.endpoints;

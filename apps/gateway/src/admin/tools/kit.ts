@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 import type { CallToolResult, McpServer, ToolAnnotations } from "@modelcontextprotocol/server";
-import type { z } from "zod";
+import { z } from "zod";
 import type { Core } from "../../core.ts";
 import { recordRequest } from "../../server/requestlog.ts";
 import { failure } from "../call.ts";
@@ -21,6 +21,10 @@ export type AdminDeps = {
   core: Core;
   apis: AdminApis;
 };
+
+export function resourceId(label: string) {
+  return z.uuid().describe(label);
+}
 
 export const READ_ONLY: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
 export const MUTATES: ToolAnnotations = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };

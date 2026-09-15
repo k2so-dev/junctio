@@ -1,3 +1,9 @@
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+function isLoopback(url: URL): boolean {
+  return LOOPBACK_HOSTS.has(url.hostname) || url.hostname.endsWith(".localhost");
+}
+
 export function checkOrigin(request: Request, baseUrl: string | null): string | null {
   const origin = request.headers.get("origin");
   if (!origin) return null;
@@ -8,13 +14,15 @@ export function checkOrigin(request: Request, baseUrl: string | null): string | 
     return "invalid origin header";
   }
   if (baseUrl) {
+    let expected: URL;
     try {
-      if (new URL(baseUrl).origin === parsed.origin) return null;
+      expected = new URL(baseUrl);
     } catch {
       return "invalid base url";
     }
+    return expected.origin === parsed.origin ? null : "origin not allowed";
   }
   const host = request.headers.get("host");
-  if (host && `${parsed.hostname}${parsed.port ? `:${parsed.port}` : ""}` === host) return null;
-  return "origin not allowed";
+  if (isLoopback(parsed) && host === parsed.host) return null;
+  return "origin not allowed, set JUNCTIO_BASE_URL to accept requests from this origin";
 }

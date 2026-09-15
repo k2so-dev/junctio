@@ -7,6 +7,7 @@ import { servers, upstreamOauth } from "../db/schema.ts";
 import { createMcpRoute } from "./mcp.ts";
 import type { AppEnv } from "./env.ts";
 import { createAdminMcpRoute } from "./admin.ts";
+import { securityHeaders } from "./headers.ts";
 import { createWellKnownRoute } from "./wellknown.ts";
 import { createUpstreamOauthRoute } from "./oauth.ts";
 import { createApi } from "../api/index.ts";
@@ -93,6 +94,8 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
     : null;
   const verifier = options.verifier ?? remote ?? new LocalTokenVerifier(core.oauthProvider);
 
+  app.use("*", securityHeaders());
+
   app.get("/health", (c) => c.json(buildHealth(core)));
 
   app.route("/.well-known", createWellKnownRoute({ core, remote }));
@@ -112,12 +115,15 @@ export function createApp(options: AppOptions): Hono<AppEnv> {
       return new Response(file, { headers: { "cache-control": "public, max-age=31536000, immutable" } });
     });
     app.get("*", async (c) => {
-      const pathname = new URL(c.req.url).pathname;
-      if (pathname.startsWith("/api/") || pathname.startsWith("/mcp/")) return c.notFound();
+      const pathname = decodeURIComponent(new URL(c.req.url).pathname);
+      if (pathname.startsWith("/api/") || pathname.startsWith("/mcp/") || pathname.startsWith("/oauth/")) {
+        return c.notFound();
+      }
       const direct = Bun.file(join(publicDir, normalize(pathname).replace(/^(\.\.[/\\])+/, "")));
       if (pathname !== "/" && (await direct.exists())) return new Response(direct);
+      if (pathname.includes(".")) return c.notFound();
       return new Response(Bun.file(join(publicDir, "index.html")), {
-        headers: { "content-type": "text/html; charset=utf-8" }
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" }
       });
     });
   }

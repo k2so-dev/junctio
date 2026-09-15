@@ -45,13 +45,16 @@ async function createStdioServer(name = "mock") {
 describe("session", () => {
   test("requires setup before any other call", async () => {
     const fresh = await startHarness();
-    const response = await fetch(`${fresh.url}/api/v1/session`);
-    const body = await json<{ needsSetup: boolean; authenticated: boolean }>(response);
-    expect(body.needsSetup).toBe(true);
-    expect(body.authenticated).toBe(false);
-    const denied = await fetch(`${fresh.url}/api/v1/servers`);
-    expect(denied.status).toBe(401);
-    await fresh.stop();
+    try {
+      const response = await fetch(`${fresh.url}/api/v1/session`);
+      const body = await json<{ needsSetup: boolean; authenticated: boolean }>(response);
+      expect(body.needsSetup).toBe(true);
+      expect(body.authenticated).toBe(false);
+      const denied = await fetch(`${fresh.url}/api/v1/servers`);
+      expect(denied.status).toBe(401);
+    } finally {
+      await fresh.stop();
+    }
   });
 
   test("logs in with the configured password", async () => {
@@ -84,11 +87,61 @@ describe("session", () => {
 
   test("accepts the admin token instead of a cookie", async () => {
     const withToken = await startHarness({ env: { JUNCTIO_ADMIN_TOKEN: "token-0123456789abcdef" } });
-    const response = await fetch(`${withToken.url}/api/v1/servers`, {
-      headers: { authorization: "Bearer token-0123456789abcdef" }
-    });
-    expect(response.status).toBe(200);
-    await withToken.stop();
+    try {
+      const response = await fetch(`${withToken.url}/api/v1/servers`, {
+        headers: { authorization: "Bearer token-0123456789abcdef" }
+      });
+      expect(response.status).toBe(200);
+    } finally {
+      await withToken.stop();
+    }
+  });
+
+  test("guards setup with the admin token when one is configured", async () => {
+    const token = "token-0123456789abcdef";
+    const guarded = await startHarness({ env: { JUNCTIO_ADMIN_TOKEN: token } });
+    try {
+      const anonymous = await fetch(`${guarded.url}/api/v1/session/setup`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password: "attackerchosen" })
+      });
+      expect(anonymous.status).toBe(401);
+      expect((await json<{ needsSetup: boolean }>(await fetch(`${guarded.url}/api/v1/session`))).needsSetup).toBe(true);
+
+      const authorized = await fetch(`${guarded.url}/api/v1/session/setup`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ password: "operatorchosen" })
+      });
+      expect(authorized.status).toBe(200);
+    } finally {
+      await guarded.stop();
+    }
+  });
+
+  test("marks the session cookie secure behind a trusted https proxy", async () => {
+    const proxied = await startHarness({ env: { JUNCTIO_TRUST_PROXY: "true" } });
+    try {
+      const response = await fetch(`${proxied.url}/api/v1/session/setup`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-proto": "https" },
+        body: JSON.stringify({ password: "supersecret" })
+      });
+      expect(response.headers.get("set-cookie")).toContain("Secure");
+    } finally {
+      await proxied.stop();
+    }
+  });
+});
+
+describe("security headers", () => {
+  test("sends hardening headers and keeps api responses out of caches", async () => {
+    const response = await api("/v1/session");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("x-frame-options")).toBe("DENY");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(response.headers.get("cache-control")).toBe("no-store");
   });
 });
 

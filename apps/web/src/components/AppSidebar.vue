@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Braces } from "@lucide/vue";
 import { computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
+import LogoMark from "@/components/layout/LogoMark.vue";
 import NavMain from "@/components/layout/NavMain.vue";
 import NavSecondary from "@/components/layout/NavSecondary.vue";
 import NavUser from "@/components/layout/NavUser.vue";
@@ -21,7 +21,7 @@ import { useSession } from "@/stores/session";
 
 const router = useRouter();
 const { isMobile, setOpenMobile } = useSidebar();
-const { health, settings, startHealthPolling, stopHealthPolling, refreshHealth } = useSession();
+const { health, startHealthPolling, stopHealthPolling, refreshHealth } = useSession();
 
 const BADGE_DESTRUCTIVE =
   "bg-destructive text-white peer-hover/menu-button:text-white peer-data-[active=true]/menu-button:text-white";
@@ -66,15 +66,8 @@ onUnmounted(() => {
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" as-child>
             <RouterLink :to="{ name: 'overview' }">
-              <div class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary">
-                <Braces class="size-4 text-primary-foreground" />
-              </div>
-              <div class="grid flex-1 text-left leading-tight">
-                <span class="truncate font-semibold">junctio</span>
-                <span class="truncate font-mono text-[11px] text-muted-foreground">
-                  v{{ settings?.version ?? "—" }}
-                </span>
-              </div>
+              <LogoMark class="size-8! shrink-0 group-data-[collapsible=icon]:size-4!" />
+              <span class="truncate text-base font-semibold">Junctio</span>
             </RouterLink>
           </SidebarMenuButton>
         </SidebarMenuItem>

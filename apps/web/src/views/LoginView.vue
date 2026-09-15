@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Braces, Loader2 } from "@lucide/vue";
+import { Loader2 } from "@lucide/vue";
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import LogoMark from "@/components/layout/LogoMark.vue";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -56,9 +57,7 @@ async function submit() {
   <div class="flex min-h-svh items-center justify-center p-6">
     <Card class="w-full max-w-sm">
       <CardHeader>
-        <div class="mb-2 flex size-9 items-center justify-center rounded-md bg-primary">
-          <Braces class="size-5 text-primary-foreground" />
-        </div>
+        <LogoMark class="mb-2 size-9" />
         <CardTitle>{{ title }}</CardTitle>
         <CardDescription>{{ description }}</CardDescription>
       </CardHeader>

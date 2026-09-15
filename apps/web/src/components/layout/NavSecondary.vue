@@ -21,7 +21,7 @@ const router = useRouter();
 const { state, isMobile } = useSidebar();
 
 const onSettings = computed(() => String(route.name ?? "").startsWith("settings"));
-const open = ref(onSettings.value);
+const open = ref(true);
 
 watch(onSettings, (value) => {
   if (value) open.value = true;

@@ -14,6 +14,7 @@ Environment:
   JUNCTIO_OAUTH_ISSUER  Optional issuer url for resource server mode.
   JUNCTIO_DATA_DIR      Directory for junctio.db. Defaults to /data.
   JUNCTIO_DOCKER_SOCKET Socket of the docker daemon that runs container servers.
+  JUNCTIO_TRUST_PROXY   Set to true only behind a proxy that rewrites x-forwarded-for.
   PORT, HOST, LOG_LEVEL  Listener and logging configuration.
 `;
 

@@ -30,17 +30,19 @@ import { badRequest, readJson } from "./util.ts";
 
 const OPEN_PATHS = new Set(["/v1/session", "/v1/session/login", "/v1/session/setup"]);
 
+function secureCookies(core: Core, request: Request): boolean {
+  if ((core.config.baseUrl ?? "").startsWith("https://")) return true;
+  if (!core.config.trustProxy) return false;
+  return request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() === "https";
+}
+
 export function createApi(core: Core): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   const loginLimiter = new RateLimiter(10, 60_000);
-  const loginCeiling = new RateLimiter(60, 60_000);
-  const secureCookies = (core.config.baseUrl ?? "").startsWith("https://");
 
   app.use("*", async (c, next) => {
-    if (c.req.method !== "GET" && c.req.method !== "HEAD") {
-      const originError = checkOrigin(c.req.raw, core.config.baseUrl);
-      if (originError) return c.json({ error: "forbidden", message: originError }, 403);
-    }
+    const originError = checkOrigin(c.req.raw, core.config.baseUrl);
+    if (originError) return c.json({ error: "forbidden", message: originError }, 403);
     const path = new URL(c.req.url).pathname.replace(/^\/api/, "");
     if (OPEN_PATHS.has(path)) return next();
     if (!isAdmin(core.db, c.req.raw, core.config.adminToken)) {
@@ -58,21 +60,33 @@ export function createApi(core: Core): Hono<AppEnv> {
   });
 
   app.post("/v1/session/setup", async (c) => {
+    const address = clientAddress(c.req.raw, { ip: c.env.ip, trustProxy: core.config.trustProxy });
+    const limit = loginLimiter.check(address);
+    if (!limit.allowed) {
+      c.header("retry-after", String(limit.retryAfterSec));
+      return c.json({ error: "rate_limited", message: "too many setup attempts" }, 429);
+    }
     if (!needsSetup(core.db)) return badRequest(c, "admin password is already set");
+    if (core.config.adminToken && !isAdmin(core.db, c.req.raw, core.config.adminToken)) {
+      return c.json(
+        { error: "unauthorized", message: "present JUNCTIO_ADMIN_TOKEN to choose the admin password" },
+        401
+      );
+    }
     const parsed = SetupInput.safeParse(await readJson(c));
     if (!parsed.success) return badRequest(c, parsed.error);
     await setAdminPassword(core.db, parsed.data.password);
+    loginLimiter.reset(address);
     const session = createSession(core.db);
-    c.header("set-cookie", sessionCookie(session.id, secureCookies));
+    c.header("set-cookie", sessionCookie(session.id, secureCookies(core, c.req.raw)));
     return c.json({ ok: true });
   });
 
   app.post("/v1/session/login", async (c) => {
     const address = clientAddress(c.req.raw, { ip: c.env.ip, trustProxy: core.config.trustProxy });
-    const ceiling = loginCeiling.check("global");
     const limit = loginLimiter.check(address);
-    if (!ceiling.allowed || !limit.allowed) {
-      c.header("retry-after", String(Math.max(ceiling.retryAfterSec, limit.retryAfterSec)));
+    if (!limit.allowed) {
+      c.header("retry-after", String(limit.retryAfterSec));
       return c.json({ error: "rate_limited", message: "too many login attempts" }, 429);
     }
     const parsed = LoginInput.safeParse(await readJson(c));
@@ -82,14 +96,14 @@ export function createApi(core: Core): Hono<AppEnv> {
     }
     loginLimiter.reset(address);
     const session = createSession(core.db);
-    c.header("set-cookie", sessionCookie(session.id, secureCookies));
+    c.header("set-cookie", sessionCookie(session.id, secureCookies(core, c.req.raw)));
     return c.json({ ok: true });
   });
 
   app.post("/v1/session/logout", (c) => {
     const cookie = readCookie(c.req.raw, SESSION_COOKIE);
     if (cookie) destroySession(core.db, cookie);
-    c.header("set-cookie", clearCookie(secureCookies));
+    c.header("set-cookie", clearCookie(secureCookies(core, c.req.raw)));
     return c.json({ ok: true });
   });
 

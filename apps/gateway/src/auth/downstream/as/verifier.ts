@@ -6,7 +6,7 @@ export class LocalTokenVerifier implements JwtVerifier {
 
   async verify(token: string, audience: string): Promise<JwtClaims> {
     const info = await this.provider.verifyAccessToken(token);
-    if (info.resource && info.resource.href !== audience) {
+    if (!info.resource || info.resource.href !== audience) {
       throw new Error("token was issued for another endpoint");
     }
     return { subject: info.clientId, scopes: info.scopes, clientId: info.clientId };

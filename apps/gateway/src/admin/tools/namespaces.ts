@@ -2,9 +2,9 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { NamespaceInput, NamespacePatch, NamespaceServerInput, ToolOverrideInput } from "@junctio/schema";
 import { z } from "zod";
 import { callApi } from "../call.ts";
-import { DESTROYS, MUTATES, READ_ONLY, UPDATES, defineTool, type AdminDeps } from "./kit.ts";
+import { DESTROYS, MUTATES, READ_ONLY, UPDATES, defineTool, resourceId, type AdminDeps } from "./kit.ts";
 
-const Id = z.object({ id: z.string().min(1).describe("namespace id, as returned by list_namespaces") });
+const Id = z.object({ id: resourceId("namespace id, as returned by list_namespaces") });
 
 export function registerNamespaceTools(server: McpServer, deps: AdminDeps): void {
   const api = deps.apis.namespaces;
@@ -82,7 +82,7 @@ export function registerNamespaceTools(server: McpServer, deps: AdminDeps): void
       title: "Put a server in a namespace",
       description:
         "Add a server to a namespace, or change its prefix there. Tools are exposed as prefix, separator and the original name. The prefix defaults to the server name and has to be unique within the namespace.",
-      inputSchema: NamespaceServerInput.extend({ namespaceId: z.string().min(1) }),
+      inputSchema: NamespaceServerInput.extend({ namespaceId: resourceId("namespace id") }),
       annotations: UPDATES
     },
     async ({ namespaceId, ...body }) => callApi(api, { method: "POST", path: `/${namespaceId}/servers`, body })
@@ -95,7 +95,7 @@ export function registerNamespaceTools(server: McpServer, deps: AdminDeps): void
     {
       title: "Take a server out of a namespace",
       description: "Drop one membership. The server itself is untouched.",
-      inputSchema: z.object({ namespaceId: z.string().min(1), serverId: z.string().min(1) }),
+      inputSchema: z.object({ namespaceId: resourceId("namespace id"), serverId: resourceId("server id") }),
       annotations: DESTROYS
     },
     async (input) =>
@@ -124,7 +124,7 @@ export function registerNamespaceTools(server: McpServer, deps: AdminDeps): void
       title: "Override a tool",
       description:
         "Hide a tool, rename it, rewrite its description or add annotations, for this namespace only. The upstream server is not modified.",
-      inputSchema: ToolOverrideInput.extend({ namespaceId: z.string().min(1) }),
+      inputSchema: ToolOverrideInput.extend({ namespaceId: resourceId("namespace id") }),
       annotations: UPDATES
     },
     async ({ namespaceId, ...body }) => callApi(api, { method: "PUT", path: `/${namespaceId}/tools`, body })
@@ -138,8 +138,8 @@ export function registerNamespaceTools(server: McpServer, deps: AdminDeps): void
       title: "Drop a tool override",
       description: "Return a tool to whatever the upstream server calls it.",
       inputSchema: z.object({
-        namespaceId: z.string().min(1),
-        serverId: z.string().min(1),
+        namespaceId: resourceId("namespace id"),
+        serverId: resourceId("server id"),
         toolName: z.string().min(1).describe("the original name on the upstream, not the exposed one")
       }),
       annotations: DESTROYS

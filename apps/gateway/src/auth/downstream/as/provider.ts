@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import type { OAuthClientInformationFull, OAuthTokenRevocationRequest, OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
 import type { AuthorizationParams } from "@modelcontextprotocol/sdk/server/auth/provider.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
-import { InvalidGrantError, InvalidTokenError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
+import { InvalidGrantError, InvalidRequestError, InvalidTokenError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import type { Db } from "../../../db/index.ts";
 import { oauthAuthCodes, oauthAuthRequests, oauthClients, oauthTokens } from "../../../db/schema.ts";
 import type { Cipher } from "../../../crypto.ts";
@@ -56,6 +56,9 @@ export class JunctioOAuthProvider {
   }
 
   async authorize(client: OAuthClientInformationFull, params: AuthorizationParams, c: Context): Promise<void> {
+    if (!params.resource) {
+      throw new InvalidRequestError("the resource parameter is required, see RFC 8707");
+    }
     this.prune();
     const id = randomId();
     this.db
@@ -67,7 +70,7 @@ export class JunctioOAuthProvider {
         codeChallenge: params.codeChallenge,
         state: params.state ?? null,
         scopes: params.scopes ?? [],
-        resource: params.resource?.href ?? null,
+        resource: params.resource.href,
         createdAt: Date.now(),
         expiresAt: Date.now() + REQUEST_TTL_MS
       })
@@ -134,7 +137,7 @@ export class JunctioOAuthProvider {
     return row.codeChallenge;
   }
 
-  private issue(clientId: string, scopes: string[], resource: string | null): OAuthTokens {
+  private issue(clientId: string, scopes: string[], resource: string, grantedAt = Date.now()): OAuthTokens {
     const accessToken = `jnt_${randomToken(48)}`;
     const refreshToken = `jnr_${randomToken(48)}`;
     this.db
@@ -147,7 +150,7 @@ export class JunctioOAuthProvider {
         scopes,
         resource,
         expiresAt: Date.now() + ACCESS_TOKEN_TTL_SEC * 1000,
-        createdAt: Date.now()
+        createdAt: grantedAt
       })
       .run();
     this.clientsStore.touch(clientId);
@@ -175,11 +178,14 @@ export class JunctioOAuthProvider {
     if (redirectUri !== undefined && redirectUri !== row.redirectUri) {
       throw new InvalidGrantError("redirect_uri does not match the authorization request");
     }
-    if (resource !== undefined && row.resource !== null && resource.href !== row.resource) {
+    if (row.resource === null) {
+      throw new InvalidGrantError("the authorization request carried no resource");
+    }
+    if (resource !== undefined && resource.href !== row.resource) {
       throw new InvalidGrantError("resource does not match the authorization request");
     }
     this.db.delete(oauthAuthCodes).where(eq(oauthAuthCodes.codeHash, codeHash)).run();
-    return this.issue(client.client_id, row.scopes, row.resource ?? resource?.href ?? null);
+    return this.issue(client.client_id, row.scopes, row.resource);
   }
 
   async exchangeRefreshToken(
@@ -197,7 +203,11 @@ export class JunctioOAuthProvider {
       this.db.delete(oauthTokens).where(eq(oauthTokens.id, row.id)).run();
       throw new InvalidGrantError("refresh token has expired");
     }
-    if (resource !== undefined && row.resource !== null && resource.href !== row.resource) {
+    if (row.resource === null) {
+      this.db.delete(oauthTokens).where(eq(oauthTokens.id, row.id)).run();
+      throw new InvalidGrantError("the grant carried no resource");
+    }
+    if (resource !== undefined && resource.href !== row.resource) {
       throw new InvalidGrantError("resource does not match the original grant");
     }
     const granted = scopes && scopes.length > 0 ? scopes.filter((scope) => row.scopes.includes(scope)) : row.scopes;
@@ -206,7 +216,7 @@ export class JunctioOAuthProvider {
     }
     return this.db.transaction((tx) => {
       tx.delete(oauthTokens).where(eq(oauthTokens.id, row.id)).run();
-      return this.issue(client.client_id, granted, row.resource);
+      return this.issue(client.client_id, granted, row.resource as string, row.createdAt);
     });
   }
 

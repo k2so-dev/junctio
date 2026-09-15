@@ -4,7 +4,7 @@ import { useSession } from "@/stores/session";
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: "/", redirect: "/servers" },
+    { path: "/", name: "overview", component: () => import("@/views/OverviewView.vue") },
     { path: "/login", name: "login", component: () => import("@/views/LoginView.vue"), meta: { public: true } },
     { path: "/servers", name: "servers", component: () => import("@/views/ServersView.vue") },
     { path: "/servers/new", name: "server-new", component: () => import("@/views/ServerFormView.vue") },
@@ -15,9 +15,25 @@ const router = createRouter({
     { path: "/endpoints/:id?", name: "endpoints", component: () => import("@/views/EndpointsView.vue") },
     { path: "/api-keys", name: "api-keys", component: () => import("@/views/ApiKeysView.vue") },
     { path: "/request-log", name: "request-log", component: () => import("@/views/RequestLogView.vue") },
-    { path: "/settings", name: "settings", component: () => import("@/views/SettingsView.vue") },
+    { path: "/security", name: "security", component: () => import("@/views/SecurityView.vue") },
+    { path: "/settings", name: "settings", redirect: { name: "settings-general" } },
+    {
+      path: "/settings/general",
+      name: "settings-general",
+      component: () => import("@/views/settings/SettingsGeneralView.vue")
+    },
+    {
+      path: "/settings/access",
+      name: "settings-access",
+      component: () => import("@/views/settings/SettingsAccessView.vue")
+    },
+    {
+      path: "/settings/admin-mcp",
+      name: "settings-admin-mcp",
+      component: () => import("@/views/settings/SettingsAdminMcpView.vue")
+    },
     { path: "/consent", name: "consent", component: () => import("@/views/ConsentView.vue") },
-    { path: "/:pathMatch(.*)*", redirect: "/servers" }
+    { path: "/:pathMatch(.*)*", redirect: "/" }
   ]
 });
 
@@ -26,7 +42,7 @@ router.beforeEach(async (to) => {
   if (!ready.value) await refreshSession();
   const authenticated = session.value?.authenticated ?? false;
   if (!authenticated && !to.meta.public) return { name: "login", query: { next: to.fullPath } };
-  if (authenticated && to.name === "login") return { path: "/servers" };
+  if (authenticated && to.name === "login") return { path: "/" };
   return true;
 });
 

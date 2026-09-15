@@ -8,6 +8,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator
 } from "@/components/ui/breadcrumb";
+import ThemeToggle from "@/components/layout/ThemeToggle.vue";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
@@ -47,6 +48,7 @@ defineProps<{ title?: string; breadcrumbs?: Crumb[] }>();
 
       <div class="ml-auto flex shrink-0 items-center gap-2">
         <slot name="actions" />
+        <ThemeToggle />
       </div>
     </div>
   </header>

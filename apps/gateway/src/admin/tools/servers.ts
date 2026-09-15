@@ -2,9 +2,9 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { ServerInput, ServerPatch } from "@junctio/schema";
 import { z } from "zod";
 import { callApi } from "../call.ts";
-import { DESTROYS, MUTATES, READ_ONLY, UPDATES, defineTool, type AdminDeps } from "./kit.ts";
+import { DESTROYS, MUTATES, READ_ONLY, UPDATES, defineTool, resourceId, type AdminDeps } from "./kit.ts";
 
-const Id = z.object({ id: z.string().min(1).describe("server id, as returned by list_servers") });
+const Id = z.object({ id: resourceId("server id, as returned by list_servers") });
 
 export function registerServerTools(server: McpServer, deps: AdminDeps): void {
   const api = deps.apis.servers;

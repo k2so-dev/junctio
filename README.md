@@ -44,12 +44,13 @@ claude mcp add --transport http junctio https://mcp.example.com/mcp/main \
 |---|---|---|
 | `JUNCTIO_SECRET` | yes | Key used to encrypt stored tokens and headers. The process refuses to start without it. |
 | `JUNCTIO_BASE_URL` | for OAuth | Public URL of the gateway. Redirect URIs and resource identifiers are built from it. |
-| `JUNCTIO_ADMIN_TOKEN` | no | Bearer token for headless admin access, as an alternative to the password login. Also the key to the management MCP server. |
+| `JUNCTIO_ADMIN_TOKEN` | no | Bearer token for headless admin access, as an alternative to the password login. Also the key to the management MCP server. When set, it is also required to choose the admin password on first start. |
 | `JUNCTIO_OAUTH_ISSUER` | no | Issuer URL of an external identity provider. Leave it empty to use the gateway's own authorization server. |
 | `JUNCTIO_OAUTH_AUDIENCE` | no | Override the expected audience of an external provider. Defaults to the endpoint URL. |
 | `JUNCTIO_DATA_DIR` | no | Where `junctio.db` lives. Defaults to `/data`. |
 | `JUNCTIO_DOCKER_SOCKET` | no | Socket of the daemon that runs `docker` servers. Defaults to `/var/run/docker.sock`. |
 | `JUNCTIO_PUBLIC_DIR` | no | Directory of the built UI. Defaults to `./public`, then `./apps/web/dist`. |
+| `JUNCTIO_TRUST_PROXY` | no | `true` reads the client address from `x-forwarded-for`. Only enable it behind a proxy that rewrites that header, otherwise rate limits can be bypassed. |
 | `PORT` / `HOST` | no | Listener. Defaults to `3000` and `0.0.0.0`. |
 | `LOG_LEVEL` | no | `debug`, `info`, `warn` or `error`. Defaults to `info`. |
 

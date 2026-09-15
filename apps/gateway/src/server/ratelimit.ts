@@ -65,7 +65,8 @@ export type AddressSource = { ip: string | null; trustProxy: boolean };
 
 export function clientAddress(request: Request, source: AddressSource, fallback = "unknown"): string {
   if (source.trustProxy) {
-    const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const chain = request.headers.get("x-forwarded-for")?.split(",") ?? [];
+    const forwarded = chain[chain.length - 1]?.trim();
     if (forwarded) return forwarded;
     const real = request.headers.get("x-real-ip")?.trim();
     if (real) return real;

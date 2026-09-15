@@ -37,7 +37,7 @@ function apis(core: Core): AdminApis {
     apiKeys: createApiKeysApi(core),
     oauth: createOAuthApi(core),
     registry: createRegistryApi(core),
-    settings: createSettingsApi(core),
+    settings: createSettingsApi(core, { agent: true }),
     requestLog: createRequestLogApi(core),
     audit: createAuditApi(core)
   };

@@ -67,7 +67,11 @@ async function call(client: Awaited<ReturnType<typeof adminClient>>, name: strin
 beforeEach(async () => {
   cookie = "";
   harness = await startHarness({ env: { JUNCTIO_ADMIN_TOKEN: ADMIN_TOKEN } });
-  await api("/v1/session/setup", { method: "POST", body: JSON.stringify({ password: "supersecret" }) });
+  await api("/v1/session/setup", {
+    method: "POST",
+    headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    body: JSON.stringify({ password: "supersecret" })
+  });
 });
 
 afterEach(async () => {
@@ -184,6 +188,33 @@ describe("management mcp tools", () => {
     await client.close();
   });
 
+  test("refuses a server id that is not a plain identifier", async () => {
+    const client = await adminClient();
+    const server = payload(
+      await call(client, "create_server", {
+        name: "quarantined",
+        transport: "stdio",
+        runtime: "custom",
+        args: ["bun", MOCK_STDIO],
+        env: {}
+      })
+    ) as { id: string };
+    harness.core.audit.store.setQuarantine(server.id, "test");
+
+    const smuggled = await call(client, "delete_server", { id: `${server.id}/quarantine` });
+    expect(smuggled.isError).toBe(true);
+    const after = payload(await call(client, "get_server", { id: server.id })) as { status: string };
+    expect(after.status).toBe("quarantined");
+    await client.close();
+  });
+
+  test("refuses to change the runtime path or the audit interval", async () => {
+    const client = await adminClient();
+    expect((await call(client, "update_settings", { runtimePath: "/tmp/evil" })).isError).toBe(true);
+    expect((await call(client, "update_settings", { auditIntervalHours: 720 })).isError).toBe(true);
+    await client.close();
+  });
+
   test("refuses to switch itself off", async () => {
     const client = await adminClient();
     const result = await call(client, "update_settings", { adminMcp: false });
@@ -196,7 +227,7 @@ describe("management mcp tools", () => {
   test("writes every call to the request log", async () => {
     const client = await adminClient();
     await call(client, "list_servers");
-    const missing = await call(client, "get_server", { id: "nothing" });
+    const missing = await call(client, "get_server", { id: crypto.randomUUID() });
     expect(missing.isError).toBe(true);
     await client.close();
 
@@ -287,7 +318,11 @@ describe("management mcp over oauth", () => {
     oauthHarness = await startHarness({ withBaseUrl: true, env: { JUNCTIO_ADMIN_TOKEN: ADMIN_TOKEN } });
     harness = oauthHarness;
     cookie = "";
-    await api("/v1/session/setup", { method: "POST", body: JSON.stringify({ password: "supersecret" }) });
+    await api("/v1/session/setup", {
+    method: "POST",
+    headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    body: JSON.stringify({ password: "supersecret" })
+  });
     await enable();
   });
 
@@ -351,7 +386,11 @@ describe("installing from the registry", () => {
     registryHarness = await startHarness({ env: { JUNCTIO_ADMIN_TOKEN: ADMIN_TOKEN }, fetchImpl });
     harness = registryHarness;
     cookie = "";
-    await api("/v1/session/setup", { method: "POST", body: JSON.stringify({ password: "supersecret" }) });
+    await api("/v1/session/setup", {
+    method: "POST",
+    headers: { authorization: `Bearer ${ADMIN_TOKEN}` },
+    body: JSON.stringify({ password: "supersecret" })
+  });
     await enable();
   });
 

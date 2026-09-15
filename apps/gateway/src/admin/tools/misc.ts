@@ -3,7 +3,7 @@ import { AgentSettingsPatch, RequestLogQuery } from "@junctio/schema";
 import { callApi, text } from "../call.ts";
 import { buildHealth } from "../../server/app.ts";
 import { dockerStatus } from "../../api/docker.ts";
-import { MUTATES, READ_ONLY, UPDATES, defineTool, type AdminDeps } from "./kit.ts";
+import { MUTATES, READ_ONLY, UPDATES, defineTool, resourceId, type AdminDeps } from "./kit.ts";
 import { z } from "zod";
 
 export function registerMiscTools(server: McpServer, deps: AdminDeps): void {
@@ -40,7 +40,7 @@ export function registerMiscTools(server: McpServer, deps: AdminDeps): void {
       title: "Security audit results",
       description:
         "What the last audit found. Without an id it returns every server; with an id it returns the findings for that server. Ignoring an advisory and lifting a quarantine are done by a human in the web ui.",
-      inputSchema: z.object({ id: z.string().optional() }),
+      inputSchema: z.object({ id: resourceId("server id").optional() }),
       annotations: READ_ONLY
     },
     async (input) =>
@@ -57,7 +57,7 @@ export function registerMiscTools(server: McpServer, deps: AdminDeps): void {
       title: "Run the security audit",
       description:
         "Audit the packages of one server, or every server when no id is given. A finding can stop a server if the settings say so.",
-      inputSchema: z.object({ id: z.string().optional() }),
+      inputSchema: z.object({ id: resourceId("server id").optional() }),
       annotations: MUTATES
     },
     async (input) =>

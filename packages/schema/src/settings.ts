@@ -30,7 +30,15 @@ export const SettingsPatch = z.object({
 });
 export type SettingsPatch = z.infer<typeof SettingsPatch>;
 
-export const AgentSettingsPatch = z.strictObject(SettingsPatch.omit({ adminMcp: true, auditEnabled: true, auditActions: true }).shape);
+export const AgentSettingsPatch = z.strictObject(
+  SettingsPatch.omit({
+    adminMcp: true,
+    auditEnabled: true,
+    auditActions: true,
+    auditIntervalHours: true,
+    runtimePath: true
+  }).shape
+);
 export type AgentSettingsPatch = z.infer<typeof AgentSettingsPatch>;
 
 export const LoginInput = z.object({ password: z.string().min(1) });

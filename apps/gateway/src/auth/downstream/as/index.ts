@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Context, Next } from "hono";
 import { authenticateClient, authorizeHandler, clientRegistrationHandler, revokeHandler, tokenHandler } from "@hono/mcp/auth";
 import type { OAuthServerProvider } from "@modelcontextprotocol/sdk/server/auth/provider.js";
 import type { JunctioOAuthProvider } from "./provider.ts";
@@ -34,18 +35,24 @@ export function createAuthorizationServerRoute(
   const sdkProvider = provider as unknown as OAuthServerProvider;
   const clientAuth = authenticateClient({ clientsStore: provider.clientsStore });
   const registrations = new RateLimiter(5, 60_000);
+  const grants = new RateLimiter(30, 60_000);
 
-  app.on(["GET", "POST"], "/authorize", authorizeHandler(sdkProvider));
-  app.post("/token", clientAuth, tokenHandler(sdkProvider));
+  const throttle = (limiter: RateLimiter, message: string) => async (c: Context<AppEnv>, next: Next) => {
+    const address = clientAddress(c.req.raw, { ip: c.env.ip, trustProxy: options.trustProxy });
+    const limit = limiter.check(address);
+    if (!limit.allowed) {
+      c.header("retry-after", String(limit.retryAfterSec));
+      return c.json({ error: "temporarily_unavailable", error_description: message }, 429);
+    }
+    return next();
+  };
+
+  app.on(["GET", "POST"], "/authorize", throttle(grants, "too many authorization requests"), authorizeHandler(sdkProvider));
+  app.post("/token", throttle(grants, "too many token requests"), clientAuth, tokenHandler(sdkProvider));
   app.post(
     "/register",
+    throttle(registrations, "too many client registrations"),
     async (c, next) => {
-      const address = clientAddress(c.req.raw, { ip: c.env.ip, trustProxy: options.trustProxy });
-      const limit = registrations.check(address);
-      if (!limit.allowed) {
-        c.header("retry-after", String(limit.retryAfterSec));
-        return c.json({ error: "temporarily_unavailable", error_description: "too many client registrations" }, 429);
-      }
       provider.prune();
       return next();
     },

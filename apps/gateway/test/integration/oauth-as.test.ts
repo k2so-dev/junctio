@@ -173,6 +173,37 @@ describe("built-in authorization server", () => {
     expect(response.status).toBe(401);
   }, 30_000);
 
+  test("refuses to authorize without a resource", async () => {
+    const client = await register();
+    const { challenge } = pkce();
+    const url = new URL(`${harness.url}/oauth/authorize`);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("client_id", client.client_id);
+    url.searchParams.set("redirect_uri", "https://claude.ai/api/mcp/auth_callback");
+    url.searchParams.set("code_challenge", challenge);
+    url.searchParams.set("code_challenge_method", "S256");
+    url.searchParams.set("state", "xyz");
+    const response = await fetch(url, { redirect: "manual" });
+    expect(response.status).toBe(302);
+    const location = new URL(response.headers.get("location") ?? "", harness.url);
+    expect(location.searchParams.get("error")).toBe("invalid_request");
+    expect(location.searchParams.get("error_description")).toContain("resource");
+  });
+
+  test("keeps an endpoint token away from the management server", async () => {
+    const { access } = await grant("team");
+    const response = await fetch(`${harness.url}/mcp/_admin`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        authorization: `Bearer ${access}`
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })
+    });
+    expect(response.status).not.toBe(200);
+  }, 30_000);
+
   test("rejects a wrong pkce verifier", async () => {
     const client = await register();
     const { challenge } = pkce();

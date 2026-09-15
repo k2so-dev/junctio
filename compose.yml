@@ -11,6 +11,8 @@ services:
       JUNCTIO_ADMIN_TOKEN: ${JUNCTIO_ADMIN_TOKEN:-}
       JUNCTIO_OAUTH_ISSUER: ${JUNCTIO_OAUTH_ISSUER:-}
       JUNCTIO_OAUTH_AUDIENCE: ${JUNCTIO_OAUTH_AUDIENCE:-}
+      JUNCTIO_TRUST_PROXY: ${JUNCTIO_TRUST_PROXY:-false}
+      JUNCTIO_DOCKER_SOCKET: ${JUNCTIO_DOCKER_SOCKET:-/var/run/docker.sock}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - junctio-data:/data

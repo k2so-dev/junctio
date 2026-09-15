@@ -109,7 +109,7 @@ onMounted(load);
     </div>
 
     <p v-if="!props.enabled" class="text-xs text-muted-foreground">
-      The security audit is switched off. Turn it on in Settings to check these packages.
+      The security audit is switched off. Turn it on on the Security page to check these packages.
     </p>
 
     <p v-if="report?.error" class="text-xs text-warning">{{ report.error }}</p>

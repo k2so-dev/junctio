@@ -15,6 +15,7 @@ import { authenticateEndpoint, challengeHeader, endpointBySlug, type JwtVerifier
 import { recordRequest } from "./requestlog.ts";
 import { checkOrigin } from "./origin.ts";
 import { EndpointLimiter, clientAddress } from "./ratelimit.ts";
+import type { AppEnv } from "./env.ts";
 import { UpstreamError } from "../upstream/types.ts";
 
 export type McpRouteOptions = {
@@ -177,9 +178,9 @@ function buildServer(core: Core, endpoint: EndpointRow, protocol: string | null)
   return server;
 }
 
-export function createMcpRoute(options: McpRouteOptions): Hono {
+export function createMcpRoute(options: McpRouteOptions): Hono<AppEnv> {
   const { core } = options;
-  const app = new Hono();
+  const app = new Hono<AppEnv>();
   const limiter = new EndpointLimiter();
 
   const serveModern = async (
@@ -221,7 +222,7 @@ export function createMcpRoute(options: McpRouteOptions): Hono {
       ? `key:${auth.key.id}`
       : auth.claims
         ? `sub:${auth.claims.subject}`
-        : `addr:${clientAddress(request)}`;
+        : `addr:${clientAddress(request, { ip: c.env.ip, trustProxy: core.config.trustProxy })}`;
     const quota = limiter.check(endpoint.id, endpoint.rateLimit?.perMinute ?? 0, quotaKey);
     if (!quota.allowed) {
       return jsonRpcError(429, -32000, "rate limit exceeded for this endpoint", {

@@ -41,7 +41,7 @@ export async function serve(): Promise<void> {
     port: config.port,
     hostname: config.host,
     idleTimeout: 0,
-    fetch: app.fetch
+    fetch: (request, bunServer) => app.fetch(request, { ip: bunServer.requestIP(request)?.address ?? null })
   });
 
   core.logger.info("listening", { url: `http://${config.host}:${config.port}` });

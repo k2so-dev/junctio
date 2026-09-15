@@ -5,6 +5,7 @@ import type { HealthDto } from "@junctio/schema";
 import type { Core } from "../core.ts";
 import { servers, upstreamOauth } from "../db/schema.ts";
 import { createMcpRoute } from "./mcp.ts";
+import type { AppEnv } from "./env.ts";
 import { createAdminMcpRoute } from "./admin.ts";
 import { createWellKnownRoute } from "./wellknown.ts";
 import { createUpstreamOauthRoute } from "./oauth.ts";
@@ -60,9 +61,9 @@ export function buildHealth(core: Core): HealthDto {
   };
 }
 
-export function createApp(options: AppOptions): Hono {
+export function createApp(options: AppOptions): Hono<AppEnv> {
   const { core } = options;
-  const app = new Hono();
+  const app = new Hono<AppEnv>();
   const publicDir = resolvePublicDir(options.publicDir);
   const remote = core.config.oauthIssuer
     ? new RemoteJwtVerifier(core.config.oauthIssuer, core.config.oauthAudience)

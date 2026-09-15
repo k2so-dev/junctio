@@ -63,7 +63,12 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
     ...(options.registryTimeoutMs ? { registryTimeoutMs: options.registryTimeoutMs } : {})
   });
   const app = createApp({ core, verifier: options.verifier ?? null, publicDir: null });
-  const server = Bun.serve({ port, hostname: "127.0.0.1", idleTimeout: 0, fetch: app.fetch });
+  const server = Bun.serve({
+    port,
+    hostname: "127.0.0.1",
+    idleTimeout: 0,
+    fetch: (request, bunServer) => app.fetch(request, { ip: bunServer.requestIP(request)?.address ?? null })
+  });
   return {
     core,
     config,

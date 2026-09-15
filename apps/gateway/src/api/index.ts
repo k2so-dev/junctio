@@ -14,6 +14,7 @@ import {
   verifyAdminPassword
 } from "../auth/downstream/admin.ts";
 import { RateLimiter, clientAddress } from "../server/ratelimit.ts";
+import type { AppEnv } from "../server/env.ts";
 import { checkOrigin } from "../server/origin.ts";
 import { createServersApi } from "./servers.ts";
 import { createNamespacesApi } from "./namespaces.ts";
@@ -28,9 +29,10 @@ import { badRequest, readJson } from "./util.ts";
 
 const OPEN_PATHS = new Set(["/v1/session", "/v1/session/login", "/v1/session/setup"]);
 
-export function createApi(core: Core): Hono {
-  const app = new Hono();
+export function createApi(core: Core): Hono<AppEnv> {
+  const app = new Hono<AppEnv>();
   const loginLimiter = new RateLimiter(10, 60_000);
+  const loginCeiling = new RateLimiter(60, 60_000);
   const secureCookies = (core.config.baseUrl ?? "").startsWith("https://");
 
   app.use("*", async (c, next) => {
@@ -65,10 +67,11 @@ export function createApi(core: Core): Hono {
   });
 
   app.post("/v1/session/login", async (c) => {
-    const address = clientAddress(c.req.raw);
+    const address = clientAddress(c.req.raw, { ip: c.env.ip, trustProxy: core.config.trustProxy });
+    const ceiling = loginCeiling.check("global");
     const limit = loginLimiter.check(address);
-    if (!limit.allowed) {
-      c.header("retry-after", String(limit.retryAfterSec));
+    if (!ceiling.allowed || !limit.allowed) {
+      c.header("retry-after", String(Math.max(ceiling.retryAfterSec, limit.retryAfterSec)));
       return c.json({ error: "rate_limited", message: "too many login attempts" }, 429);
     }
     const parsed = LoginInput.safeParse(await readJson(c));

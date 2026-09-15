@@ -61,8 +61,14 @@ export class EndpointLimiter {
   }
 }
 
-export function clientAddress(request: Request, fallback = "unknown"): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]?.trim() ?? fallback;
-  return request.headers.get("x-real-ip") ?? fallback;
+export type AddressSource = { ip: string | null; trustProxy: boolean };
+
+export function clientAddress(request: Request, source: AddressSource, fallback = "unknown"): string {
+  if (source.trustProxy) {
+    const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    if (forwarded) return forwarded;
+    const real = request.headers.get("x-real-ip")?.trim();
+    if (real) return real;
+  }
+  return source.ip ?? fallback;
 }

@@ -19,20 +19,16 @@ const tint = computed(() => `oklch(0.62 0.16 ${sourceHue(props.source)})`);
     rel="noreferrer noopener"
     class="group relative isolate flex flex-col overflow-hidden rounded-xl border bg-card transition-colors hover:border-ring"
   >
-    <img
-      v-if="icon"
-      :src="icon"
-      alt=""
-      aria-hidden="true"
-      loading="lazy"
-      class="pointer-events-none absolute inset-0 -z-10 size-full scale-[1.8] object-cover opacity-45 blur-2xl saturate-200 transition-transform duration-500 group-hover:scale-[2.1]"
-    />
-    <div
-      v-else
-      aria-hidden="true"
-      class="pointer-events-none absolute inset-0 -z-10 opacity-35 blur-2xl"
-      :style="{ background: tint }"
-    />
+    <div aria-hidden="true" class="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-[inherit]">
+      <img
+        v-if="icon"
+        :src="icon"
+        alt=""
+        loading="lazy"
+        class="absolute inset-0 size-full scale-[1.8] object-cover opacity-45 blur-2xl saturate-200 transition-transform duration-500 group-hover:scale-[2.1]"
+      />
+      <div v-else class="absolute inset-0 opacity-35 blur-2xl" :style="{ background: tint }" />
+    </div>
     <div class="pointer-events-none absolute inset-0 -z-10 bg-card/75 backdrop-blur-xl" />
 
     <div class="flex items-start gap-3 p-4">

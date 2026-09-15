@@ -69,9 +69,9 @@ onUnmounted(() => {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" as-child>
-            <RouterLink :to="{ name: 'overview' }">
-              <LogoMark class="size-8! shrink-0 group-data-[collapsible=icon]:size-4!" />
-              <span class="truncate text-base font-semibold">Junctio</span>
+            <RouterLink :to="{ name: 'overview' }" class="group-data-[collapsible=icon]:justify-center">
+              <LogoMark class="size-8! shrink-0" />
+              <span class="truncate text-base font-semibold group-data-[collapsible=icon]:hidden">Junctio</span>
             </RouterLink>
           </SidebarMenuButton>
         </SidebarMenuItem>

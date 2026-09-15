@@ -10,7 +10,7 @@ import type {
 import { latestProtocolVersion } from "@junctio/schema";
 import { Check, Copy, ExternalLink, KeyRound, Loader2, Plus, Trash2 } from "@lucide/vue";
 import { computed, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import CodeBlock from "@/components/CodeBlock.vue";
 import EmptyState from "@/components/EmptyState.vue";
@@ -42,6 +42,9 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, api } from "@/lib/api";
 import { describeError } from "@/composables/useResource";
+import { useSelectedFromRoute } from "@/composables/useSelectedFromRoute";
+import MasterDetail from "@/components/layout/MasterDetail.vue";
+import ClientPicker from "@/components/ClientPicker.vue";
 import { CLIENTS, type AuthKind } from "@/lib/clients";
 import { relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -49,7 +52,6 @@ import { useFreshKeys } from "@/stores/keys";
 import { useSession } from "@/stores/session";
 import { useCopy } from "@/composables/useCopy";
 
-const route = useRoute();
 const router = useRouter();
 const { settings } = useSession();
 const { tokens: freshTokens } = useFreshKeys();
@@ -87,13 +89,7 @@ const KINDS: { value: AuthKind; label: string }[] = [
   { value: "oauth", label: "OAuth" }
 ];
 
-const selectedId = computed(() => {
-  const param = typeof route.params.id === "string" ? route.params.id : null;
-  if (param && endpoints.value.some((endpoint) => endpoint.id === param)) return param;
-  return endpoints.value[0]?.id ?? null;
-});
-
-const current = computed(() => endpoints.value.find((endpoint) => endpoint.id === selectedId.value) ?? null);
+const { selectedId, current } = useSelectedFromRoute(endpoints);
 
 const endpointOptions = computed(() =>
   endpoints.value.map((endpoint) => ({
@@ -325,27 +321,15 @@ onMounted(async () => {
       </span>
     </template>
 
-    <div class="flex min-h-0 flex-1">
-      <aside class="hidden w-64 shrink-0 flex-col gap-0.5 overflow-auto border-r p-2 md:flex">
-        <RouterLink
-          v-for="endpoint in endpoints"
-          :key="endpoint.id"
-          :to="{ name: 'endpoints', params: { id: endpoint.id } }"
-          :class="
-            cn(
-              'flex min-w-0 flex-col gap-0.5 rounded-md px-2.5 py-2 hover:bg-accent',
-              endpoint.id === selectedId && 'bg-accent'
-            )
-          "
-        >
-          <span class="truncate font-mono text-xs font-medium">/mcp/{{ endpoint.slug }}</span>
-          <span class="truncate text-xs text-muted-foreground">
-            {{ endpoint.namespaceName }} · {{ endpoint.authMode }} · {{ endpoint.keyCount }} keys
-          </span>
-        </RouterLink>
-      </aside>
+    <MasterDetail :items="endpoints" :selected-id="current ? selectedId : null" route-name="endpoints">
+      <template #item="{ item: endpoint }">
+        <span class="truncate font-mono text-xs font-medium">/mcp/{{ endpoint.slug }}</span>
+        <span class="truncate text-xs text-muted-foreground">
+          {{ endpoint.namespaceName }} · {{ endpoint.authMode }} · {{ endpoint.keyCount }} keys
+        </span>
+      </template>
 
-      <div v-if="current" class="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-4 md:p-6">
+      <template v-if="current" #detail>
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div class="min-w-0">
             <h2 class="truncate font-mono text-lg font-semibold tracking-tight">{{ current.url }}</h2>
@@ -473,23 +457,7 @@ onMounted(async () => {
             </CardDescription>
           </CardHeader>
           <CardContent class="flex flex-col gap-3 py-4">
-            <div class="flex flex-wrap gap-1.5">
-              <button
-                v-for="item in CLIENTS"
-                :key="item.value"
-                type="button"
-                :title="item.hint"
-                :class="
-                  cn(
-                    'rounded-md border px-2.5 py-1 text-xs transition-colors hover:border-ring',
-                    client === item.value ? 'border-primary bg-accent font-medium' : 'bg-card text-muted-foreground'
-                  )
-                "
-                @click="client = item.value"
-              >
-                {{ item.label }}
-              </button>
-            </div>
+            <ClientPicker v-model="client" />
 
             <div class="flex flex-wrap items-end gap-3">
               <div v-if="current.authMode === 'any'" class="grid gap-2">
@@ -555,9 +523,9 @@ onMounted(async () => {
             </template>
           </CardContent>
         </Card>
-      </div>
+      </template>
 
-      <div v-else class="flex flex-1 items-center justify-center p-6">
+      <template #empty>
         <EmptyState
           dashed
           title="No endpoints"
@@ -568,8 +536,8 @@ onMounted(async () => {
             New endpoint
           </Button>
         </EmptyState>
-      </div>
-    </div>
+      </template>
+    </MasterDetail>
 
     <Dialog v-model:open="creating">
       <DialogContent>

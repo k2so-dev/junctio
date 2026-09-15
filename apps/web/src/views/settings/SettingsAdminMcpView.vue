@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { Loader2 } from "@lucide/vue";
 import { computed, ref } from "vue";
-import CodeBlock from "@/components/CodeBlock.vue";
 import PageLayout from "@/components/layout/PageLayout.vue";
 import SettingsRow from "@/components/settings/SettingsRow.vue";
 import SettingsSection from "@/components/settings/SettingsSection.vue";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import ClientGuide from "@/components/ClientGuide.vue";
+import ClientPicker from "@/components/ClientPicker.vue";
 import { CLIENTS } from "@/lib/clients";
-import { cn } from "@/lib/utils";
 import { useSettingsDraft } from "@/composables/useSettingsDraft";
 
 const ADMIN_SLUG = "junctio-admin";
@@ -72,44 +72,8 @@ const adminGuide = computed(() => {
       description="Authenticate with JUNCTIO_ADMIN_TOKEN, or, on a client that cannot send headers, with the built-in authorization server, which asks for the admin password before it grants anything."
     >
       <div class="flex flex-col gap-3 py-4">
-        <div class="flex flex-wrap gap-1.5">
-          <button
-            v-for="item in CLIENTS"
-            :key="item.value"
-            type="button"
-            :title="item.hint"
-            :class="
-              cn(
-                'rounded-md border px-2.5 py-1 text-xs transition-colors hover:border-ring',
-                adminClient === item.value ? 'border-primary bg-accent font-medium' : 'bg-card text-muted-foreground'
-              )
-            "
-            @click="adminClient = item.value"
-          >
-            {{ item.label }}
-          </button>
-        </div>
-
-        <template v-if="adminGuide">
-          <p
-            v-if="adminGuide.blocker"
-            class="rounded-lg border border-warning/50 bg-warning/8 p-3 text-xs leading-relaxed"
-          >
-            {{ adminGuide.blocker }}
-          </p>
-          <template v-else>
-            <CodeBlock
-              v-for="block in adminGuide.blocks"
-              :key="block.title"
-              :title="block.title"
-              :code="block.code"
-              copyable
-            />
-            <ul class="flex list-disc flex-col gap-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
-              <li v-for="step in adminGuide.steps" :key="step">{{ step }}</li>
-            </ul>
-          </template>
-        </template>
+        <ClientPicker v-model="adminClient" />
+        <ClientGuide :guide="adminGuide" />
       </div>
     </SettingsSection>
 

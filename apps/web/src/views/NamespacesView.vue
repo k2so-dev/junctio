@@ -2,7 +2,7 @@
 import type { NamespaceDto, NamespaceToolDto, ServerDto } from "@junctio/schema";
 import { Loader2, Plus, RotateCcw, Trash2, TriangleAlert } from "@lucide/vue";
 import { computed, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import EmptyState from "@/components/EmptyState.vue";
 import PageLayout from "@/components/layout/PageLayout.vue";
@@ -25,10 +25,10 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, api } from "@/lib/api";
 import { describeError } from "@/composables/useResource";
-import { cn } from "@/lib/utils";
+import { useSelectedFromRoute } from "@/composables/useSelectedFromRoute";
+import MasterDetail from "@/components/layout/MasterDetail.vue";
 import { useSession } from "@/stores/session";
 
-const route = useRoute();
 const router = useRouter();
 const { settings } = useSession();
 
@@ -43,13 +43,7 @@ const creating = ref(false);
 const draft = ref({ name: "", description: "" });
 const busy = ref(false);
 
-const selectedId = computed(() => {
-  const param = typeof route.params.id === "string" ? route.params.id : null;
-  if (param && namespaces.value.some((namespace) => namespace.id === param)) return param;
-  return namespaces.value[0]?.id ?? null;
-});
-
-const current = computed(() => namespaces.value.find((namespace) => namespace.id === selectedId.value) ?? null);
+const { selectedId, current } = useSelectedFromRoute(namespaces);
 
 const separator = computed(() => settings.value?.toolSeparator ?? "__");
 
@@ -250,27 +244,15 @@ onMounted(async () => {
       </span>
     </template>
 
-    <div class="flex min-h-0 flex-1">
-      <aside class="hidden w-60 shrink-0 flex-col gap-0.5 overflow-auto border-r p-2 md:flex">
-        <RouterLink
-          v-for="namespace in namespaces"
-          :key="namespace.id"
-          :to="{ name: 'namespaces', params: { id: namespace.id } }"
-          :class="
-            cn(
-              'flex min-w-0 flex-col gap-0.5 rounded-md px-2.5 py-2 text-left hover:bg-accent',
-              namespace.id === selectedId && 'bg-accent'
-            )
-          "
-        >
-          <span class="truncate font-medium">{{ namespace.name }}</span>
-          <span class="truncate font-mono text-xs text-muted-foreground">
-            {{ namespace.servers.length }} servers · {{ namespace.endpointCount }} endpoints
-          </span>
-        </RouterLink>
-      </aside>
+    <MasterDetail :items="namespaces" :selected-id="current ? selectedId : null" route-name="namespaces">
+      <template #item="{ item: namespace }">
+        <span class="truncate font-medium">{{ namespace.name }}</span>
+        <span class="truncate font-mono text-xs text-muted-foreground">
+          {{ namespace.servers.length }} servers · {{ namespace.endpointCount }} endpoints
+        </span>
+      </template>
 
-      <div v-if="current" class="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-4 md:p-6">
+      <template v-if="current" #detail>
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0 flex-1">
             <h2 class="flex min-w-0 items-center gap-2.5 text-lg font-semibold tracking-tight">
@@ -447,9 +429,9 @@ onMounted(async () => {
             </Table>
           </CardContent>
         </Card>
-      </div>
+      </template>
 
-      <div v-else class="flex flex-1 items-center justify-center p-6">
+      <template #empty>
         <EmptyState
           dashed
           title="No namespaces"
@@ -460,8 +442,8 @@ onMounted(async () => {
             New namespace
           </Button>
         </EmptyState>
-      </div>
-    </div>
+      </template>
+    </MasterDetail>
 
     <Dialog v-model:open="creating">
       <DialogContent>

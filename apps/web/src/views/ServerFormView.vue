@@ -263,7 +263,8 @@ async function submit() {
   try {
     const input = toInput();
     if (editing.value && id.value) {
-      await api.servers.patch(id.value, input);
+      const { enabled: _enabled, ...patch } = input;
+      await api.servers.patch(id.value, patch);
       toast.success(`${input.name} updated`);
       await router.push({ name: "server", params: { id: id.value } });
     } else {

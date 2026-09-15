@@ -7,6 +7,6 @@ export function usePolling(fn: () => unknown, intervalMs: number) {
       void fn();
     },
     intervalMs,
-    { immediate: true }
+    { immediate: true, immediateCallback: true }
   );
 }

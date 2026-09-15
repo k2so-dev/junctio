@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import type { Db } from "./index.ts";
 import { settings } from "./schema.ts";
 import { randomId } from "../crypto.ts";
+import { DEFAULT_ACTIONS } from "../audit/policy.ts";
 
 const RUNTIME_BINARIES = ["bun", "bunx", "node", "npx", "uv", "uvx"];
 const SYSTEM_PATH = ["/usr/local/bin", "/usr/bin", "/bin"];
@@ -29,7 +30,11 @@ export const DEFAULT_SETTINGS = {
   api_key_query_param: "false",
   request_log_retention_days: "7",
   admin_password_hash: "",
-  admin_mcp_enabled: "false"
+  admin_mcp_enabled: "false",
+  audit_enabled: "false",
+  audit_interval_hours: "24",
+  audit_actions: JSON.stringify(DEFAULT_ACTIONS),
+  audit_last_run: ""
 } as const;
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;

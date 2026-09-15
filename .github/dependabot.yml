@@ -1,33 +1,18 @@
 version: 2
 updates:
   - package-ecosystem: npm
-    directory: /
+    directories:
+      - /
+      - /apps/*
+      - /packages/*
     schedule:
       interval: weekly
     groups:
       all:
         patterns: ["*"]
-  - package-ecosystem: npm
-    directory: /apps/gateway
-    schedule:
-      interval: weekly
-    groups:
-      all:
-        patterns: ["*"]
-  - package-ecosystem: npm
-    directory: /apps/web
-    schedule:
-      interval: weekly
-    groups:
-      all:
-        patterns: ["*"]
-  - package-ecosystem: npm
-    directory: /packages/schema
-    schedule:
-      interval: weekly
-    groups:
-      all:
-        patterns: ["*"]
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /
     schedule:

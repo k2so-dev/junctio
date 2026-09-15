@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { EndpointDto, RequestLogDto, ServerDto } from "@junctio/schema";
 import { RefreshCw } from "@lucide/vue";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import EmptyState from "@/components/EmptyState.vue";
 import PageLayout from "@/components/layout/PageLayout.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
@@ -10,8 +10,11 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
-import { clockTime, duration } from "@/lib/format";
+import { clockTime, duration, durationTone } from "@/lib/format";
+import { toast } from "vue-sonner";
 import { useSession } from "@/stores/session";
+import { usePolling } from "@/composables/usePolling";
+import { describeError } from "@/composables/useResource";
 
 const { settings } = useSession();
 
@@ -22,8 +25,6 @@ const endpointId = ref("");
 const serverId = ref("");
 const status = ref<"all" | "ok" | "error">("all");
 const loading = ref(false);
-
-let timer: ReturnType<typeof setInterval> | null = null;
 
 const endpointOptions = computed(() => [
   { value: "", label: "All endpoints" },
@@ -44,27 +45,24 @@ async function load() {
       status: status.value === "all" ? undefined : status.value,
       limit: 200
     });
+  } catch (error) {
+    toast.error(describeError(error));
   } finally {
     loading.value = false;
   }
 }
 
-function durationTone(ms: number): string {
-  if (ms >= 2000) return "text-warning";
-  if (ms >= 5000) return "text-destructive";
-  return "text-muted-foreground";
-}
-
 watch([endpointId, serverId, status], () => void load());
 
 onMounted(async () => {
-  [endpoints.value, servers.value] = await Promise.all([api.endpoints.list(), api.servers.list()]);
-  await load();
-  timer = setInterval(load, 10_000);
+  try {
+    [endpoints.value, servers.value] = await Promise.all([api.endpoints.list(), api.servers.list()]);
+  } catch (error) {
+    toast.error(describeError(error));
+  }
 });
-onUnmounted(() => {
-  if (timer !== null) clearInterval(timer);
-});
+
+usePolling(load, 10_000);
 </script>
 
 <template>

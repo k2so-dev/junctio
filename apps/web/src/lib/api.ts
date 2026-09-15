@@ -14,7 +14,6 @@ import type {
   EndpointPatch,
   EndpointProtocolUsageDto,
   HealthDto,
-  LogLineDto,
   NamespaceDto,
   NamespaceInput,
   NamespacePatch,
@@ -51,21 +50,41 @@ export class ApiError extends Error {
 
 type Body = Record<string, unknown> | unknown[] | undefined;
 
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: () => void): void {
+  onUnauthorized = handler;
+}
+
+function parse(text: string): unknown {
+  if (text === "") return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 async function request<T>(method: string, path: string, body?: Body): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    method,
-    headers: body === undefined ? undefined : { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    credentials: "same-origin"
-  });
+  let response: Response;
+  try {
+    response = await fetch(`/api${path}`, {
+      method,
+      headers: body === undefined ? undefined : { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      credentials: "same-origin"
+    });
+  } catch {
+    throw new ApiError(0, "offline", "the gateway is unreachable");
+  }
 
   if (response.status === 204) return undefined as T;
 
-  const text = await response.text();
-  const payload = text === "" ? null : (JSON.parse(text) as unknown);
+  const payload = parse(await response.text());
 
   if (!response.ok) {
     const shape = payload as { error?: string; message?: string; details?: unknown } | null;
+    if (response.status === 401 && !path.startsWith("/v1/session")) onUnauthorized?.();
     throw new ApiError(
       response.status,
       shape?.error ?? "error",
@@ -127,8 +146,7 @@ export const api = {
     test: (id: string) => request<TestResultDto>("POST", `/v1/servers/${id}/test`, {}),
     tools: (id: string, refresh = false) =>
       request<ServerCatalog>("GET", `/v1/servers/${id}/tools${refresh ? "?refresh=1" : ""}`),
-    logs: (id: string, tail = 200) => request<LogLineDto[]>("GET", `/v1/servers/${id}/logs?tail=${tail}`),
-    logStream: (id: string, tail = 200) => new EventSource(`/api/v1/servers/${id}/logs?stream=1&tail=${tail}`),
+    logStreamUrl: (id: string, tail = 200) => `/api/v1/servers/${id}/logs?stream=1&tail=${tail}`,
     oauthStart: (id: string) =>
       request<{ authorizationUrl: string }>("POST", `/v1/servers/${id}/oauth/start`, {}),
     oauthRefresh: (id: string) =>

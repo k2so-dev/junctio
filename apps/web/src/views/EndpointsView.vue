@@ -14,6 +14,7 @@ import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import CodeBlock from "@/components/CodeBlock.vue";
 import EmptyState from "@/components/EmptyState.vue";
+import PageLayout from "@/components/layout/PageLayout.vue";
 import SearchSelect, { type SelectOption } from "@/components/SearchSelect.vue";
 import {
   AlertDialog,
@@ -27,6 +28,7 @@ import {
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -39,11 +41,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, api } from "@/lib/api";
+import { describeError } from "@/composables/useResource";
 import { CLIENTS, type AuthKind } from "@/lib/clients";
 import { relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useFreshKeys } from "@/stores/keys";
 import { useSession } from "@/stores/session";
+import { useCopy } from "@/composables/useCopy";
 
 const route = useRoute();
 const router = useRouter();
@@ -57,7 +61,7 @@ const seen = ref<EndpointProtocolUsageDto[]>([]);
 const client = ref("claude-code");
 const kindPick = ref<AuthKind>("key");
 const keyPick = ref("");
-const copied = ref(false);
+const { copy: write, copied } = useCopy();
 const creating = ref(false);
 const draft = ref({ slug: "", namespaceId: "" });
 const busy = ref(false);
@@ -90,6 +94,19 @@ const selectedId = computed(() => {
 });
 
 const current = computed(() => endpoints.value.find((endpoint) => endpoint.id === selectedId.value) ?? null);
+
+const endpointOptions = computed(() =>
+  endpoints.value.map((endpoint) => ({
+    value: endpoint.id,
+    label: `/mcp/${endpoint.slug}`,
+    hint: endpoint.namespaceName,
+    mono: true
+  }))
+);
+
+function pickEndpoint(value: string) {
+  void router.push({ name: "endpoints", params: { id: value } });
+}
 
 const namespaceOptions = computed(() =>
   namespaces.value.map((namespace) => ({
@@ -175,11 +192,15 @@ const wellKnownNote = computed(() => {
 });
 
 async function loadAll() {
-  [endpoints.value, namespaces.value, keys.value] = await Promise.all([
-    api.endpoints.list(),
-    api.namespaces.list(),
-    api.apiKeys.list()
-  ]);
+  try {
+    [endpoints.value, namespaces.value, keys.value] = await Promise.all([
+      api.endpoints.list(),
+      api.namespaces.list(),
+      api.apiKeys.list()
+    ]);
+  } catch (error) {
+    toast.error(describeError(error));
+  }
 }
 
 async function loadSeen() {
@@ -240,11 +261,9 @@ async function remove() {
   }
 }
 
-async function copyUrl() {
+function copyUrl() {
   if (!current.value) return;
-  await navigator.clipboard.writeText(current.value.url);
-  copied.value = true;
-  setTimeout(() => (copied.value = false), 1600);
+  void write(current.value.url);
 }
 
 watch(namespaceOptions, (options) => {
@@ -277,15 +296,37 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1">
-    <aside class="flex w-64 shrink-0 flex-col gap-3 overflow-auto border-r p-4">
-      <div class="flex items-center justify-between">
-        <h1 class="text-lg font-semibold tracking-tight">Endpoints</h1>
-        <Button variant="outline" size="icon" class="size-7" title="New endpoint" @click="creating = true">
-          <Plus class="size-3.5" />
-        </Button>
+  <PageLayout
+    :breadcrumbs="[
+      { label: 'Endpoints', to: { name: 'endpoints' } },
+      ...(current ? [{ label: `/mcp/${current.slug}` }] : [])
+    ]"
+    :padded="false"
+  >
+    <template #actions>
+      <Button size="sm" :disabled="namespaces.length === 0" @click="creating = true">
+        <Plus />
+        New endpoint
+      </Button>
+    </template>
+
+    <template v-if="endpoints.length > 0" #toolbar>
+      <div class="w-full md:hidden">
+        <SearchSelect
+          :model-value="selectedId ?? ''"
+          :options="endpointOptions"
+          placeholder="Pick an endpoint…"
+          trigger-class="h-8 w-full"
+          @update:model-value="pickEndpoint"
+        />
       </div>
-      <nav class="flex flex-col gap-0.5">
+      <span class="hidden text-xs text-muted-foreground md:inline">
+        An endpoint is the URL you give to a client. It points at one namespace and decides how callers authenticate.
+      </span>
+    </template>
+
+    <div class="flex min-h-0 flex-1">
+      <aside class="hidden w-64 shrink-0 flex-col gap-0.5 overflow-auto border-r p-2 md:flex">
         <RouterLink
           v-for="endpoint in endpoints"
           :key="endpoint.id"
@@ -302,212 +343,232 @@ onMounted(async () => {
             {{ endpoint.namespaceName }} · {{ endpoint.authMode }} · {{ endpoint.keyCount }} keys
           </span>
         </RouterLink>
-      </nav>
-    </aside>
+      </aside>
 
-    <div v-if="current" class="flex min-w-0 flex-1 flex-col gap-5 overflow-auto p-6">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div class="min-w-0">
-          <h2 class="truncate font-mono text-lg font-semibold tracking-tight">{{ current.url }}</h2>
-          <p class="mt-1 text-muted-foreground">
-            Namespace {{ current.namespaceName }} · {{ current.keyCount }} keys · protocol ≥ {{ current.protocolMin }}
-          </p>
-        </div>
-        <div class="flex gap-2">
-          <Button variant="outline" size="sm" @click="copyUrl">
-            <component :is="copied ? Check : Copy" />
-            {{ copied ? "Copied" : "Copy URL" }}
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger as-child>
-              <Button variant="ghost" size="icon" class="text-muted-foreground hover:text-destructive">
-                <Trash2 />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete /mcp/{{ current.slug }}?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Every client pointed at this URL stops working, and keys bound to it are left without an endpoint.
-                  The namespace and its servers are untouched. This cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction class="bg-destructive text-destructive-foreground" @click="remove">
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </div>
-
-      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div class="grid gap-2">
-          <Label for="slug">Slug</Label>
-          <Input
-            id="slug"
-            :model-value="current.slug"
-            class="h-8 font-mono text-xs"
-            @change="patch({ slug: ($event.target as HTMLInputElement).value })"
-          />
-        </div>
-        <div class="grid gap-2">
-          <Label>Namespace</Label>
-          <SearchSelect
-            :model-value="current.namespaceId"
-            :options="namespaceOptions"
-            trigger-class="h-8"
-            @update:model-value="patch({ namespaceId: $event })"
-          />
-        </div>
-        <div class="grid gap-2">
-          <Label>Min protocol</Label>
-          <SearchSelect
-            :model-value="current.protocolMin"
-            :options="PROTOCOLS"
-            trigger-class="h-8"
-            @update:model-value="patch({ protocolMin: $event })"
-          />
-        </div>
-        <div class="grid gap-2">
-          <Label for="rate">Rate limit <span class="font-normal text-muted-foreground">— 0 = off</span></Label>
-          <div class="flex items-center gap-2">
-            <Input
-              id="rate"
-              type="number"
-              min="0"
-              :model-value="current.rateLimit.perMinute"
-              class="h-8 font-mono text-xs"
-              @change="patch({ rateLimit: { perMinute: Number(($event.target as HTMLInputElement).value) } })"
-            />
-            <span class="shrink-0 text-muted-foreground">/min</span>
+      <div v-if="current" class="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-4 md:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="min-w-0">
+            <h2 class="truncate font-mono text-lg font-semibold tracking-tight">{{ current.url }}</h2>
+            <p class="mt-1 text-muted-foreground">
+              Namespace {{ current.namespaceName }} · {{ current.keyCount }} keys · protocol ≥ {{ current.protocolMin }}
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <Button variant="outline" size="sm" @click="copyUrl">
+              <component :is="copied ? Check : Copy" />
+              {{ copied ? "Copied" : "Copy URL" }}
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger as-child>
+                <Button variant="ghost" size="icon" class="text-muted-foreground hover:text-destructive">
+                  <Trash2 />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete /mcp/{{ current.slug }}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Every client pointed at this URL stops working, and keys bound to it are left without an endpoint.
+                    The namespace and its servers are untouched. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction class="bg-destructive text-destructive-foreground" @click="remove">
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
-      </div>
 
-      <p class="text-xs leading-relaxed text-muted-foreground">{{ seenNote }}</p>
-
-      <p v-if="refusedNote" class="rounded-lg border border-warning/50 bg-warning/8 p-3 text-xs leading-relaxed">
-        {{ refusedNote }}
-      </p>
-
-      <div class="grid gap-2">
-        <Label>Auth mode</Label>
-        <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <button
-            v-for="mode in AUTH_MODES"
-            :key="mode.value"
-            type="button"
-            :class="
-              cn(
-                'rounded-lg border p-3 text-left transition-colors hover:border-ring',
-                current.authMode === mode.value ? 'border-primary bg-accent' : 'bg-card'
-              )
-            "
-            @click="patch({ authMode: mode.value })"
-          >
-            <div class="font-medium">{{ mode.label }}</div>
-            <div class="mt-0.5 text-xs leading-snug text-muted-foreground">{{ mode.hint }}</div>
-          </button>
-        </div>
-        <p class="text-xs leading-relaxed text-muted-foreground">{{ wellKnownNote }}</p>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t pt-5">
-        <div>
-          <h3 class="font-medium">Connect a client</h3>
-          <p class="mt-0.5 text-xs text-muted-foreground">
-            The server is registered under the slug; rename it in the snippet if you like.
-          </p>
-        </div>
-
-        <div class="flex flex-wrap gap-1.5">
-          <button
-            v-for="item in CLIENTS"
-            :key="item.value"
-            type="button"
-            :title="item.hint"
-            :class="
-              cn(
-                'rounded-md border px-2.5 py-1 text-xs transition-colors hover:border-ring',
-                client === item.value ? 'border-primary bg-accent font-medium' : 'bg-card text-muted-foreground'
-              )
-            "
-            @click="client = item.value"
-          >
-            {{ item.label }}
-          </button>
-        </div>
-
-        <div class="flex flex-wrap items-end gap-3">
-          <div v-if="current.authMode === 'any'" class="grid gap-2">
-            <Label>Credentials in snippet</Label>
-            <Tabs v-model="kindPick">
-              <TabsList class="h-8">
-                <TabsTrigger v-for="item in KINDS" :key="item.value" :value="item.value" class="text-xs">
-                  {{ item.label }}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-          <div v-if="kind === 'key'" class="grid min-w-64 gap-2">
-            <Label>Key in snippet</Label>
-            <SearchSelect v-model="keyPick" :options="keyOptions" trigger-class="h-8" />
-          </div>
-          <Button v-if="kind === 'key'" variant="outline" size="sm" class="h-8" as-child>
-            <RouterLink :to="{ name: 'api-keys', query: { endpoint: current.id } }">
-              <KeyRound />
-              New key for this endpoint
-            </RouterLink>
-          </Button>
-          <p v-if="kindNote" class="text-xs text-muted-foreground">{{ kindNote }}</p>
-        </div>
-
-        <p v-if="keyWarning" class="rounded-lg border border-warning/50 bg-warning/8 p-3 text-xs leading-relaxed">
-          {{ keyWarning }}
-        </p>
-
-        <template v-if="guide">
-          <p v-if="guide.blocker" class="rounded-lg border border-warning/50 bg-warning/8 p-3 leading-relaxed">
-            {{ guide.blocker }}
-          </p>
-
-          <div v-else class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
-            <div class="flex min-w-0 flex-col gap-3">
-              <CodeBlock v-for="block in guide.blocks" :key="block.title" :title="block.title" :code="block.code" copyable />
-              <Button v-if="guide.link" variant="outline" size="sm" class="self-start" as-child>
-                <a :href="guide.link.href">
-                  <ExternalLink />
-                  {{ guide.link.label }}
-                </a>
-              </Button>
+        <Card class="gap-0 shrink-0 overflow-hidden py-0">
+          <CardHeader class="border-b py-3 [.border-b]:pb-3">
+            <CardTitle class="text-sm font-medium">Configuration</CardTitle>
+          </CardHeader>
+          <CardContent class="grid gap-3 py-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="grid gap-2">
+              <Label for="slug">Slug</Label>
+              <Input
+                id="slug"
+                :model-value="current.slug"
+                class="h-8 font-mono text-xs"
+                @change="patch({ slug: ($event.target as HTMLInputElement).value })"
+              />
             </div>
-            <div class="flex flex-col gap-3 rounded-lg border bg-card p-3.5">
-              <ol class="flex list-decimal flex-col gap-1.5 pl-4 text-xs leading-relaxed marker:text-muted-foreground">
-                <li v-for="step in guide.steps" :key="step">{{ step }}</li>
-              </ol>
-              <ul v-if="guide.notes.length" class="flex flex-col gap-1.5 border-t pt-3 text-xs leading-relaxed text-muted-foreground">
-                <li v-for="note in guide.notes" :key="note">{{ note }}</li>
-              </ul>
+            <div class="grid gap-2">
+              <Label>Namespace</Label>
+              <SearchSelect
+                :model-value="current.namespaceId"
+                :options="namespaceOptions"
+                trigger-class="h-8"
+                @update:model-value="patch({ namespaceId: $event })"
+              />
             </div>
-          </div>
-        </template>
-      </div>
-    </div>
+            <div class="grid gap-2">
+              <Label>Min protocol</Label>
+              <SearchSelect
+                :model-value="current.protocolMin"
+                :options="PROTOCOLS"
+                trigger-class="h-8"
+                @update:model-value="patch({ protocolMin: $event })"
+              />
+            </div>
+            <div class="grid gap-2">
+              <Label for="rate">Rate limit <span class="font-normal text-muted-foreground">— 0 = off</span></Label>
+              <div class="flex items-center gap-2">
+                <Input
+                  id="rate"
+                  type="number"
+                  min="0"
+                  :model-value="current.rateLimit.perMinute"
+                  class="h-8 font-mono text-xs"
+                  @change="patch({ rateLimit: { perMinute: Number(($event.target as HTMLInputElement).value) } })"
+                />
+                <span class="shrink-0 text-muted-foreground">/min</span>
+              </div>
+            </div>
+            <p class="text-xs leading-relaxed text-muted-foreground sm:col-span-2 xl:col-span-4">{{ seenNote }}</p>
+            <p
+              v-if="refusedNote"
+              class="rounded-lg border border-warning/50 bg-warning/8 p-3 text-xs leading-relaxed sm:col-span-2 xl:col-span-4"
+            >
+              {{ refusedNote }}
+            </p>
+          </CardContent>
+        </Card>
 
-    <div v-else class="flex flex-1 items-center justify-center p-6">
-      <EmptyState
-        dashed
-        title="No endpoints"
-        description="An endpoint is the URL you give to a client. It points at one namespace and decides how callers authenticate."
-      >
-        <Button size="sm" :disabled="namespaces.length === 0" @click="creating = true">
-          <Plus />
-          New endpoint
-        </Button>
-      </EmptyState>
+        <Card class="gap-0 shrink-0 overflow-hidden py-0">
+          <CardHeader class="border-b py-3 [.border-b]:pb-3">
+            <CardTitle class="text-sm font-medium">Authentication</CardTitle>
+          </CardHeader>
+          <CardContent class="flex flex-col gap-2 py-4">
+            <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <button
+                v-for="mode in AUTH_MODES"
+                :key="mode.value"
+                type="button"
+                :class="
+                  cn(
+                    'rounded-lg border p-3 text-left transition-colors hover:border-ring',
+                    current.authMode === mode.value ? 'border-primary bg-accent' : 'bg-card'
+                  )
+                "
+                @click="patch({ authMode: mode.value })"
+              >
+                <div class="font-medium">{{ mode.label }}</div>
+                <div class="mt-0.5 text-xs leading-snug text-muted-foreground">{{ mode.hint }}</div>
+              </button>
+            </div>
+            <p class="text-xs leading-relaxed text-muted-foreground">{{ wellKnownNote }}</p>
+          </CardContent>
+        </Card>
+
+        <Card class="gap-0 shrink-0 overflow-hidden py-0">
+          <CardHeader class="gap-1 border-b py-3 [.border-b]:pb-3">
+            <CardTitle class="text-sm font-medium">Connect a client</CardTitle>
+            <CardDescription class="text-xs">
+              The server is registered under the slug; rename it in the snippet if you like.
+            </CardDescription>
+          </CardHeader>
+          <CardContent class="flex flex-col gap-3 py-4">
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="item in CLIENTS"
+                :key="item.value"
+                type="button"
+                :title="item.hint"
+                :class="
+                  cn(
+                    'rounded-md border px-2.5 py-1 text-xs transition-colors hover:border-ring',
+                    client === item.value ? 'border-primary bg-accent font-medium' : 'bg-card text-muted-foreground'
+                  )
+                "
+                @click="client = item.value"
+              >
+                {{ item.label }}
+              </button>
+            </div>
+
+            <div class="flex flex-wrap items-end gap-3">
+              <div v-if="current.authMode === 'any'" class="grid gap-2">
+                <Label>Credentials in snippet</Label>
+                <Tabs v-model="kindPick">
+                  <TabsList class="h-8">
+                    <TabsTrigger v-for="item in KINDS" :key="item.value" :value="item.value" class="text-xs">
+                      {{ item.label }}
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              <div v-if="kind === 'key'" class="grid min-w-64 gap-2">
+                <Label>Key in snippet</Label>
+                <SearchSelect v-model="keyPick" :options="keyOptions" trigger-class="h-8" />
+              </div>
+              <Button v-if="kind === 'key'" variant="outline" size="sm" class="h-8" as-child>
+                <RouterLink :to="{ name: 'api-keys', query: { endpoint: current.id } }">
+                  <KeyRound />
+                  New key for this endpoint
+                </RouterLink>
+              </Button>
+              <p v-if="kindNote" class="text-xs text-muted-foreground">{{ kindNote }}</p>
+            </div>
+
+            <p v-if="keyWarning" class="rounded-lg border border-warning/50 bg-warning/8 p-3 text-xs leading-relaxed">
+              {{ keyWarning }}
+            </p>
+
+            <template v-if="guide">
+              <p v-if="guide.blocker" class="rounded-lg border border-warning/50 bg-warning/8 p-3 leading-relaxed">
+                {{ guide.blocker }}
+              </p>
+
+              <div v-else class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
+                <div class="flex min-w-0 flex-col gap-3">
+                  <CodeBlock
+                    v-for="block in guide.blocks"
+                    :key="block.title"
+                    :title="block.title"
+                    :code="block.code"
+                    copyable
+                  />
+                  <Button v-if="guide.link" variant="outline" size="sm" class="self-start" as-child>
+                    <a :href="guide.link.href">
+                      <ExternalLink />
+                      {{ guide.link.label }}
+                    </a>
+                  </Button>
+                </div>
+                <div class="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3.5">
+                  <ol class="flex list-decimal flex-col gap-1.5 pl-4 text-xs leading-relaxed marker:text-muted-foreground">
+                    <li v-for="step in guide.steps" :key="step">{{ step }}</li>
+                  </ol>
+                  <ul
+                    v-if="guide.notes.length"
+                    class="flex flex-col gap-1.5 border-t pt-3 text-xs leading-relaxed text-muted-foreground"
+                  >
+                    <li v-for="note in guide.notes" :key="note">{{ note }}</li>
+                  </ul>
+                </div>
+              </div>
+            </template>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div v-else class="flex flex-1 items-center justify-center p-6">
+        <EmptyState
+          dashed
+          title="No endpoints"
+          description="An endpoint is the URL you give to a client. It points at one namespace and decides how callers authenticate."
+        >
+          <Button size="sm" :disabled="namespaces.length === 0" @click="creating = true">
+            <Plus />
+            New endpoint
+          </Button>
+        </EmptyState>
+      </div>
     </div>
 
     <Dialog v-model:open="creating">
@@ -535,5 +596,5 @@ onMounted(async () => {
         </form>
       </DialogContent>
     </Dialog>
-  </div>
+  </PageLayout>
 </template>

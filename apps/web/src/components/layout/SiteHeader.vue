@@ -42,9 +42,9 @@ defineProps<{ title?: string; breadcrumbs?: Crumb[] }>();
         </BreadcrumbList>
       </Breadcrumb>
 
-      <slot v-else name="title">
-        <h1 class="truncate text-base font-medium">{{ title }}</h1>
-      </slot>
+      <h1 v-else-if="title" class="truncate text-base font-medium">{{ title }}</h1>
+
+      <slot name="title" />
 
       <div class="ml-auto flex shrink-0 items-center gap-2">
         <slot name="actions" />

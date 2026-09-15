@@ -4,6 +4,7 @@ import { Pause, Play, Trash2 } from "@lucide/vue";
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { Button } from "@/components/ui/button";
 import { clockTime } from "@/lib/format";
+import { api } from "@/lib/api";
 
 const props = defineProps<{ serverId: string }>();
 
@@ -20,26 +21,31 @@ const STREAM_CLASS: Record<LogLineDto["stream"], string> = {
   system: "text-success"
 };
 
+function atBottom(): boolean {
+  const element = viewport.value;
+  if (!element) return true;
+  return element.scrollHeight - element.scrollTop - element.clientHeight < 40;
+}
+
 function connect() {
   source?.close();
-  source = new EventSource(`/api/v1/servers/${props.serverId}/logs?stream=1&tail=200`);
+  lines.value = [];
+  source = new EventSource(api.servers.logStreamUrl(props.serverId));
   source.onopen = () => (connected.value = true);
   source.onerror = () => (connected.value = false);
   source.onmessage = (event) => {
     if (paused.value) return;
+    const stick = atBottom();
     lines.value = [...lines.value, JSON.parse(event.data) as LogLineDto].slice(-500);
+    if (stick) void scrollToEnd();
   };
 }
 
-watch(
-  () => lines.value.length,
-  async () => {
-    if (paused.value) return;
-    await nextTick();
-    const element = viewport.value;
-    if (element) element.scrollTop = element.scrollHeight;
-  }
-);
+async function scrollToEnd() {
+  await nextTick();
+  const element = viewport.value;
+  if (element) element.scrollTop = element.scrollHeight;
+}
 
 watch(() => props.serverId, connect);
 

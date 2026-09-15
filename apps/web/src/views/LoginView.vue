@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
+import { safeInternalPath } from "@/lib/url";
 import { useSession } from "@/stores/session";
 
 const route = useRoute();
@@ -43,8 +44,7 @@ async function submit() {
   try {
     if (isSetup.value) await setup(password.value);
     else await login(password.value);
-    const next = typeof route.query.next === "string" ? route.query.next : "/servers";
-    await router.replace(next);
+    await router.replace(safeInternalPath(route.query.next, "/servers"));
   } catch (caught) {
     error.value = caught instanceof ApiError ? caught.message : "Something went wrong.";
   } finally {

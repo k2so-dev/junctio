@@ -1,11 +1,4 @@
-import type { AuditActionMap, SanctionAction, SanctionSeverity } from "@junctio/schema";
-
-export const DEFAULT_ACTIONS: AuditActionMap = {
-  critical: "quarantine",
-  high: "report",
-  moderate: "report",
-  low: "ignore"
-};
+import type { SanctionAction, SanctionSeverity } from "@junctio/schema";
 
 export const SEVERITIES: SanctionSeverity[] = ["critical", "high", "moderate", "low"];
 

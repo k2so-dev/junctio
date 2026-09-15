@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, api } from "@/lib/api";
 import { needsAttention, serverMeta } from "@/lib/status";
+import { useServerActions } from "@/composables/useServerActions";
 
 function auditWorthShowing(server: ServerDto): boolean {
   if (server.quarantinedAt !== null) return true;
@@ -90,14 +91,7 @@ async function act(server: ServerDto, action: "start" | "stop" | "restart" | "re
   }
 }
 
-async function reauth(server: ServerDto) {
-  try {
-    const { authorizationUrl } = await api.servers.oauthStart(server.id);
-    window.location.href = authorizationUrl;
-  } catch (error) {
-    if (error instanceof ApiError) toast.error(error.message);
-  }
-}
+const { reauth } = useServerActions(load);
 
 onMounted(() => {
   void load();

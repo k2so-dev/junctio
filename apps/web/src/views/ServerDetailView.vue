@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { NamespaceDto, ServerDto } from "@junctio/schema";
 import { Loader2, MoreHorizontal, Pencil, Trash2 } from "@lucide/vue";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import CodeBlock from "@/components/CodeBlock.vue";
@@ -34,6 +34,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, api } from "@/lib/api";
+import { describeError } from "@/composables/useResource";
+import { usePolling } from "@/composables/usePolling";
 import { relativeTime } from "@/lib/format";
 import { needsAttention, statusMeta } from "@/lib/status";
 import { useSession } from "@/stores/session";
@@ -69,7 +71,6 @@ async function liftQuarantine() {
   }
 }
 
-let timer: ReturnType<typeof setInterval> | null = null;
 
 async function load() {
   try {
@@ -80,7 +81,11 @@ async function load() {
 }
 
 async function loadNamespaces() {
-  namespaces.value = await api.namespaces.list();
+  try {
+    namespaces.value = await api.namespaces.list();
+  } catch (error) {
+    toast.error(describeError(error));
+  }
 }
 
 const memberships = computed(() =>
@@ -154,6 +159,8 @@ async function test() {
     } else {
       toast.error(result.error ?? "Connection failed");
     }
+  } catch (error) {
+    toast.error(describeError(error));
   } finally {
     busy.value = null;
     await load();
@@ -187,14 +194,11 @@ watch(id, () => {
 });
 
 onMounted(() => {
-  void load();
   void loadNamespaces();
-  void refreshSettings();
-  timer = setInterval(load, 5000);
+  void refreshSettings().catch(() => undefined);
 });
-onUnmounted(() => {
-  if (timer !== null) clearInterval(timer);
-});
+
+usePolling(load, 5000);
 </script>
 
 <template>
@@ -204,10 +208,7 @@ onUnmounted(() => {
       padded
     >
       <template #title>
-        <div class="flex min-w-0 items-center gap-2.5">
-          <h1 class="truncate text-base font-medium">{{ server.name }}</h1>
-          <StatusDot :status="server.status" class="shrink-0 rounded-full border px-2 py-0.5 text-xs" />
-        </div>
+        <StatusDot :status="server.status" class="ml-2 shrink-0 rounded-full border px-2 py-0.5 text-xs" />
       </template>
 
       <template #actions>
@@ -327,19 +328,11 @@ onUnmounted(() => {
       <TabsContent value="overview" class="mt-0">
         <div class="grid items-start gap-4 lg:grid-cols-3">
           <div class="flex flex-col gap-4 lg:col-span-2">
-            <Card class="gap-0 overflow-hidden py-0">
-              <CardHeader class="border-b py-3 [.border-b]:pb-3">
-                <CardTitle class="text-sm font-medium">
-                  {{ server.transport === "stdio" ? "Resulting command" : "Endpoint" }}
-                </CardTitle>
-              </CardHeader>
-              <CardContent class="py-4">
-                <CodeBlock
-                  :code="server.transport === 'stdio' ? server.commandPreview : (server.url ?? '')"
-                  copyable
-                />
-              </CardContent>
-            </Card>
+            <CodeBlock
+              :title="server.transport === 'stdio' ? 'Resulting command' : 'Endpoint'"
+              :code="server.transport === 'stdio' ? server.commandPreview : (server.url ?? '')"
+              copyable
+            />
 
             <Card class="gap-0 overflow-hidden py-0">
               <CardHeader class="border-b py-3 [.border-b]:pb-3">

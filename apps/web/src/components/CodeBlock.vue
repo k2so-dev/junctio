@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import { Check, Copy } from "@lucide/vue";
-import { ref } from "vue";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useCopy } from "@/composables/useCopy";
 
 const props = defineProps<{ title?: string; code: string; copyable?: boolean; class?: string }>();
 
-const copied = ref(false);
+const { copy: write, copied } = useCopy();
 
-async function copy() {
-  await navigator.clipboard.writeText(props.code);
-  copied.value = true;
-  setTimeout(() => (copied.value = false), 1600);
+function copy() {
+  void write(props.code);
 }
 </script>
 

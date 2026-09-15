@@ -93,7 +93,7 @@ function counts(row: AuditServerSummaryDto): string {
 }
 
 onMounted(async () => {
-  await refreshSettings();
+  await refreshSettings().catch(() => undefined);
   await load();
   timer = setInterval(() => {
     tick += 1;

@@ -31,7 +31,6 @@ async function load() {
 }
 
 onMounted(load);
-defineExpose({ load });
 </script>
 
 <template>

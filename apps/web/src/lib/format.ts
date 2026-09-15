@@ -59,3 +59,9 @@ export function uptime(seconds: number): string {
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
 }
+
+export function durationTone(ms: number): string {
+  if (ms >= 5000) return "text-destructive";
+  if (ms >= 2000) return "text-warning";
+  return "text-muted-foreground";
+}

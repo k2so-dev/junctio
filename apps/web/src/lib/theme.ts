@@ -1,6 +1,6 @@
 import { useColorMode } from "@vueuse/core";
 
-export const THEME_STORAGE_KEY = "junctio-theme";
+const THEME_STORAGE_KEY = "junctio-theme";
 
 export type ThemeMode = "light" | "dark" | "auto";
 

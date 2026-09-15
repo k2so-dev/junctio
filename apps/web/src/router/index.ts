@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useSession } from "@/stores/session";
+import { setUnauthorizedHandler } from "@/lib/api";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -35,6 +36,15 @@ const router = createRouter({
     { path: "/consent", name: "consent", component: () => import("@/views/ConsentView.vue") },
     { path: "/:pathMatch(.*)*", redirect: "/" }
   ]
+});
+
+setUnauthorizedHandler(() => {
+  const { session, forgetSession } = useSession();
+  if (!session.value?.authenticated) return;
+  forgetSession();
+  const current = router.currentRoute.value;
+  if (current.meta.public) return;
+  void router.replace({ name: "login", query: { next: current.fullPath } });
 });
 
 router.beforeEach(async (to) => {

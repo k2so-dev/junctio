@@ -5,10 +5,12 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import EmptyState from "@/components/EmptyState.vue";
+import PageLayout from "@/components/layout/PageLayout.vue";
 import SearchSelect from "@/components/SearchSelect.vue";
 import StatusDot from "@/components/StatusDot.vue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, api } from "@/lib/api";
+import { describeError } from "@/composables/useResource";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/stores/session";
 
@@ -71,12 +74,28 @@ const filteredTools = computed(() => {
 
 const enabledCount = computed(() => tools.value.filter((tool) => tool.enabled).length);
 
+const namespaceOptions = computed(() =>
+  namespaces.value.map((namespace) => ({
+    value: namespace.id,
+    label: namespace.name,
+    hint: `${namespace.servers.length} servers`
+  }))
+);
+
+function pickNamespace(value: string) {
+  void router.push({ name: "namespaces", params: { id: value } });
+}
+
 function hint(tool: NamespaceToolDto, key: string): boolean {
   return Boolean((tool.annotations ?? tool.originalAnnotations)?.[key]);
 }
 
 async function loadAll() {
-  [namespaces.value, servers.value] = await Promise.all([api.namespaces.list(), api.servers.list()]);
+  try {
+    [namespaces.value, servers.value] = await Promise.all([api.namespaces.list(), api.servers.list()]);
+  } catch (error) {
+    toast.error(describeError(error));
+  }
 }
 
 async function loadTools() {
@@ -202,15 +221,37 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1">
-    <aside class="flex w-60 shrink-0 flex-col gap-3 overflow-auto border-r p-4">
-      <div class="flex items-center justify-between">
-        <h1 class="text-lg font-semibold tracking-tight">Namespaces</h1>
-        <Button variant="outline" size="icon" class="size-7" title="New namespace" @click="creating = true">
-          <Plus class="size-3.5" />
-        </Button>
+  <PageLayout
+    :breadcrumbs="[
+      { label: 'Namespaces', to: { name: 'namespaces' } },
+      ...(current ? [{ label: current.name }] : [])
+    ]"
+    :padded="false"
+  >
+    <template #actions>
+      <Button size="sm" @click="creating = true">
+        <Plus />
+        New namespace
+      </Button>
+    </template>
+
+    <template v-if="namespaces.length > 0" #toolbar>
+      <div class="w-full md:hidden">
+        <SearchSelect
+          :model-value="selectedId ?? ''"
+          :options="namespaceOptions"
+          placeholder="Pick a namespace…"
+          trigger-class="h-8 w-full"
+          @update:model-value="pickNamespace"
+        />
       </div>
-      <nav class="flex flex-col gap-0.5">
+      <span class="hidden text-xs text-muted-foreground md:inline">
+        A namespace groups upstream servers and decides which tools an endpoint exposes.
+      </span>
+    </template>
+
+    <div class="flex min-h-0 flex-1">
+      <aside class="hidden w-60 shrink-0 flex-col gap-0.5 overflow-auto border-r p-2 md:flex">
         <RouterLink
           v-for="namespace in namespaces"
           :key="namespace.id"
@@ -227,192 +268,199 @@ onMounted(async () => {
             {{ namespace.servers.length }} servers · {{ namespace.endpointCount }} endpoints
           </span>
         </RouterLink>
-      </nav>
-    </aside>
+      </aside>
 
-    <div v-if="current" class="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-6">
-      <div class="flex items-start justify-between gap-4">
-        <div class="min-w-0 flex-1">
-          <h2 class="flex min-w-0 items-center gap-2.5 text-lg font-semibold tracking-tight">
-            <span class="truncate">{{ current.name }}</span>
-            <span class="shrink-0 font-mono text-[11px] font-normal text-muted-foreground">
-              {{ enabledCount }} tools exposed
-            </span>
-          </h2>
-          <Input
-            :model-value="current.description ?? ''"
-            placeholder="Description…"
-            class="mt-1.5 -ml-2.5 h-8 max-w-lg border-transparent bg-transparent text-muted-foreground shadow-none dark:bg-transparent hover:border-input dark:hover:bg-input/30"
-            @change="saveDescription(($event.target as HTMLInputElement).value)"
-          />
+      <div v-if="current" class="flex min-w-0 flex-1 flex-col gap-4 overflow-auto p-4 md:p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div class="min-w-0 flex-1">
+            <h2 class="flex min-w-0 items-center gap-2.5 text-lg font-semibold tracking-tight">
+              <span class="truncate">{{ current.name }}</span>
+              <span class="shrink-0 font-mono text-[11px] font-normal text-muted-foreground">
+                {{ enabledCount }} tools exposed
+              </span>
+            </h2>
+            <Input
+              :model-value="current.description ?? ''"
+              placeholder="Description…"
+              class="mt-1.5 -ml-2.5 h-8 max-w-lg border-transparent bg-transparent text-muted-foreground shadow-none dark:bg-transparent hover:border-input dark:hover:bg-input/30"
+              @change="saveDescription(($event.target as HTMLInputElement).value)"
+            />
+          </div>
+          <div class="flex gap-2">
+            <Button variant="outline" size="sm" as-child>
+              <RouterLink :to="{ name: 'endpoints' }">Endpoints using this</RouterLink>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              class="text-muted-foreground hover:text-destructive"
+              @click="removeNamespace"
+            >
+              <Trash2 />
+            </Button>
+          </div>
         </div>
-        <div class="flex gap-2">
-          <Button variant="outline" size="sm" as-child>
-            <RouterLink :to="{ name: 'endpoints' }">Endpoints using this</RouterLink>
-          </Button>
-          <Button variant="ghost" size="icon" class="text-muted-foreground hover:text-destructive" @click="removeNamespace">
-            <Trash2 />
-          </Button>
-        </div>
-      </div>
 
-      <div
-        v-if="conflicts.length > 0"
-        class="flex items-start gap-2.5 rounded-lg border border-destructive/50 bg-destructive/8 p-3.5"
-      >
-        <TriangleAlert class="mt-0.5 size-4 shrink-0 text-destructive" />
-        <div>
-          <span class="font-medium text-destructive">Name collision.</span>
-          <span class="ml-1">{{ conflicts.join("; ") }} — clients would see two tools with the same name.</span>
+        <div
+          v-if="conflicts.length > 0"
+          class="flex items-start gap-2.5 rounded-lg border border-destructive/50 bg-destructive/8 p-3.5"
+        >
+          <TriangleAlert class="mt-0.5 size-4 shrink-0 text-destructive" />
+          <div>
+            <span class="font-medium text-destructive">Name collision.</span>
+            <span class="ml-1">{{ conflicts.join("; ") }} — clients would see two tools with the same name.</span>
+          </div>
         </div>
-      </div>
 
-      <div class="overflow-x-auto rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead class="min-w-40">Server</TableHead>
-              <TableHead class="w-40">Prefix</TableHead>
-              <TableHead class="w-24">Status</TableHead>
-              <TableHead class="w-20">Enabled</TableHead>
-              <TableHead class="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="member in current.servers" :key="member.serverId" :class="!member.enabled && 'opacity-60'">
-              <TableCell class="max-w-[220px] truncate font-medium">{{ member.serverName }}</TableCell>
-              <TableCell>
-                <Input
-                  :model-value="member.prefix"
-                  class="h-7 font-mono text-xs"
-                  @change="updateMember(member.serverId, ($event.target as HTMLInputElement).value, member.enabled)"
-                />
-              </TableCell>
-              <TableCell>
-                <StatusDot
-                  v-if="serverById.get(member.serverId)"
-                  :status="serverById.get(member.serverId)!.status"
-                  :label="false"
-                />
-              </TableCell>
-              <TableCell>
-                <Switch
-                  :model-value="member.enabled"
-                  @update:model-value="updateMember(member.serverId, member.prefix, $event)"
-                />
-              </TableCell>
-              <TableCell>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="size-7 text-muted-foreground hover:text-destructive"
-                  title="Remove from namespace"
-                  @click="removeMember(member.serverId)"
+        <Card class="gap-0 shrink-0 overflow-hidden py-0">
+          <CardHeader class="border-b py-3 [.border-b]:pb-3">
+            <CardTitle class="text-sm font-medium">Servers</CardTitle>
+          </CardHeader>
+          <CardContent class="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead class="min-w-40">Server</TableHead>
+                  <TableHead class="w-40">Prefix</TableHead>
+                  <TableHead class="w-24">Status</TableHead>
+                  <TableHead class="w-20">Enabled</TableHead>
+                  <TableHead class="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow
+                  v-for="member in current.servers"
+                  :key="member.serverId"
+                  :class="!member.enabled && 'opacity-60'"
                 >
-                  <Trash2 class="size-3.5" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-        <div class="flex items-center gap-2 border-t p-2.5">
-          <SearchSelect
-            v-model="addPick"
-            :options="available"
-            placeholder="Add server…"
-            trigger-class="h-8 w-56"
-          />
-          <Button variant="outline" size="sm" class="h-8" :disabled="addPick === ''" @click="addServer">Add</Button>
-        </div>
+                  <TableCell class="max-w-[220px] truncate font-medium">{{ member.serverName }}</TableCell>
+                  <TableCell>
+                    <Input
+                      :model-value="member.prefix"
+                      class="h-7 font-mono text-xs"
+                      @change="updateMember(member.serverId, ($event.target as HTMLInputElement).value, member.enabled)"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <StatusDot
+                      v-if="serverById.get(member.serverId)"
+                      :status="serverById.get(member.serverId)!.status"
+                      :label="false"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      :model-value="member.enabled"
+                      @update:model-value="updateMember(member.serverId, member.prefix, $event)"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="size-7 text-muted-foreground hover:text-destructive"
+                      title="Remove from namespace"
+                      @click="removeMember(member.serverId)"
+                    >
+                      <Trash2 class="size-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+          <CardFooter class="gap-2 border-t py-2.5">
+            <SearchSelect v-model="addPick" :options="available" placeholder="Add server…" trigger-class="h-8 w-56" />
+            <Button variant="outline" size="sm" class="h-8" :disabled="addPick === ''" @click="addServer">Add</Button>
+          </CardFooter>
+        </Card>
+
+        <Card class="gap-0 shrink-0 overflow-hidden py-0">
+          <CardHeader class="gap-1 border-b py-3 [.border-b]:pb-3">
+            <CardTitle class="text-sm font-medium">Tools</CardTitle>
+            <CardAction>
+              <Input v-model="toolSearch" placeholder="Filter tools…" class="h-8 w-56" />
+            </CardAction>
+          </CardHeader>
+          <CardContent class="px-0">
+            <p v-if="!toolsLoading && tools.length === 0" class="px-4 py-8 text-center text-muted-foreground">
+              Add a server to this namespace, or start the servers you already added so the gateway can read their
+              catalogs.
+            </p>
+            <Table v-else>
+              <TableHeader>
+                <TableRow>
+                  <TableHead class="w-14" />
+                  <TableHead class="min-w-48">Exposed name</TableHead>
+                  <TableHead class="min-w-56">Description</TableHead>
+                  <TableHead class="w-24 text-right">Hints</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow v-for="tool in filteredTools" :key="`${tool.serverId}:${tool.toolName}`" :class="!tool.enabled && 'opacity-50'">
+                  <TableCell>
+                    <Switch :model-value="tool.enabled" @update:model-value="saveOverride(tool, { enabled: $event })" />
+                  </TableCell>
+                  <TableCell class="max-w-0">
+                    <div class="truncate font-mono text-xs">
+                      <span class="text-muted-foreground">
+                        {{ tool.exposedName.slice(0, tool.exposedName.lastIndexOf(separator) + separator.length) }}
+                      </span>
+                      {{ tool.toolName }}
+                    </div>
+                    <div class="truncate text-[11px] text-muted-foreground">{{ tool.serverName }}</div>
+                  </TableCell>
+                  <TableCell class="max-w-0">
+                    <div class="flex items-center gap-1.5">
+                      <Input
+                        :model-value="tool.description ?? tool.originalDescription ?? ''"
+                        class="h-7 border-transparent bg-transparent shadow-none dark:bg-transparent hover:border-input dark:hover:bg-input/30"
+                        @change="saveOverride(tool, { description: ($event.target as HTMLInputElement).value })"
+                      />
+                      <Button
+                        v-if="tool.description !== null"
+                        variant="outline"
+                        size="sm"
+                        class="h-6 shrink-0 px-1.5 text-[10px]"
+                        title="Revert to the upstream description"
+                        @click="revertOverride(tool)"
+                      >
+                        <RotateCcw class="size-2.5" />
+                        edited
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell class="text-right">
+                    <span class="flex flex-wrap justify-end gap-1">
+                      <Badge v-if="hint(tool, 'readOnlyHint')" variant="outline" class="text-[10px]">read-only</Badge>
+                      <Badge
+                        v-if="hint(tool, 'destructiveHint')"
+                        variant="outline"
+                        class="border-destructive/50 text-[10px] text-destructive"
+                      >
+                        destructive
+                      </Badge>
+                    </span>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
 
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <p class="text-muted-foreground">
-          Tools — toggle visibility and edit the description clients see. Upstream names stay untouched.
-        </p>
-        <Input v-model="toolSearch" placeholder="Filter tools…" class="h-8 w-56" />
+      <div v-else class="flex flex-1 items-center justify-center p-6">
+        <EmptyState
+          dashed
+          title="No namespaces"
+          description="A namespace groups upstream servers and decides which tools an endpoint exposes."
+        >
+          <Button size="sm" @click="creating = true">
+            <Plus />
+            New namespace
+          </Button>
+        </EmptyState>
       </div>
-
-      <EmptyState
-        v-if="!toolsLoading && tools.length === 0"
-        dashed
-        title="No tools yet"
-        description="Add a server to this namespace, or start the servers you already added so the gateway can read their catalogs."
-      />
-
-      <div v-else class="overflow-x-auto rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead class="w-14" />
-              <TableHead class="min-w-48">Exposed name</TableHead>
-              <TableHead class="min-w-56">Description</TableHead>
-              <TableHead class="w-24 text-right">Hints</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="tool in filteredTools" :key="tool.exposedName" :class="!tool.enabled && 'opacity-50'">
-              <TableCell>
-                <Switch :model-value="tool.enabled" @update:model-value="saveOverride(tool, { enabled: $event })" />
-              </TableCell>
-              <TableCell class="max-w-0">
-                <div class="truncate font-mono text-xs">
-                  <span class="text-muted-foreground">
-                    {{ tool.exposedName.slice(0, tool.exposedName.lastIndexOf(separator) + separator.length) }}
-                  </span>
-                  {{ tool.toolName }}
-                </div>
-                <div class="truncate text-[11px] text-muted-foreground">{{ tool.serverName }}</div>
-              </TableCell>
-              <TableCell class="max-w-0">
-                <div class="flex items-center gap-1.5">
-                  <Input
-                    :model-value="tool.description ?? tool.originalDescription ?? ''"
-                    class="h-7 border-transparent bg-transparent shadow-none dark:bg-transparent hover:border-input dark:hover:bg-input/30"
-                    @change="saveOverride(tool, { description: ($event.target as HTMLInputElement).value })"
-                  />
-                  <Button
-                    v-if="tool.description !== null"
-                    variant="outline"
-                    size="sm"
-                    class="h-6 shrink-0 px-1.5 text-[10px]"
-                    title="Revert to the upstream description"
-                    @click="revertOverride(tool)"
-                  >
-                    <RotateCcw class="size-2.5" />
-                    edited
-                  </Button>
-                </div>
-              </TableCell>
-              <TableCell class="text-right">
-                <span class="flex flex-wrap justify-end gap-1">
-                  <Badge v-if="hint(tool, 'readOnlyHint')" variant="outline" class="text-[10px]">read-only</Badge>
-                  <Badge
-                    v-if="hint(tool, 'destructiveHint')"
-                    variant="outline"
-                    class="border-destructive/50 text-[10px] text-destructive"
-                  >
-                    destructive
-                  </Badge>
-                </span>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-
-    <div v-else class="flex flex-1 items-center justify-center p-6">
-      <EmptyState
-        dashed
-        title="No namespaces"
-        description="A namespace groups upstream servers and decides which tools an endpoint exposes."
-      >
-        <Button size="sm" @click="creating = true">
-          <Plus />
-          New namespace
-        </Button>
-      </EmptyState>
     </div>
 
     <Dialog v-model:open="creating">
@@ -440,5 +488,5 @@ onMounted(async () => {
         </form>
       </DialogContent>
     </Dialog>
-  </div>
+  </PageLayout>
 </template>

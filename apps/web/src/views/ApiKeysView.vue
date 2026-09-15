@@ -13,8 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, api } from "@/lib/api";
+import { describeError } from "@/composables/useResource";
 import { relativeTime, shortDate } from "@/lib/format";
 import { useFreshKeys } from "@/stores/keys";
+import { useCopy } from "@/composables/useCopy";
 
 const route = useRoute();
 const { remember } = useFreshKeys();
@@ -24,7 +26,7 @@ const endpoints = ref<EndpointDto[]>([]);
 const creating = ref(false);
 const busy = ref(false);
 const revealed = ref<string | null>(null);
-const copied = ref(false);
+const { copy: write, copied } = useCopy();
 const draft = ref({ name: "", endpointId: "", expires: "never" });
 
 const EXPIRY = [
@@ -47,7 +49,11 @@ function expiryMeta(key: ApiKeyDto): { label: string; tone: string } {
 }
 
 async function load() {
-  [keys.value, endpoints.value] = await Promise.all([api.apiKeys.list(), api.endpoints.list()]);
+  try {
+    [keys.value, endpoints.value] = await Promise.all([api.apiKeys.list(), api.endpoints.list()]);
+  } catch (error) {
+    toast.error(describeError(error));
+  }
 }
 
 async function create() {
@@ -71,11 +77,9 @@ async function create() {
   }
 }
 
-async function copy() {
+function copy() {
   if (!revealed.value) return;
-  await navigator.clipboard.writeText(revealed.value);
-  copied.value = true;
-  setTimeout(() => (copied.value = false), 1600);
+  void write(revealed.value);
 }
 
 async function revoke(key: ApiKeyDto) {

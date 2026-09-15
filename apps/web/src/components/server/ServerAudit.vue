@@ -8,6 +8,7 @@ import EmptyState from "@/components/EmptyState.vue";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, api } from "@/lib/api";
+import { safeHref } from "@/lib/url";
 import { relativeTime } from "@/lib/format";
 import { severityTone, TONE_TEXT } from "@/lib/status";
 import { cn } from "@/lib/utils";
@@ -139,7 +140,7 @@ onMounted(load);
             {{ finding.severity }}
           </TableCell>
           <TableCell>
-            <a v-if="finding.url" :href="finding.url" target="_blank" rel="noreferrer" class="font-mono text-xs underline">
+            <a v-if="safeHref(finding.url)" :href="safeHref(finding.url)!" target="_blank" rel="noreferrer noopener" class="font-mono text-xs underline">
               {{ finding.id }}
             </a>
             <span v-else class="font-mono text-xs">{{ finding.id }}</span>

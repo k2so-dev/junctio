@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ApiKeyDto, EndpointDto, RequestLogDto, ServerDto } from "@junctio/schema";
 import { Plus } from "@lucide/vue";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import PageLayout from "@/components/layout/PageLayout.vue";
@@ -12,9 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, api } from "@/lib/api";
-import { clockTime, duration, relativeTime } from "@/lib/format";
-import { needsAttention, statusMeta } from "@/lib/status";
+import { clockTime, duration, durationTone, relativeTime } from "@/lib/format";
+import { needsAttention, statusMeta, type Tone } from "@/lib/status";
 import { useSession } from "@/stores/session";
+import { usePolling } from "@/composables/usePolling";
+import { useServerActions } from "@/composables/useServerActions";
 
 const router = useRouter();
 const { health } = useSession();
@@ -25,8 +27,6 @@ const keys = ref<ApiKeyDto[]>([]);
 const requests = ref<RequestLogDto[]>([]);
 const loading = ref(true);
 const pending = ref<string | null>(null);
-
-let timer: ReturnType<typeof setInterval> | null = null;
 
 async function load() {
   const [serverList, endpointList, keyList, logList] = await Promise.allSettled([
@@ -63,11 +63,13 @@ const neverExpiring = computed(() => keys.value.filter((key) => key.expiresAt ==
 
 const auditEnabled = computed(() => health.value?.audit.enabled ?? false);
 
-function durationTone(ms: number): string {
-  if (ms >= 5000) return "text-destructive";
-  if (ms >= 2000) return "text-warning";
-  return "text-muted-foreground";
-}
+const securityBadge = computed<{ text: string; tone: Tone }>(() => {
+  const audit = health.value?.audit;
+  if (!auditEnabled.value || !audit) return { text: "audit disabled", tone: "muted" };
+  if (audit.quarantined > 0) return { text: `${audit.quarantined} quarantined`, tone: "destructive" };
+  if (audit.vulnerable > 0) return { text: "needs review", tone: "warning" };
+  return { text: "clean", tone: "success" };
+});
 
 async function act(server: ServerDto, action: "start" | "reset") {
   pending.value = server.id;
@@ -82,23 +84,9 @@ async function act(server: ServerDto, action: "start" | "reset") {
   }
 }
 
-async function reauth(server: ServerDto) {
-  try {
-    const { authorizationUrl } = await api.servers.oauthStart(server.id);
-    window.location.href = authorizationUrl;
-  } catch (error) {
-    if (error instanceof ApiError) toast.error(error.message);
-  }
-}
+const { reauth } = useServerActions(load);
 
-onMounted(() => {
-  void load();
-  timer = setInterval(load, 10_000);
-});
-
-onUnmounted(() => {
-  if (timer !== null) clearInterval(timer);
-});
+usePolling(load, 10_000);
 </script>
 
 <template>
@@ -148,16 +136,8 @@ onUnmounted(() => {
         label="Security"
         :value="auditEnabled ? (health?.audit.vulnerable ?? 0) : 'Off'"
         :loading="!health"
-        :badge="
-          auditEnabled
-            ? health && health.audit.quarantined > 0
-              ? `${health.audit.quarantined} quarantined`
-              : 'clean'
-            : 'audit disabled'
-        "
-        :badge-tone="
-          auditEnabled ? (health && health.audit.quarantined > 0 ? 'destructive' : 'success') : 'muted'
-        "
+        :badge="securityBadge.text"
+        :badge-tone="securityBadge.tone"
         :footer="
           auditEnabled
             ? `Last run ${relativeTime(health?.audit.lastRunAt)}`

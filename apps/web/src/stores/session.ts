@@ -10,9 +10,24 @@ const ready = ref(false);
 let healthTimer: ReturnType<typeof setInterval> | null = null;
 
 async function refreshSession() {
-  session.value = await api.session.get();
-  if (session.value.authenticated) await Promise.all([refreshSettings(), refreshHealth()]);
+  try {
+    session.value = await api.session.get();
+  } catch {
+    session.value = { authenticated: false, needsSetup: false };
+    ready.value = true;
+    return;
+  }
+  if (session.value.authenticated) {
+    await Promise.all([refreshSettings().catch(() => undefined), refreshHealth()]);
+  }
   ready.value = true;
+}
+
+function forgetSession() {
+  session.value = session.value ? { ...session.value, authenticated: false } : null;
+  settings.value = null;
+  health.value = null;
+  stopHealthPolling();
 }
 
 async function refreshSettings() {
@@ -69,6 +84,7 @@ export function useSession() {
     stopHealthPolling,
     login,
     setup,
-    logout
+    logout,
+    forgetSession
   };
 }

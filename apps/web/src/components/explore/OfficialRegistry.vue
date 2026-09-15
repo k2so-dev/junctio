@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, api } from "@/lib/api";
+import { safeHref } from "@/lib/url";
 import { relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -203,7 +204,7 @@ defineExpose({ load, loading });
                 <a
                   v-for="link in server.links"
                   :key="link.url"
-                  :href="link.url"
+                  :href="safeHref(link.url) ?? undefined"
                   :title="`${link.label} — opens in a new tab`"
                   target="_blank"
                   rel="noreferrer noopener"
@@ -247,7 +248,7 @@ defineExpose({ load, loading });
             <a
               v-for="link in detail.server.links"
               :key="link.url"
-              :href="link.url"
+              :href="safeHref(link.url) ?? undefined"
               target="_blank"
               rel="noreferrer noopener"
               class="flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-ring hover:text-foreground"

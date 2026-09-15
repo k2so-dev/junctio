@@ -282,6 +282,7 @@ async function submit() {
 }
 
 onMounted(load);
+watch(id, () => void load());
 </script>
 
 <template>

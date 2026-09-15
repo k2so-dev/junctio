@@ -36,6 +36,15 @@ const route = useRoute();
           <SidebarMenuBadge v-if="badges?.[item.name]" :class="cn('font-mono', badges[item.name]!.class)">
             {{ badges[item.name]!.text }}
           </SidebarMenuBadge>
+          <span
+            v-if="badges?.[item.name]?.dot"
+            :class="
+              cn(
+                'pointer-events-none absolute top-1.5 right-1.5 hidden size-1.5 rounded-full group-data-[collapsible=icon]:block',
+                badges[item.name]!.dot
+              )
+            "
+          />
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroupContent>

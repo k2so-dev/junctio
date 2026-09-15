@@ -4,10 +4,11 @@ import { ArrowUpRight } from "@lucide/vue";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { computed } from "vue";
 import { type Tone, TONE_BORDER, TONE_TEXT } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     label: string;
     value?: string | number | null;
@@ -21,6 +22,13 @@ withDefaults(
   }>(),
   { badgeTone: "muted" }
 );
+
+const valueClass = computed(() => {
+  const text = String(props.value ?? "");
+  if (text.length > 14) return "text-lg @[250px]/card:text-xl";
+  if (text.length > 7) return "text-xl @[250px]/card:text-2xl";
+  return "text-2xl @[250px]/card:text-3xl";
+});
 </script>
 
 <template>
@@ -30,7 +38,7 @@ withDefaults(
   >
     <CardHeader>
       <CardDescription>{{ label }}</CardDescription>
-      <CardTitle class="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+      <CardTitle :class="cn('font-semibold tabular-nums', valueClass)">
         <Skeleton v-if="loading" class="h-7 w-20" />
         <template v-else>{{ value ?? "—" }}</template>
       </CardTitle>
@@ -46,9 +54,9 @@ withDefaults(
         </slot>
       </CardAction>
     </CardHeader>
-    <CardFooter class="flex-col items-start gap-1 text-sm">
+    <CardFooter class="flex-col items-start gap-1 text-xs">
       <slot name="footer">
-        <div v-if="footer" class="line-clamp-1 text-muted-foreground">{{ footer }}</div>
+        <div v-if="footer" class="line-clamp-2 text-muted-foreground">{{ footer }}</div>
       </slot>
       <RouterLink
         v-if="to"

@@ -40,7 +40,11 @@ const badges = computed<Record<string, NavBadge | null>>(() => {
   const quarantined = current.audit.quarantined > 0 || current.servers.quarantined > 0;
   return {
     servers,
-    security: { text: String(count), class: quarantined ? BADGE_DESTRUCTIVE : BADGE_WARNING }
+    security: {
+      text: String(count),
+      class: quarantined ? BADGE_DESTRUCTIVE : BADGE_WARNING,
+      dot: quarantined ? "bg-destructive" : "bg-warning"
+    }
   };
 });
 

@@ -1,6 +1,6 @@
 import type { AuditStatus, AuditSummaryDto, SanctionAction, ServerDto, ServerStatus, Severity } from "@junctio/schema";
 
-export type Tone = "success" | "warning" | "destructive" | "muted" | "foreground";
+export type Tone = "success" | "warning" | "destructive" | "muted";
 
 interface StatusMeta {
   label: string;
@@ -27,24 +27,21 @@ export const TONE_TEXT: Record<Tone, string> = {
   success: "text-success",
   warning: "text-warning",
   destructive: "text-destructive",
-  muted: "text-muted-foreground",
-  foreground: "text-foreground"
+  muted: "text-muted-foreground"
 };
 
 export const TONE_BG: Record<Tone, string> = {
   success: "bg-success",
   warning: "bg-warning",
   destructive: "bg-destructive",
-  muted: "bg-muted-foreground",
-  foreground: "bg-foreground"
+  muted: "bg-muted-foreground"
 };
 
 export const TONE_BORDER: Record<Tone, string> = {
   success: "border-success/50",
   warning: "border-warning/50",
   destructive: "border-destructive/50",
-  muted: "border-border",
-  foreground: "border-foreground/50"
+  muted: "border-border"
 };
 
 export function serverMeta(server: ServerDto): string {

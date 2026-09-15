@@ -7,7 +7,7 @@ withDefaults(defineProps<{ title?: string; breadcrumbs?: Crumb[]; padded?: boole
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
     <SiteHeader :title="title" :breadcrumbs="breadcrumbs">
-      <template v-if="$slots.title" #title>
+      <template #title>
         <slot name="title" />
       </template>
       <template #actions>

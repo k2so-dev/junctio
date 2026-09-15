@@ -61,4 +61,5 @@ export function isItemActive(item: NavItem, routeName: string): boolean {
 export interface NavBadge {
   text: string;
   class?: string;
+  dot?: string;
 }

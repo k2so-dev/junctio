@@ -130,7 +130,13 @@ function lastLines(text: string, count = 3): string {
     .join("; ");
 }
 
-const SELF_MANIFESTS = ["package.json", "bun.lock", "packages/schema/package.json", "web/package.json"];
+const SELF_MANIFESTS = [
+  "package.json",
+  "bun.lock",
+  "packages/schema/package.json",
+  "apps/gateway/package.json",
+  "apps/web/package.json"
+];
 
 export class BunAuditEngine implements AuditEngine {
   readonly kinds: readonly TargetKind[] = ["npm", "node-project", "self"];

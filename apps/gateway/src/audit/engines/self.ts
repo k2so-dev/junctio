@@ -1,8 +1,22 @@
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { AuditTarget, Unsupported } from "../types.ts";
 
-export const APP_DIR = resolve(import.meta.dir, "../../..");
+/**
+ * The workspace root, which is where the lockfile covering every gateway dependency lives. Walking
+ * up beats a fixed climb: that one pointed at apps/gateway once the sources moved under apps/.
+ */
+function workspaceRoot(from: string): string {
+  let dir = resolve(from);
+  for (;;) {
+    if (existsSync(join(dir, "bun.lock"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return resolve(from, "../../..");
+    dir = parent;
+  }
+}
+
+export const APP_DIR = workspaceRoot(import.meta.dir);
 
 export function selfTarget(appDir: string = APP_DIR): AuditTarget | Unsupported {
   if (!existsSync(join(appDir, "package.json"))) {

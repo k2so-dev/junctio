@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { APP_DIR, selfTarget } from "../../src/audit/engines/self.ts";
 import {
   affectedVersions,
   manifestFor,
@@ -191,5 +194,19 @@ describe("affectedVersions", () => {
 
   test("returns nothing when nothing is installed", () => {
     expect(affectedVersions([], "<1")).toBeNull();
+  });
+});
+
+describe("self target", () => {
+  test("resolves the workspace root rather than the gateway package", () => {
+    expect(existsSync(join(APP_DIR, "bun.lock"))).toBe(true);
+    expect(selfTarget()).toEqual({ kind: "self", appDir: APP_DIR });
+  });
+
+  test("reports a directory without the lockfile as unsupported", () => {
+    expect(selfTarget(join(APP_DIR, "apps", "gateway"))).toEqual({
+      kind: "unsupported",
+      reason: "bun.lock is not shipped in this image, the gateway cannot audit itself"
+    });
   });
 });

@@ -12,7 +12,7 @@ Environment:
   JUNCTIO_BASE_URL      Public base url. Required for any oauth flow.
   JUNCTIO_ADMIN_TOKEN   Optional bearer token for headless admin access.
   JUNCTIO_OAUTH_ISSUER  Optional issuer url for resource server mode.
-  JUNCTIO_DATA_DIR      Directory for junctio.db. Defaults to /data.
+  JUNCTIO_DATA_DIR      Directory for junctio.db. Defaults to ./data.
   JUNCTIO_DOCKER_SOCKET Socket of the docker daemon that runs container servers.
   JUNCTIO_TRUST_PROXY   Set to true only behind a proxy that rewrites x-forwarded-for.
   PORT, HOST, LOG_LEVEL  Listener and logging configuration.

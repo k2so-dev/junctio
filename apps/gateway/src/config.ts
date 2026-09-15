@@ -21,7 +21,7 @@ const EnvSchema = z.object({
   JUNCTIO_ADMIN_TOKEN: z.string().min(16).optional(),
   JUNCTIO_OAUTH_ISSUER: z.string().url().optional(),
   JUNCTIO_OAUTH_AUDIENCE: z.string().optional(),
-  JUNCTIO_DATA_DIR: z.string().default("/data"),
+  JUNCTIO_DATA_DIR: z.string().default("./data"),
   JUNCTIO_DOCKER_SOCKET: z.string().default("/var/run/docker.sock"),
   JUNCTIO_TRUST_PROXY: z.enum(["true", "false"]).default("false"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),

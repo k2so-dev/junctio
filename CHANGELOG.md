@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `JUNCTIO_DATA_DIR` defaults to `./data` instead of `/data`, so a source-tree run no longer tries to write to the filesystem root. The image still sets it to `/data`, which is where the named volume is mounted, so a container deployment is unaffected.
+
 ### Security
 
 - `POST /v1/session/setup` now requires `JUNCTIO_ADMIN_TOKEN` when one is configured. A headless deployment that relied on the token no longer leaves the first-run password endpoint open to anyone who can reach it.

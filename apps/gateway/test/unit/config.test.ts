@@ -13,7 +13,7 @@ describe("config", () => {
   test("applies defaults", () => {
     const config = loadConfig({ JUNCTIO_SECRET: "a".repeat(32) });
     expect(config.port).toBe(3000);
-    expect(config.dataDir).toBe("/data");
+    expect(config.dataDir).toBe("./data");
     expect(config.baseUrl).toBeNull();
   });
 

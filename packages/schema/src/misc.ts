@@ -8,7 +8,15 @@ export const HealthDto = z.object({
     total: z.number(),
     running: z.number(),
     failed: z.number(),
-    needsReauth: z.number()
+    needsReauth: z.number(),
+    quarantined: z.number()
+  }),
+  audit: z.object({
+    enabled: z.boolean(),
+    lastRunAt: z.number().nullable(),
+    vulnerable: z.number(),
+    quarantined: z.number(),
+    errors: z.number()
   })
 });
 export type HealthDto = z.infer<typeof HealthDto>;

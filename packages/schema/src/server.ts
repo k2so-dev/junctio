@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseDockerRun } from "./dockerargs.ts";
+import { AuditSummaryDto } from "./audit.ts";
 
 export const runtimeKinds = ["node", "npx", "bunx", "uvx", "uv", "docker", "custom"] as const;
 export const RuntimeKind = z.enum(runtimeKinds);
@@ -20,7 +21,8 @@ export const serverStatuses = [
   "idle",
   "failed",
   "needs_reauth",
-  "no_refresh"
+  "no_refresh",
+  "quarantined"
 ] as const;
 export const ServerStatus = z.enum(serverStatuses);
 export type ServerStatus = z.infer<typeof ServerStatus>;
@@ -119,7 +121,11 @@ export const ServerDto = z.object({
   toolCount: z.number().nullable(),
   protocolVersion: z.string().nullable(),
   commandPreview: z.string(),
-  oauth: ServerOAuthInfo.nullable()
+  oauth: ServerOAuthInfo.nullable(),
+  audit: AuditSummaryDto.nullable(),
+  quarantinedAt: z.number().nullable(),
+  quarantineReason: z.string().nullable(),
+  disabledReason: z.string().nullable()
 });
 export type ServerDto = z.infer<typeof ServerDto>;
 

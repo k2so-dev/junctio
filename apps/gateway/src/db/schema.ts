@@ -1,5 +1,18 @@
 import { sql } from "drizzle-orm";
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import type { AuditEcosystem, AuditStatus, AuditTrigger, Severity } from "@junctio/schema";
+
+export type StoredFinding = {
+  id: string;
+  aliases: string[];
+  package: string;
+  version: string | null;
+  vulnerableRange: string | null;
+  title: string;
+  severity: Severity;
+  cvss: number | null;
+  url: string | null;
+};
 
 const now = sql`(unixepoch() * 1000)`;
 
@@ -21,9 +34,40 @@ export const servers = sqliteTable("servers", {
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   warm: integer("warm", { mode: "boolean" }).notNull().default(false),
   idleTimeoutSec: integer("idle_timeout_sec").notNull().default(900),
+  quarantinedAt: integer("quarantined_at"),
+  quarantineReason: text("quarantine_reason"),
+  disabledReason: text("disabled_reason"),
   createdAt: integer("created_at").notNull().default(now),
   updatedAt: integer("updated_at").notNull().default(now)
 });
+
+export const auditResults = sqliteTable("audit_results", {
+  serverId: text("server_id").primaryKey(),
+  status: text("status").$type<AuditStatus>().notNull(),
+  ecosystem: text("ecosystem").$type<AuditEcosystem>(),
+  target: text("target", { mode: "json" }).$type<string[]>().notNull().default([]),
+  resolved: text("resolved", { mode: "json" }).$type<string[]>().notNull().default([]),
+  findings: text("findings", { mode: "json" }).$type<StoredFinding[]>().notNull().default([]),
+  engine: text("engine"),
+  error: text("error"),
+  reason: text("reason"),
+  trigger: text("trigger").$type<AuditTrigger>().notNull().default("manual"),
+  durationMs: integer("duration_ms"),
+  checkedAt: integer("checked_at").notNull().default(now)
+});
+
+export const auditIgnores = sqliteTable(
+  "audit_ignores",
+  {
+    serverId: text("server_id")
+      .notNull()
+      .references(() => servers.id, { onDelete: "cascade" }),
+    advisoryId: text("advisory_id").notNull(),
+    reason: text("reason"),
+    createdAt: integer("created_at").notNull().default(now)
+  },
+  (t) => [primaryKey({ columns: [t.serverId, t.advisoryId] })]
+);
 
 export const namespaces = sqliteTable("namespaces", {
   id: text("id").primaryKey(),
@@ -247,3 +291,5 @@ export type OauthAuthRequestRow = typeof oauthAuthRequests.$inferSelect;
 export type OauthTokenRow = typeof oauthTokens.$inferSelect;
 export type RequestLogRow = typeof requestLog.$inferSelect;
 export type RegistryCacheRow = typeof registryCache.$inferSelect;
+export type AuditResultRow = typeof auditResults.$inferSelect;
+export type AuditIgnoreRow = typeof auditIgnores.$inferSelect;

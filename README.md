@@ -27,12 +27,10 @@ Early, but the whole path works: gateway, aggregation, API key auth, a built-in 
 
 ## Screenshots
 
-<!-- Drag an image into the GitHub editor and paste the URL it returns into the empty cell above its caption. -->
-
 <table>
   <tr>
-    <td width="50%"><!-- Explore --></td>
-    <td width="50%"><!-- Explore - other --></td>
+    <td width="50%"><img alt="Explore" src="https://github.com/user-attachments/assets/c3a74bf7-c196-4c86-94a4-771422f260c9" /></td>
+    <td width="50%"><img alt="Explore - other" src="https://github.com/user-attachments/assets/92a09a6f-5f9b-4734-a314-d99fa8ad7794" /></td>
   </tr>
   <tr>
     <td align="center">Explore</td>
@@ -46,16 +44,16 @@ Early, but the whole path works: gateway, aggregation, API key auth, a built-in 
 
 <table>
   <tr>
-    <td width="50%"><!-- Servers --></td>
-    <td width="50%"><!-- Endpoints --></td>
+    <td width="50%"><img alt="Servers" src="https://github.com/user-attachments/assets/a8c268d1-b10d-46fd-8126-d20374d94975" /></td>
+    <td width="50%"><img alt="Endpoints" src="https://github.com/user-attachments/assets/ee265770-a633-4cd6-a0dc-2b01ca09656a" /></td>
   </tr>
   <tr>
     <td align="center">Servers</td>
     <td align="center">Endpoints</td>
   </tr>
   <tr>
-    <td width="50%"><!-- Security --></td>
-    <td width="50%"><!-- Request log --></td>
+    <td width="50%"><img alt="Security" src="https://github.com/user-attachments/assets/309c8368-2b5c-4a75-9c67-d4d111564b8f" /></td>
+    <td width="50%"><img alt="Request log" src="https://github.com/user-attachments/assets/4f1c5289-34b5-46f7-b6db-3d5f9590096f" /></td>
   </tr>
   <tr>
     <td align="center">Security</td>

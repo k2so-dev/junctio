@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-16
+
 ### Changed
 
 - The image no longer ships `README.md` and `SECURITY.md` under `/app`; `LICENSE` stays. Documentation-only commits on `main` no longer rebuild the `edge` tag or run the test and image checks.
@@ -64,5 +66,6 @@ First public release.
 
 - The plaintext `servers.env` column and its backfill. Server environments have been stored encrypted for several releases.
 
-[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/k2so-dev/junctio/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/k2so-dev/junctio/releases/tag/v0.1.0

@@ -11,6 +11,7 @@ Self-hosted MCP gateway for one developer or a small team. One container, one vo
 
 [![ci](https://github.com/k2so-dev/junctio/actions/workflows/ci.yml/badge.svg)](https://github.com/k2so-dev/junctio/actions/workflows/ci.yml)
 [![codeql](https://github.com/k2so-dev/junctio/actions/workflows/codeql.yml/badge.svg)](https://github.com/k2so-dev/junctio/security/code-scanning)
+[![trivy](https://github.com/k2so-dev/junctio/actions/workflows/scan.yml/badge.svg)](https://github.com/k2so-dev/junctio/security/code-scanning?query=is%3Aopen+tool%3ATrivy)
 [![ghcr.io](https://img.shields.io/github/v/tag/k2so-dev/junctio?sort=semver&label=ghcr.io)](https://github.com/k2so-dev/junctio/pkgs/container/junctio)
 [![license](https://img.shields.io/github/license/k2so-dev/junctio)](LICENSE)
 

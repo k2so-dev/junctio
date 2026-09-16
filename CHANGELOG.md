@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-16
+
 ### Added
 
 - **An endpoint now hands its clients `instructions`.** Until now the prose an upstream server announces about itself was read and thrown away, so a well-documented server arrived as a bare list of tools. The gateway composes one text per namespace: the namespace description first, then a `## <prefix>` section per enabled server. Servers that announce nothing, and quarantined ones, contribute nothing, and an endpoint with nothing to say omits the field as before.
@@ -78,6 +80,7 @@ First public release.
 
 - The plaintext `servers.env` column and its backfill. Server environments have been stored encrypted for several releases.
 
-[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/k2so-dev/junctio/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/k2so-dev/junctio/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/k2so-dev/junctio/releases/tag/v0.1.0

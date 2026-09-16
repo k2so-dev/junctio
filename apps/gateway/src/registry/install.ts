@@ -237,14 +237,24 @@ export function installOptions(entry: RegistryEntry, name: string): RegistryInst
   return [...remotes, ...packages];
 }
 
+function officialRegistry(base: string, domain: string): boolean {
+  if (base === "") return true;
+  try {
+    const host = new URL(base).hostname;
+    return host === domain || host.endsWith(`.${domain}`);
+  } catch {
+    return false;
+  }
+}
+
 function packageLink(entry: RegistryPackage): RegistryLinkDto | null {
   const identifier = entry.identifier ?? "";
   if (identifier === "") return null;
   const base = entry.registryBaseUrl ?? "";
-  if (entry.registryType === "npm" && (base === "" || base.includes("npmjs.org"))) {
+  if (entry.registryType === "npm" && officialRegistry(base, "npmjs.org")) {
     return { kind: "npm", label: "npm", url: `https://www.npmjs.com/package/${identifier}` };
   }
-  if (entry.registryType === "pypi" && (base === "" || base.includes("pypi.org"))) {
+  if (entry.registryType === "pypi" && officialRegistry(base, "pypi.org")) {
     return { kind: "pypi", label: "PyPI", url: `https://pypi.org/project/${identifier}/` };
   }
   return null;

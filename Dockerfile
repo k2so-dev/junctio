@@ -1,6 +1,7 @@
 ARG BUN_VERSION=1.4.2
 ARG NODE_VERSION=22
-ARG UV_VERSION=0.11.7
+ARG UV_VERSION=0.12.15
+ARG NPM_VERSION=12.0.2
 
 FROM oven/bun:${BUN_VERSION}-slim AS bun
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
@@ -34,6 +35,7 @@ COPY apps/gateway/package.json apps/gateway/
 RUN bun install --frozen-lockfile --production --omit=optional
 
 FROM node:${NODE_VERSION}-bookworm-slim
+ARG NPM_VERSION
 
 LABEL org.opencontainers.image.source="https://github.com/k2so-dev/junctio" \
       org.opencontainers.image.description="Self-hosted MCP gateway: one endpoint per client, upstream OAuth that does not go stale" \
@@ -43,8 +45,12 @@ COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=uv /uv /uvx /usr/local/bin/
 
 RUN apt-get update \
+  && apt-get upgrade -y \
   && apt-get install -y --no-install-recommends ca-certificates tini \
   && rm -rf /var/lib/apt/lists/* \
+  && npm install -g npm@${NPM_VERSION} \
+  && npm cache clean --force \
+  && rm -rf /root/.npm \
   && ln -s /usr/local/bin/bun /usr/local/bin/bunx \
   && groupadd --system --gid 10001 junctio \
   && useradd --system --uid 10001 --gid junctio --home-dir /home/junctio --create-home junctio \

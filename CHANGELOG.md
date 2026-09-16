@@ -10,6 +10,12 @@ All notable changes to this project are documented here. The format follows
 
 - The image no longer ships `README.md` and `SECURITY.md` under `/app`; `LICENSE` stays. Documentation-only commits on `main` no longer rebuild the `edge` tag or run the test and image checks.
 
+### Security
+
+- The image ships uv 0.12.15 instead of 0.11.7, which closes an arbitrary file write through entry point names ([GHSA-4gg8-gxpx-9rph](https://github.com/advisories/GHSA-4gg8-gxpx-9rph)) and several denial-of-service bugs in its dependencies. uv 0.12 also rejects wheels that could replace the interpreter and unsupported archive formats.
+- The image upgrades npm to 12 instead of keeping the 10.9 bundled with Node 22, and applies Debian security updates at build time. Every image on ghcr is now scanned with Trivy after publishing and weekly; findings land in the repository's Security tab.
+- A registry entry can no longer make the install page link to npm or PyPI by putting `npmjs.org` or `pypi.org` somewhere inside a custom registry URL; the host is compared, not the string.
+
 ## [0.1.0] - 2026-09-16
 
 First public release.

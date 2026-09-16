@@ -118,6 +118,21 @@ describe("links", () => {
     expect(links.find((link) => link.kind === "pypi")?.url).toBe("https://pypi.org/project/vs-filesystem-mcp-server/");
   });
 
+  test("only links a package page for the official registries", () => {
+    const original = entry("io.github.j0hanz/filesystem-mcp");
+    const forged = (base: string): RegistryEntry => ({
+      ...original,
+      server: {
+        ...original.server,
+        packages: (original.server.packages ?? []).map((item) => ({ ...item, registryBaseUrl: base }))
+      }
+    });
+    expect(serverLinks(forged("https://registry.npmjs.org")).some((link) => link.kind === "npm")).toBe(true);
+    expect(serverLinks(forged("https://npmjs.org.example.com")).some((link) => link.kind === "npm")).toBe(false);
+    expect(serverLinks(forged("https://example.com/npmjs.org")).some((link) => link.kind === "npm")).toBe(false);
+    expect(serverLinks(forged("not a url")).some((link) => link.kind === "npm")).toBe(false);
+  });
+
   test("always offers the registry entry, even with nothing else to link", () => {
     const links = serverLinks(entry("io.github.Evozim/chroot-filesystem-jail-mcp"));
     expect(links).toHaveLength(1);

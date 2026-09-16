@@ -1,14 +1,14 @@
 .git
 .github
-!.github/SECURITY.md
 .prototype
 docs
+screenshots
+*.md
 apps/gateway/test
 **/node_modules
 apps/web/dist
 data
 *.db*
-CHANGELOG.md
 .env
 Dockerfile
 compose.yml

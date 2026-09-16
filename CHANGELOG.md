@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The image no longer ships `README.md` and `SECURITY.md` under `/app`; `LICENSE` stays. Documentation-only commits on `main` no longer rebuild the `edge` tag or run the test and image checks.
+
 ## [0.1.0] - 2026-09-16
 
 First public release.

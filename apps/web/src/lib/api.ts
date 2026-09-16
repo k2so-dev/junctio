@@ -16,6 +16,7 @@ import type {
   HealthDto,
   NamespaceDto,
   NamespaceInput,
+  NamespaceInstructionsDto,
   NamespacePatch,
   NamespaceServerInput,
   NamespaceToolDto,
@@ -171,6 +172,7 @@ export const api = {
     putServer: (id: string, input: NamespaceServerInput) =>
       request<NamespaceDto>("POST", `/v1/namespaces/${id}/servers`, input),
     removeServer: (id: string, serverId: string) => request<void>("DELETE", `/v1/namespaces/${id}/servers/${serverId}`),
+    instructions: (id: string) => request<NamespaceInstructionsDto>("GET", `/v1/namespaces/${id}/instructions`),
     tools: (id: string) => request<NamespaceToolDto[]>("GET", `/v1/namespaces/${id}/tools`),
     putTool: (id: string, input: ToolOverrideInput) =>
       request<{ ok: boolean }>("PUT", `/v1/namespaces/${id}/tools`, input),

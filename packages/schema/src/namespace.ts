@@ -21,7 +21,8 @@ export type NamespacePatch = z.infer<typeof NamespacePatch>;
 export const NamespaceServerInput = z.object({
   serverId: z.string(),
   prefix: slugLike.nullable().default(null),
-  enabled: z.boolean().default(true)
+  enabled: z.boolean().default(true),
+  description: z.string().max(4000).nullable().optional()
 });
 export type NamespaceServerInput = z.infer<typeof NamespaceServerInput>;
 
@@ -39,9 +40,16 @@ export const NamespaceServerDto = z.object({
   serverId: z.string(),
   serverName: z.string(),
   prefix: z.string(),
+  description: z.string().nullable(),
+  originalDescription: z.string().nullable(),
   enabled: z.boolean()
 });
 export type NamespaceServerDto = z.infer<typeof NamespaceServerDto>;
+
+export const NamespaceInstructionsDto = z.object({
+  instructions: z.string().nullable()
+});
+export type NamespaceInstructionsDto = z.infer<typeof NamespaceInstructionsDto>;
 
 export const NamespaceDto = z.object({
   id: z.string(),

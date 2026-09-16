@@ -87,6 +87,7 @@ export const namespaceServers = sqliteTable(
       .notNull()
       .references(() => servers.id, { onDelete: "cascade" }),
     prefix: text("prefix"),
+    description: text("description"),
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true)
   },
   (t) => [primaryKey({ columns: [t.namespaceId, t.serverId] })]

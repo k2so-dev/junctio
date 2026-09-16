@@ -1,0 +1,1 @@
+ALTER TABLE `namespace_servers` ADD `description` text;

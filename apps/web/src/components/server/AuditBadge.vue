@@ -2,7 +2,8 @@
 import type { AuditSummaryDto } from "@junctio/schema";
 import { ShieldAlert, ShieldCheck, ShieldQuestion, ShieldX } from "@lucide/vue";
 import { computed } from "vue";
-import { auditMeta, TONE_TEXT } from "@/lib/status";
+import { Badge } from "@/components/ui/badge";
+import { auditMeta, TONE_BORDER, TONE_TEXT } from "@/lib/status";
 import { cn } from "@/lib/utils";
 
 const props = withDefaults(
@@ -11,12 +12,15 @@ const props = withDefaults(
     quarantined?: boolean;
     label?: boolean;
     compact?: boolean;
+    pill?: boolean;
     class?: string;
   }>(),
-  { quarantined: false, label: true, compact: false }
+  { quarantined: false, label: true, compact: false, pill: false }
 );
 
-const meta = computed(() => (props.summary ? auditMeta(props.summary, props.compact) : null));
+const short = computed(() => props.compact || props.pill);
+
+const meta = computed(() => (props.summary ? auditMeta(props.summary, short.value) : null));
 
 const icon = computed(() => {
   if (props.quarantined) return ShieldX;
@@ -35,6 +39,7 @@ const title = computed(() => (props.summary ? auditMeta(props.summary).label : "
 
 const showLabel = computed(() => {
   if (!props.label) return false;
+  if (props.pill) return props.summary?.status === "vulnerable" || props.summary?.status === "error";
   return !(props.compact && !props.quarantined && props.summary?.status === "ok");
 });
 
@@ -44,7 +49,24 @@ const tone = computed(() => (props.quarantined ? "destructive" : (meta.value?.to
 </script>
 
 <template>
+  <Badge
+    v-if="pill && showLabel"
+    variant="outline"
+    :title="tooltip"
+    :class="
+      cn(
+        'h-5 max-w-full gap-1 px-1.5 py-0 text-[10px] font-medium',
+        TONE_BORDER[tone],
+        TONE_TEXT[tone],
+        props.class
+      )
+    "
+  >
+    <component :is="icon" class="size-3 shrink-0" />
+    <span class="truncate">{{ label }}</span>
+  </Badge>
   <span
+    v-else
     :title="tooltip"
     :class="cn('inline-flex max-w-full items-center gap-1.5 text-xs font-medium', TONE_TEXT[tone], props.class)"
   >

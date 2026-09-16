@@ -15,6 +15,7 @@ import { getSetting } from "../db/settings.ts";
 import type { Logger } from "../log.ts";
 import { EMPTY_CATALOG, type UpstreamPool } from "../upstream/pool.ts";
 import { UpstreamError } from "../upstream/types.ts";
+import { composeInstructions } from "./instructions.ts";
 import {
   assertUniquePrefixes,
   assertUniqueToolNames,
@@ -29,6 +30,7 @@ export type NamespaceMember = {
   serverId: string;
   serverName: string;
   prefix: string;
+  description: string | null;
   enabled: boolean;
   quarantined: boolean;
 };
@@ -56,6 +58,7 @@ export class Aggregator {
         serverId: servers.id,
         serverName: servers.name,
         prefix: namespaceServers.prefix,
+        description: namespaceServers.description,
         enabled: namespaceServers.enabled,
         serverEnabled: servers.enabled,
         quarantinedAt: servers.quarantinedAt
@@ -70,6 +73,7 @@ export class Aggregator {
         serverId: row.serverId,
         serverName: row.serverName,
         prefix: row.prefix ?? row.serverName,
+        description: row.description,
         enabled: row.enabled && row.serverEnabled,
         quarantined: row.quarantinedAt !== null
       }));
@@ -102,6 +106,18 @@ export class Aggregator {
       members.map(async (member) => ({
         member,
         catalog: member.quarantined ? EMPTY_CATALOG : await this.pool.safeCatalog(member.serverId)
+      }))
+    );
+  }
+
+  async instructions(namespaceId: string): Promise<string | undefined> {
+    const namespace = this.db.select().from(namespaces).where(eq(namespaces.id, namespaceId)).get();
+    const entries = await this.catalogs(namespaceId);
+    return composeInstructions(
+      namespace?.description,
+      entries.map(({ member, catalog }) => ({
+        prefix: member.prefix,
+        text: member.quarantined ? null : (member.description ?? catalog.instructions)
       }))
     );
   }

@@ -193,14 +193,9 @@ usePolling(load, 10_000);
                 </RouterLink>
               </TableCell>
               <TableCell>
-                <div class="flex flex-col items-start gap-1">
+                <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                   <StatusDot :status="server.status" />
-                  <AuditBadge
-                    v-if="server.quarantinedAt !== null"
-                    :summary="server.audit"
-                    quarantined
-                    compact
-                  />
+                  <AuditBadge v-if="server.quarantinedAt !== null" :summary="server.audit" quarantined pill />
                 </div>
               </TableCell>
               <TableCell class="max-w-0">

@@ -87,6 +87,8 @@ export function createNamespacesApi(core: Core): Hono {
     const server = core.db.select().from(servers).where(eq(servers.id, parsed.data.serverId)).get();
     if (!server) return notFound(c, "server");
 
+    const description = parsed.data.description === undefined ? undefined : parsed.data.description?.trim() || null;
+
     try {
       core.db.transaction((tx) => {
         tx.insert(namespaceServers)
@@ -94,11 +96,16 @@ export function createNamespacesApi(core: Core): Hono {
             namespaceId: row.id,
             serverId: parsed.data.serverId,
             prefix: parsed.data.prefix,
+            description: description ?? null,
             enabled: parsed.data.enabled
           })
           .onConflictDoUpdate({
             target: [namespaceServers.namespaceId, namespaceServers.serverId],
-            set: { prefix: parsed.data.prefix, enabled: parsed.data.enabled }
+            set: {
+              prefix: parsed.data.prefix,
+              enabled: parsed.data.enabled,
+              ...(description !== undefined ? { description } : {})
+            }
           })
           .run();
         core.aggregator.checkPrefixes(row.id);
@@ -121,6 +128,13 @@ export function createNamespacesApi(core: Core): Hono {
       .where(and(eq(namespaceServers.namespaceId, row.id), eq(namespaceServers.serverId, c.req.param("serverId"))))
       .run();
     return c.body(null, 204);
+  });
+
+  app.get("/:id/instructions", async (c) => {
+    const row = findNamespace(core, c.req.param("id"));
+    if (!row) return notFound(c, "namespace");
+    const instructions = await core.aggregator.instructions(row.id);
+    return c.json({ instructions: instructions ?? null });
   });
 
   app.get("/:id/tools", async (c) => {

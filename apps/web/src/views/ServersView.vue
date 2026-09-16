@@ -140,7 +140,7 @@ onUnmounted(() => {
         <TableHeader>
           <TableRow>
             <TableHead class="min-w-44">Server</TableHead>
-            <TableHead class="w-28">Status</TableHead>
+            <TableHead class="w-44">Status</TableHead>
             <TableHead class="min-w-52">Command / URL</TableHead>
             <TableHead class="w-20">Tools</TableHead>
             <TableHead class="w-32">Auth</TableHead>
@@ -164,13 +164,13 @@ onUnmounted(() => {
               <div class="truncate text-xs text-muted-foreground">{{ serverMeta(server) }}</div>
             </TableCell>
             <TableCell>
-              <div class="flex flex-col items-start gap-1">
+              <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <StatusDot :status="server.status" />
                 <AuditBadge
                   v-if="auditWorthShowing(server)"
                   :summary="server.audit"
                   :quarantined="server.quarantinedAt !== null"
-                  compact
+                  pill
                 />
               </div>
             </TableCell>

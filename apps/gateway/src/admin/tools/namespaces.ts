@@ -81,7 +81,7 @@ export function registerNamespaceTools(server: McpServer, deps: AdminDeps): void
     {
       title: "Put a server in a namespace",
       description:
-        "Add a server to a namespace, or change its prefix there. Tools are exposed as prefix, separator and the original name. The prefix defaults to the server name and has to be unique within the namespace.",
+        "Add a server to a namespace, or change its prefix there. Tools are exposed as prefix, separator and the original name. The prefix defaults to the server name and has to be unique within the namespace. The description replaces the instructions this server contributes to the endpoint: leave the field out to keep what is stored, pass null to fall back to whatever the upstream announces.",
       inputSchema: NamespaceServerInput.extend({ namespaceId: resourceId("namespace id") }),
       annotations: UPDATES
     },
@@ -148,6 +148,20 @@ export function registerNamespaceTools(server: McpServer, deps: AdminDeps): void
         method: "DELETE",
         path: `/${input.namespaceId}/tools/${input.serverId}/${encodeURIComponent(input.toolName)}`
       })
+  );
+
+  defineTool(
+    server,
+    deps,
+    "preview_namespace_instructions",
+    {
+      title: "Preview the instructions of a namespace",
+      description:
+        "The instructions text every endpoint of this namespace hands to its clients: the namespace description first, then a section per enabled server carrying either the description set on the membership or the instructions the server itself announces. Reading it starts servers that are not running.",
+      inputSchema: Id,
+      annotations: READ_ONLY
+    },
+    async (input) => callApi(api, { method: "GET", path: `/${input.id}/instructions` })
   );
 
   defineTool(

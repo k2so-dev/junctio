@@ -31,22 +31,39 @@ Early, but the whole path works: gateway, aggregation, API key auth, a built-in 
 
 <table>
   <tr>
-    <td width="50%"><!-- Server --></td>
-    <td><!-- Security --></td>
+    <td width="50%"><!-- Explore --></td>
+    <td width="50%"><!-- Explore - other --></td>
   </tr>
   <tr>
-    <td align="center"><sub>Server</sub></td>
-    <td align="center"><sub>Endpoints</sub></td>
+    <td align="center">Explore</td>
+    <td align="center">Explore - other</td>
   </tr>
+</table>
+
+<details>
+<summary><b>More screenshots</b></summary>
+<br>
+
+<table>
   <tr>
-    <td><!-- Explore --></td>
+    <td width="50%"><!-- Servers --></td>
     <td width="50%"><!-- Endpoints --></td>
   </tr>
   <tr>
-    <td align="center"><sub>Explore</sub></td>
-    <td align="center"><sub>Security</sub></td>
+    <td align="center">Servers</td>
+    <td align="center">Endpoints</td>
+  </tr>
+  <tr>
+    <td width="50%"><!-- Security --></td>
+    <td width="50%"><!-- Request log --></td>
+  </tr>
+  <tr>
+    <td align="center">Security</td>
+    <td align="center">Request log</td>
   </tr>
 </table>
+
+</details>
 
 ## Quickstart
 

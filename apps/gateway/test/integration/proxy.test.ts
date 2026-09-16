@@ -32,6 +32,54 @@ async function setup(options: { authMode?: "none" | "api_key" } = {}) {
 }
 
 describe("mcp proxy", () => {
+  test("hands the composed instructions to a legacy client", async () => {
+    const serverId = await seedStdioServer(harness.core, {
+      name: "mock",
+      env: { MOCK_INSTRUCTIONS: "Call echo before add." }
+    });
+    const namespaceId = seedNamespace(harness.core, "guided", [{ serverId }], "Team stack.");
+    const endpointId = seedEndpoint(harness.core, { slug: "guided", namespaceId });
+    const token = await seedApiKey(harness.core, endpointId);
+    const client = await connectClient(`${harness.url}/mcp/guided`, token);
+    expect(client.getInstructions()).toBe("Team stack.\n\n## mock\n\nCall echo before add.");
+    await client.close();
+  }, 20_000);
+
+  test("hands the composed instructions to a modern client", async () => {
+    const serverId = await seedStdioServer(harness.core, {
+      name: "mock",
+      env: { MOCK_INSTRUCTIONS: "Call echo before add." }
+    });
+    const namespaceId = seedNamespace(harness.core, "guided", [{ serverId }]);
+    const endpointId = seedEndpoint(harness.core, { slug: "guided", namespaceId });
+    const token = await seedApiKey(harness.core, endpointId);
+    const client = await connectClient(`${harness.url}/mcp/guided`, token, { pin: "2026-07-28" });
+    expect(client.getInstructions()).toBe("## mock\n\nCall echo before add.");
+    await client.close();
+  }, 20_000);
+
+  test("prefers the instructions set on the membership", async () => {
+    const serverId = await seedStdioServer(harness.core, {
+      name: "mock",
+      env: { MOCK_INSTRUCTIONS: "Upstream text." }
+    });
+    const namespaceId = seedNamespace(harness.core, "guided", [
+      { serverId, prefix: "m", description: "Override text." }
+    ]);
+    const endpointId = seedEndpoint(harness.core, { slug: "guided", namespaceId });
+    const token = await seedApiKey(harness.core, endpointId);
+    const client = await connectClient(`${harness.url}/mcp/guided`, token);
+    expect(client.getInstructions()).toBe("## m\n\nOverride text.");
+    await client.close();
+  }, 20_000);
+
+  test("sends no instructions when nothing contributes any", async () => {
+    const { url, token } = await setup();
+    const client = await connectClient(url, token);
+    expect(client.getInstructions()).toBeUndefined();
+    await client.close();
+  }, 20_000);
+
   test("lists prefixed tools from the upstream", async () => {
     const { url, token } = await setup();
     const client = await connectClient(url, token);

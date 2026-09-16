@@ -39,6 +39,8 @@ export const NAV_GROUPS: NavGroup[] = [
   }
 ];
 
+export const REPOSITORY_URL = "https://github.com/k2so-dev/junctio";
+
 export const SETTINGS_ITEMS = [
   { name: "settings-general", label: "General" },
   { name: "settings-access", label: "Access" },

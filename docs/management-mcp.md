@@ -14,7 +14,7 @@ claude mcp add --transport http junctio-admin https://mcp.example.com/mcp/_admin
   --header "Authorization: Bearer $JUNCTIO_ADMIN_TOKEN"
 ```
 
-Forty-three tools, one per action, over the same REST API the web UI uses, so validation and behaviour cannot drift apart: servers (create, edit, start, stop, test, logs, upstream OAuth), namespaces (membership, prefixes, tool overrides, collision checks), endpoints, registry search and install, settings, request log and health. The current state is also readable as resources like `junctio://servers`, which costs an agent less context than a tool call. Destructive tools are annotated as such, so a client can ask before running them.
+Forty-six tools, one per action, over the same REST API the web UI uses, so validation and behaviour cannot drift apart: servers (create, edit, start, stop, test, logs, upstream OAuth), namespaces (membership, prefixes, instructions, tool overrides, collision checks), endpoints, registry search and install, settings, request log and health. The current state is also readable as resources like `junctio://servers`, which costs an agent less context than a tool call. Destructive tools are annotated as such, so a client can ask before running them.
 
 Three things are deliberately absent. **API keys cannot be issued or revoked**, only listed. **OAuth clients cannot be revoked and consent cannot be granted**, since an agent approving its own authorization would defeat the consent screen. **The management server cannot switch itself off**, or on: passing that field is rejected by the schema.
 

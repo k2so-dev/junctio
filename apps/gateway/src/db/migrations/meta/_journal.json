@@ -57,6 +57,13 @@
       "when": 1789486790902,
       "tag": "0007_nifty_klaw",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789574055139,
+      "tag": "0008_typical_texas_twister",
+      "breakpoints": true
     }
   ]
 }

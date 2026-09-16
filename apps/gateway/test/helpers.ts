@@ -153,13 +153,24 @@ export async function seedHttpServer(
   return id;
 }
 
-export function seedNamespace(core: Core, name: string, members: { serverId: string; prefix?: string }[]): string {
+export function seedNamespace(
+  core: Core,
+  name: string,
+  members: { serverId: string; prefix?: string; description?: string }[],
+  description: string | null = null
+): string {
   const id = randomId();
-  core.db.insert(namespaces).values({ id, name, description: null, createdAt: Date.now() }).run();
+  core.db.insert(namespaces).values({ id, name, description, createdAt: Date.now() }).run();
   for (const member of members) {
     core.db
       .insert(namespaceServers)
-      .values({ namespaceId: id, serverId: member.serverId, prefix: member.prefix ?? null, enabled: true })
+      .values({
+        namespaceId: id,
+        serverId: member.serverId,
+        prefix: member.prefix ?? null,
+        description: member.description ?? null,
+        enabled: true
+      })
       .run();
   }
   return id;

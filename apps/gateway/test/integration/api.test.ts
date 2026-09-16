@@ -19,7 +19,7 @@ afterEach(async () => {
   await harness.stop();
 });
 
-async function createStdioServer(name = "mock") {
+async function createStdioServer(name = "mock", env: Record<string, string> = {}) {
   const response = await api("/v1/servers", {
     method: "POST",
     body: JSON.stringify({
@@ -27,7 +27,7 @@ async function createStdioServer(name = "mock") {
       transport: "stdio",
       runtime: "custom",
       args: ["bun", MOCK_STDIO],
-      env: { PATH: Bun.env.PATH, HOME: Bun.env.HOME, MOCK_NAME: name }
+      env: { PATH: Bun.env.PATH, HOME: Bun.env.HOME, MOCK_NAME: name, ...env }
     })
   });
   return json<{ id: string; commandPreview: string; status: string }>(response);
@@ -361,6 +361,68 @@ describe("namespaces api", () => {
     expect(withServer.servers).toHaveLength(1);
     expect(withServer.servers[0]?.prefix).toBe("alpha");
   });
+
+  test("composes the instructions of a namespace", async () => {
+    const server = await createStdioServer("alpha", { MOCK_INSTRUCTIONS: "Upstream says hi." });
+    const namespace = await json<{ id: string }>(
+      await api("/v1/namespaces", { method: "POST", body: JSON.stringify({ name: "team" }) })
+    );
+    await api(`/v1/namespaces/${namespace.id}/servers`, {
+      method: "POST",
+      body: JSON.stringify({ serverId: server.id })
+    });
+
+    const upstream = await json<{ instructions: string | null }>(
+      await api(`/v1/namespaces/${namespace.id}/instructions`)
+    );
+    expect(upstream.instructions).toBe("## alpha\n\nUpstream says hi.");
+
+    const overridden = await json<{ servers: { description: string | null; originalDescription: string | null }[] }>(
+      await api(`/v1/namespaces/${namespace.id}/servers`, {
+        method: "POST",
+        body: JSON.stringify({ serverId: server.id, description: "Use alpha sparingly." })
+      })
+    );
+    expect(overridden.servers[0]?.description).toBe("Use alpha sparingly.");
+    expect(overridden.servers[0]?.originalDescription).toBe("Upstream says hi.");
+    expect(
+      (await json<{ instructions: string | null }>(await api(`/v1/namespaces/${namespace.id}/instructions`)))
+        .instructions
+    ).toBe("## alpha\n\nUse alpha sparingly.");
+
+    const renamed = await json<{ servers: { description: string | null }[] }>(
+      await api(`/v1/namespaces/${namespace.id}/servers`, {
+        method: "POST",
+        body: JSON.stringify({ serverId: server.id, prefix: "a" })
+      })
+    );
+    expect(renamed.servers[0]?.description).toBe("Use alpha sparingly.");
+    expect(
+      (await json<{ instructions: string | null }>(await api(`/v1/namespaces/${namespace.id}/instructions`)))
+        .instructions
+    ).toBe("## a\n\nUse alpha sparingly.");
+
+    await api(`/v1/namespaces/${namespace.id}/servers`, {
+      method: "POST",
+      body: JSON.stringify({ serverId: server.id, prefix: "a", description: null })
+    });
+    expect(
+      (await json<{ instructions: string | null }>(await api(`/v1/namespaces/${namespace.id}/instructions`)))
+        .instructions
+    ).toBe("## a\n\nUpstream says hi.");
+
+    await api(`/v1/namespaces/${namespace.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ description: "Team stack." })
+    });
+    expect(
+      (await json<{ instructions: string | null }>(await api(`/v1/namespaces/${namespace.id}/instructions`)))
+        .instructions
+    ).toBe("Team stack.\n\n## a\n\nUpstream says hi.");
+
+    const missing = await api("/v1/namespaces/2f1f3f6c-0000-4000-8000-000000000000/instructions");
+    expect(missing.status).toBe(404);
+  }, 30_000);
 
   test("rejects a colliding prefix", async () => {
     const first = await createStdioServer("alpha");

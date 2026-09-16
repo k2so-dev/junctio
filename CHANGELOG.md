@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **An endpoint now hands its clients `instructions`.** Until now the prose an upstream server announces about itself was read and thrown away, so a well-documented server arrived as a bare list of tools. The gateway composes one text per namespace: the namespace description first, then a `## <prefix>` section per enabled server. Servers that announce nothing, and quarantined ones, contribute nothing, and an endpoint with nothing to say omits the field as before.
+- **What a server contributes can be rewritten per namespace.** The Servers table in Namespaces gained an Instructions column that shows the upstream wording and takes your own instead, with the same revert button the tool descriptions have. The management MCP takes it as the `description` field of `add_namespace_server`: leave it out to keep what is stored, pass null to go back to the upstream text. Existing databases gain the `namespace_servers.description` column at startup, with no manual step.
+- **The composed text can be read before a client sees it**, through `GET /v1/namespaces/:id/instructions`, the new `preview_namespace_instructions` tool, or one button on the Namespaces page.
+- The sidebar links to the repository, and the version in the status menu links to its releases.
+
+### Fixed
+
+- The audit indicator in the servers table sat below the status as a bare shield icon. It now sits next to it, and advisories, a failed audit and a quarantine read as a compact pill rather than an icon you have to hover to understand.
+- The prefix field in Namespaces was the only inline field on the page drawn as a boxed input; it now looks like every other one, borderless until you point at it.
+
 ## [0.2.0] - 2026-09-16
 
 ### Changed

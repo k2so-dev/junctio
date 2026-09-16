@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ChevronRight, Settings2 } from "@lucide/vue";
+import { ChevronRight, ExternalLink, Settings2 } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import GithubMark from "@/components/layout/GithubMark.vue";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   SidebarGroup,
@@ -14,7 +15,7 @@ import {
   SidebarMenuSubItem,
   useSidebar
 } from "@/components/ui/sidebar";
-import { SETTINGS_ITEMS } from "@/lib/nav";
+import { REPOSITORY_URL, SETTINGS_ITEMS } from "@/lib/nav";
 
 const route = useRoute();
 const router = useRouter();
@@ -63,6 +64,16 @@ function onTriggerClick(event: MouseEvent) {
             </CollapsibleContent>
           </SidebarMenuItem>
         </Collapsible>
+
+        <SidebarMenuItem>
+          <SidebarMenuButton as-child tooltip="GitHub">
+            <a :href="REPOSITORY_URL" target="_blank" rel="noreferrer">
+              <GithubMark />
+              <span>GitHub</span>
+              <ExternalLink class="ml-auto size-3.5! text-muted-foreground" />
+            </a>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroupContent>
   </SidebarGroup>

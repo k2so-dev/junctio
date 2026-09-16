@@ -27,6 +27,7 @@ export type Catalog = {
   resources: Resource[];
   prompts: Prompt[];
   capabilities: ServerCapabilities | undefined;
+  instructions: string | null;
   fetchedAt: number;
 };
 
@@ -70,6 +71,7 @@ export const EMPTY_CATALOG: Catalog = {
   resources: [],
   prompts: [],
   capabilities: undefined,
+  instructions: null,
   fetchedAt: 0
 };
 
@@ -362,11 +364,12 @@ export class UpstreamPool {
       const entry = this.entries.get(serverId);
       if (!force && entry?.catalog) return entry.catalog;
       const capabilities = client.getServerCapabilities();
+      const instructions = client.getInstructions()?.trim() || null;
       const timeout = this.listTimeoutMs;
       const tools = capabilities?.tools ? (await client.listTools(undefined, { timeout })).tools : [];
       const resources = capabilities?.resources ? (await client.listResources(undefined, { timeout })).resources : [];
       const prompts = capabilities?.prompts ? (await client.listPrompts(undefined, { timeout })).prompts : [];
-      const catalog: Catalog = { tools, resources, prompts, capabilities, fetchedAt: Date.now() };
+      const catalog: Catalog = { tools, resources, prompts, capabilities, instructions, fetchedAt: Date.now() };
       const target = this.entries.get(serverId);
       if (target) target.catalog = catalog;
       return catalog;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Activity, ChevronsUpDown, LogOut, RefreshCw } from "@lucide/vue";
+import { Activity, ChevronsUpDown, ExternalLink, LogOut, RefreshCw } from "@lucide/vue";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import { uptime } from "@/lib/format";
+import { REPOSITORY_URL } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/stores/session";
 
@@ -83,7 +84,15 @@ async function signOut() {
           <DropdownMenuLabel class="font-normal">
             <div class="grid gap-0.5">
               <span class="truncate font-mono text-xs">{{ origin }}</span>
-              <span class="text-xs text-muted-foreground">Junctio v{{ settings?.version ?? "—" }}</span>
+              <a
+                :href="`${REPOSITORY_URL}/releases`"
+                target="_blank"
+                rel="noreferrer"
+                class="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Junctio v{{ settings?.version ?? "—" }}
+                <ExternalLink class="size-3" />
+              </a>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />

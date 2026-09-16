@@ -61,9 +61,10 @@ async function serveLegacy(
   core: Core,
   endpoint: EndpointRow,
   request: Request,
+  body: unknown,
   protocol: string | null
 ): Promise<Response> {
-  const server = buildServer(core, endpoint, protocol);
+  const server = await buildServer(core, endpoint, body, protocol);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true
@@ -93,10 +94,20 @@ export function jsonRpcError(
   );
 }
 
-function buildServer(core: Core, endpoint: EndpointRow, protocol: string | null): Server {
+const HANDSHAKE_METHODS = new Set(["initialize", "server/discover"]);
+
+async function buildServer(core: Core, endpoint: EndpointRow, body: unknown, protocol: string | null): Promise<Server> {
+  const method = requestedMethod(body);
+  const instructions =
+    method !== null && HANDSHAKE_METHODS.has(method)
+      ? await core.aggregator.instructions(endpoint.namespaceId)
+      : undefined;
   const server = new Server(
     { name: "junctio", version: VERSION },
-    { capabilities: { tools: { listChanged: false }, resources: {}, prompts: {} } }
+    {
+      capabilities: { tools: { listChanged: false }, resources: {}, prompts: {} },
+      ...(instructions ? { instructions } : {})
+    }
   );
   const { aggregator } = core;
   const namespaceId = endpoint.namespaceId;
@@ -199,7 +210,7 @@ export function createMcpRoute(options: McpRouteOptions): Hono<AppEnv> {
     body: unknown,
     protocol: string | null
   ): Promise<Response> => {
-    const handler = createMcpHandler(() => buildServer(core, endpoint, protocol), {
+    const handler = createMcpHandler(() => buildServer(core, endpoint, body, protocol), {
       legacy: "reject",
       onerror: (error) => core.logger.error("mcp request failed", { endpoint: endpoint.slug, error: String(error) })
     });
@@ -265,7 +276,7 @@ export function createMcpRoute(options: McpRouteOptions): Hono<AppEnv> {
 
     try {
       if (endpoint.protocolMin < MODERN_PROTOCOL && (await isLegacyRequest(request, body))) {
-        return await serveLegacy(core, endpoint, request, protocol);
+        return await serveLegacy(core, endpoint, request, body, protocol);
       }
       return await serveModern(endpoint, request, body, protocol);
     } catch (error) {

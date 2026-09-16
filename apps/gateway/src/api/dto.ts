@@ -124,6 +124,7 @@ export function toNamespaceDto(core: Core, row: NamespaceRow): NamespaceDto {
       serverId: servers.id,
       serverName: servers.name,
       prefix: namespaceServers.prefix,
+      description: namespaceServers.description,
       enabled: namespaceServers.enabled
     })
     .from(namespaceServers)
@@ -140,6 +141,8 @@ export function toNamespaceDto(core: Core, row: NamespaceRow): NamespaceDto {
       serverId: member.serverId,
       serverName: member.serverName,
       prefix: member.prefix ?? member.serverName,
+      description: member.description,
+      originalDescription: core.pool.cachedCatalog(member.serverId)?.instructions ?? null,
       enabled: member.enabled
     })),
     endpointCount

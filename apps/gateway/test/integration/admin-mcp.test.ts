@@ -122,6 +122,7 @@ describe("management mcp tools", () => {
     expect(names).toContain("create_endpoint");
     expect(names).toContain("install_registry_server");
     expect(names).toContain("list_api_keys");
+    expect(names).toContain("preview_namespace_instructions");
 
     expect(names).not.toContain("create_api_key");
     expect(names).not.toContain("delete_api_key");
@@ -170,6 +171,50 @@ describe("management mcp tools", () => {
 
     await client.close();
   });
+
+  test("describes a server through the namespace it belongs to", async () => {
+    const client = await adminClient();
+
+    const created = payload(
+      await call(client, "create_server", {
+        name: "mock",
+        transport: "stdio",
+        runtime: "custom",
+        args: ["bun", MOCK_STDIO],
+        env: {
+          PATH: Bun.env.PATH ?? "/usr/bin",
+          HOME: Bun.env.HOME ?? "/tmp",
+          MOCK_NAME: "mock",
+          MOCK_INSTRUCTIONS: "Upstream text."
+        }
+      })
+    ) as { id: string };
+
+    const namespace = payload(await call(client, "create_namespace", { name: "team" })) as { id: string };
+    await call(client, "add_namespace_server", { namespaceId: namespace.id, serverId: created.id });
+
+    expect(payload(await call(client, "preview_namespace_instructions", { id: namespace.id }))).toEqual({
+      instructions: "## mock\n\nUpstream text."
+    });
+
+    await call(client, "add_namespace_server", {
+      namespaceId: namespace.id,
+      serverId: created.id,
+      description: "From the agent."
+    });
+
+    const described = payload(await call(client, "get_namespace", { id: namespace.id })) as {
+      servers: { description: string | null; originalDescription: string | null }[];
+    };
+    expect(described.servers[0]?.description).toBe("From the agent.");
+    expect(described.servers[0]?.originalDescription).toBe("Upstream text.");
+
+    expect(payload(await call(client, "preview_namespace_instructions", { id: namespace.id }))).toEqual({
+      instructions: "## mock\n\nFrom the agent."
+    });
+
+    await client.close();
+  }, 30_000);
 
   test("reports a validation failure instead of throwing", async () => {
     const client = await adminClient();

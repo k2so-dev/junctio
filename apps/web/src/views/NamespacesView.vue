@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { NamespaceDto, NamespaceToolDto, ServerDto } from "@junctio/schema";
-import { Loader2, Plus, RotateCcw, Trash2, TriangleAlert } from "@lucide/vue";
+import type { NamespaceDto, NamespaceServerDto, NamespaceToolDto, ServerDto } from "@junctio/schema";
+import { FileText, Loader2, Plus, RotateCcw, Trash2, TriangleAlert } from "@lucide/vue";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, api } from "@/lib/api";
 import { describeError } from "@/composables/useResource";
@@ -42,6 +43,9 @@ const addPick = ref("");
 const creating = ref(false);
 const draft = ref({ name: "", description: "" });
 const busy = ref(false);
+const previewOpen = ref(false);
+const previewLoading = ref(false);
+const preview = ref<string | null>(null);
 
 const { selectedId, current } = useSelectedFromRoute(namespaces);
 
@@ -100,6 +104,7 @@ async function loadTools() {
   toolsLoading.value = true;
   try {
     tools.value = await api.namespaces.tools(selectedId.value);
+    await loadAll();
     const result = await api.namespaces.validate(selectedId.value);
     conflicts.value = result.ok ? [] : result.conflicts;
   } catch (error) {
@@ -176,6 +181,39 @@ async function updateMember(serverId: string, prefix: string, enabled: boolean) 
       toast.error(error.message);
       await loadAll();
     }
+  }
+}
+
+async function updateMemberDescription(member: NamespaceServerDto, value: string | null) {
+  if (!selectedId.value) return;
+  const next = value === null || value.trim() === "" ? null : value;
+  if (next === member.description) return;
+  try {
+    await api.namespaces.putServer(selectedId.value, {
+      serverId: member.serverId,
+      prefix: member.prefix,
+      enabled: member.enabled,
+      description: next
+    });
+    await loadAll();
+  } catch (error) {
+    if (error instanceof ApiError) toast.error(error.message);
+  }
+}
+
+async function openPreview() {
+  if (!selectedId.value) return;
+  previewOpen.value = true;
+  previewLoading.value = true;
+  preview.value = null;
+  try {
+    const result = await api.namespaces.instructions(selectedId.value);
+    preview.value = result.instructions;
+  } catch (error) {
+    previewOpen.value = false;
+    toast.error(describeError(error));
+  } finally {
+    previewLoading.value = false;
   }
 }
 
@@ -304,6 +342,7 @@ onMounted(async () => {
                 <TableRow>
                   <TableHead class="min-w-40">Server</TableHead>
                   <TableHead class="w-40">Prefix</TableHead>
+                  <TableHead class="min-w-56">Instructions</TableHead>
                   <TableHead class="w-24">Status</TableHead>
                   <TableHead class="w-20">Enabled</TableHead>
                   <TableHead class="w-12" />
@@ -319,9 +358,33 @@ onMounted(async () => {
                   <TableCell>
                     <Input
                       :model-value="member.prefix"
-                      class="h-7 font-mono text-xs"
+                      class="h-7 border-transparent bg-transparent px-2 font-mono text-xs shadow-none dark:bg-transparent hover:border-input dark:hover:bg-input/30"
                       @change="updateMember(member.serverId, ($event.target as HTMLInputElement).value, member.enabled)"
                     />
+                  </TableCell>
+                  <TableCell class="max-w-0">
+                    <div class="flex items-start gap-1.5">
+                      <Textarea
+                        :model-value="member.description ?? member.originalDescription ?? ''"
+                        :placeholder="
+                          member.originalDescription === null ? 'This server announces no instructions' : ''
+                        "
+                        rows="1"
+                        class="max-h-7 min-h-7 resize-none overflow-hidden border-transparent bg-transparent px-2 py-1 text-xs shadow-none dark:bg-transparent hover:border-input dark:hover:bg-input/30 focus-visible:max-h-64 focus-visible:overflow-y-auto"
+                        @change="updateMemberDescription(member, ($event.target as HTMLTextAreaElement).value)"
+                      />
+                      <Button
+                        v-if="member.description !== null"
+                        variant="outline"
+                        size="sm"
+                        class="mt-0.5 h-6 shrink-0 px-1.5 text-[10px]"
+                        title="Revert to the instructions the server announces"
+                        @click="updateMemberDescription(member, null)"
+                      >
+                        <RotateCcw class="size-2.5" />
+                        edited
+                      </Button>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <StatusDot
@@ -354,6 +417,10 @@ onMounted(async () => {
           <CardFooter class="gap-2 border-t py-2.5">
             <SearchSelect v-model="addPick" :options="available" placeholder="Add server…" trigger-class="h-8 w-56" />
             <Button variant="outline" size="sm" class="h-8" :disabled="addPick === ''" @click="addServer">Add</Button>
+            <Button variant="ghost" size="sm" class="ml-auto h-8 text-muted-foreground" @click="openPreview">
+              <FileText class="size-3.5" />
+              Preview instructions
+            </Button>
           </CardFooter>
         </Card>
 
@@ -444,6 +511,28 @@ onMounted(async () => {
         </EmptyState>
       </template>
     </MasterDetail>
+
+    <Dialog v-model:open="previewOpen">
+      <DialogContent class="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Instructions</DialogTitle>
+          <DialogDescription>
+            What a client connected to an endpoint of this namespace reads before it calls anything.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="rounded-lg border bg-muted/30 p-3.5">
+          <p v-if="previewLoading" class="text-center text-sm text-muted-foreground">Reading the servers…</p>
+          <pre
+            v-else-if="preview"
+            class="max-h-[60vh] overflow-auto text-xs leading-relaxed whitespace-pre-wrap"
+          >{{ preview }}</pre>
+          <p v-else class="text-center text-sm text-muted-foreground">
+            Nothing contributes instructions yet. Describe the namespace, or a server inside it, and the text appears
+            here.
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
 
     <Dialog v-model:open="creating">
       <DialogContent>

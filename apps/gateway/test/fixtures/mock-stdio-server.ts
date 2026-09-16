@@ -22,7 +22,9 @@ if (garbageStdout) {
   process.exit(3);
 }
 
-const server = new McpServer({ name, version: "1.0.0" });
+const instructions = Bun.env.MOCK_INSTRUCTIONS;
+
+const server = new McpServer({ name, version: "1.0.0" }, instructions ? { instructions } : undefined);
 
 server.registerTool(
   "echo",

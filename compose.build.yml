@@ -2,3 +2,4 @@ services:
   junctio:
     image: ${IMAGE:-junctio:local}
     build: .
+    pull_policy: build

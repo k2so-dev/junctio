@@ -8,6 +8,7 @@ Go to Stacks, add a stack, pick the web editor and paste this:
 services:
   junctio:
     image: ghcr.io/k2so-dev/junctio:latest
+    pull_policy: always
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"

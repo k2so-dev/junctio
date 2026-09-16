@@ -1,6 +1,7 @@
 services:
   junctio:
     image: ghcr.io/k2so-dev/junctio:latest
+    pull_policy: always
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"

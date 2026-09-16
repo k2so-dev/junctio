@@ -8,6 +8,7 @@ Add a resource of type Docker Compose Empty and paste this:
 services:
   junctio:
     image: ghcr.io/k2so-dev/junctio:latest
+    pull_policy: always
     restart: unless-stopped
     expose:
       - "3000"

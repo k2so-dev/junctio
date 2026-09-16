@@ -8,6 +8,7 @@ Create a project, add a service of type Compose, choose the Raw provider and pas
 services:
   junctio:
     image: ghcr.io/k2so-dev/junctio:latest
+    pull_policy: always
     restart: unless-stopped
     environment:
       JUNCTIO_SECRET: ${JUNCTIO_SECRET:?set JUNCTIO_SECRET, e.g. openssl rand -hex 32}

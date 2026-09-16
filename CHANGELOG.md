@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The bundled compose file and the Dokploy, Coolify and Portainer snippets pull the image on every deploy.** Without `pull_policy: always` a platform that redeploys with `docker compose up` kept starting the image it had already cached, so pointing at the `latest` tag never actually updated anything. Automatic restarts are unaffected; only a deliberate deploy talks to the registry. The local build stack overrides the policy so it still builds instead of looking for `junctio:local` on a registry.
+
 ## [0.2.1] - 2026-09-16
 
 ### Added

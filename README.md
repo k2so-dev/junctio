@@ -25,7 +25,26 @@ Early, but the whole path works: gateway, aggregation, API key auth, a built-in 
 
 ## Screenshots
 
-Servers, endpoints and the Explore page. Images land here with the first release.
+<!-- Drag an image into the GitHub editor and paste the URL it returns into the empty cell above its caption. -->
+
+<table>
+  <tr>
+    <td width="50%"><!-- Server --></td>
+    <td><!-- Security --></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Server</sub></td>
+    <td align="center"><sub>Endpoints</sub></td>
+  </tr>
+  <tr>
+    <td><!-- Explore --></td>
+    <td width="50%"><!-- Endpoints --></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Explore</sub></td>
+    <td align="center"><sub>Security</sub></td>
+  </tr>
+</table>
 
 ## Quickstart
 

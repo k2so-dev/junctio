@@ -36,6 +36,7 @@ Tests that need a Docker daemon skip themselves when the socket is missing, so a
 | `apps/gateway/test/integration/` | A real HTTP server on a real socket, driven end to end |
 | `apps/web/` | The admin UI, Vue 3 with shadcn-vue components |
 | `apps/web/scripts/` | Maintenance for the source catalog, run from CI |
+| `apps/site/` | The landing page and rendered documentation, Astro with Vue islands, deployed to Cloudflare Pages |
 | `packages/schema/` | Zod schemas and DTO types shared by the gateway and the UI |
 | `docs/` | Reference pages and deployment guides linked from the README |
 | `.github/` | CI workflows, issue and pull request templates, and the community health files |

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Junctio landing mockup</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+:root{color-scheme:light dark;--surface-0:#f4f4f5;--surface-1:#fafafa;--surface-2:#fff;--text-primary:#18181b;--text-secondary:#71717a;--text-accent:#185FA5;--bg-accent:#E6F1FB;--border:#e4e4e7;--border-strong:#d4d4d8;--fill-primary:#18181b;--on-primary:#fafafa;--radius:8px;--font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{--surface-0:#09090b;--surface-1:#18181b;--surface-2:#1f1f23;--text-primary:#fafafa;--text-secondary:#a1a1aa;--text-accent:#85B7EB;--bg-accent:#0C447C;--border:rgba(255,255,255,.1);--border-strong:rgba(255,255,255,.2);--fill-primary:#e4e4e7;--on-primary:#18181b}}
+body{margin:0;background:var(--surface-0);color:var(--text-primary);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;justify-content:center;padding:40px 16px}
+.wrap{background:var(--surface-1);border-radius:12px;padding:16px;width:680px;max-width:100%}
+.frame{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;overflow:hidden}
+.nav{display:flex;align-items:center;gap:16px;padding:10px 16px;border-bottom:0.5px solid var(--border);font-size:13px;color:var(--text-secondary)}
+.pill{font-size:12px;padding:3px 10px;border-radius:999px;background:var(--bg-accent);color:var(--text-accent)}
+.node{position:absolute;display:flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface-2);color:var(--text-primary)}
+.dot{position:absolute;width:8px;height:8px;border-radius:50%;background:#7F77DD;animation:go 3s linear infinite}
+@keyframes go{0%{offset-distance:0%;opacity:0}8%{opacity:1}92%{opacity:1}100%{offset-distance:100%;opacity:0}}
+.badge{font-size:12px;padding:2px 8px;border-radius:999px;background:#E1F5EE;color:#085041}
+@media (prefers-color-scheme:dark){.badge{background:#085041;color:#9FE1CB}}
+.feat{border:0.5px solid var(--border);border-radius:12px;padding:12px;font-size:13px}
+.doc{display:grid;grid-template-columns:150px minmax(0,1fr);font-size:12px}
+p{margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="frame">
+  <div class="nav"><span style="font-weight:500;color:var(--text-primary)">Junctio</span><span>Docs</span><span>Use cases</span><span style="margin-left:auto">GitHub</span><span class="pill">v0.2.1</span></div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px;padding:28px 24px">
+    <div>
+      <p style="font-size:26px;font-weight:500;line-height:1.2;margin:0 0 10px">One endpoint for every MCP client. Auth that does not go stale.</p>
+      <p style="font-size:14px;color:var(--text-secondary);margin:0 0 16px;line-height:1.6">Self-hosted gateway. One container, one volume, no telemetry.</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:13px;padding:7px 14px;border-radius:var(--radius);background:var(--fill-primary);color:var(--on-primary)">Get started</span>
+        <span style="font-size:13px;padding:7px 14px;border-radius:var(--radius);border:0.5px solid var(--border-strong)">Read the docs</span>
+      </div>
+      <div style="margin-top:14px;font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);background:var(--surface-1);padding:8px 10px;border-radius:var(--radius)">docker compose up -d</div>
+    </div>
+    <div style="position:relative;height:200px">
+      <div class="node" style="left:0;top:8px"><i class="ti ti-terminal-2"></i>Claude Code</div>
+      <div class="node" style="left:0;top:80px"><i class="ti ti-code"></i>Cursor</div>
+      <div class="node" style="left:0;top:152px"><i class="ti ti-brand-openai"></i>Codex</div>
+      <div class="node" style="left:142px;top:66px;padding:12px 14px;border:2px solid #7F77DD;flex-direction:column;gap:2px;align-items:flex-start"><span style="font-weight:500">Junctio</span><span style="color:var(--text-secondary)">API key · OAuth</span><span class="badge">token refreshed</span></div>
+      <div class="node" style="right:0;top:8px"><i class="ti ti-brand-github"></i>GitHub</div>
+      <div class="node" style="right:0;top:80px"><i class="ti ti-database"></i>Postgres</div>
+      <div class="node" style="right:0;top:152px"><i class="ti ti-world"></i>Any MCP</div>
+      <svg viewBox="0 0 360 200" style="position:absolute;inset:0;width:100%;height:100%" aria-hidden="true">
+        <path d="M100 22 C130 22 130 96 142 96" fill="none" stroke="var(--border-strong)"/>
+        <path d="M100 94 L142 96" fill="none" stroke="var(--border-strong)"/>
+        <path d="M100 166 C130 166 130 96 142 96" fill="none" stroke="var(--border-strong)"/>
+        <path d="M250 96 C270 96 270 22 290 22" fill="none" stroke="var(--border-strong)"/>
+        <path d="M250 96 L290 94" fill="none" stroke="var(--border-strong)"/>
+        <path d="M250 96 C270 96 270 166 290 166" fill="none" stroke="var(--border-strong)"/>
+      </svg>
+      <span class="dot" style="offset-path:path('M100 22 C130 22 130 96 142 96 L250 96 C270 96 270 166 290 166');animation-delay:0s"></span>
+      <span class="dot" style="offset-path:path('M100 166 C130 166 130 96 142 96 L250 96 C270 96 270 22 290 22');animation-delay:1s"></span>
+      <span class="dot" style="offset-path:path('M100 94 L142 96 L250 96 L290 94');animation-delay:2s"></span>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:0 24px 24px">
+    <div class="feat"><i class="ti ti-refresh" style="font-size:18px"></i><p style="margin:6px 0 2px;font-weight:500">Proactive refresh</p><span style="color:var(--text-secondary)">Tokens renew on schedule</span></div>
+    <div class="feat"><i class="ti ti-eye-off" style="font-size:18px"></i><p style="margin:6px 0 2px;font-weight:500">No telemetry</p><span style="color:var(--text-secondary)">Nothing leaves your box</span></div>
+    <div class="feat"><i class="ti ti-box" style="font-size:18px"></i><p style="margin:6px 0 2px;font-weight:500">One container</p><span style="color:var(--text-secondary)">amd64 and arm64 on GHCR</span></div>
+  </div>
+</div>
+<div class="frame doc" style="margin-top:12px">
+  <div style="border-right:0.5px solid var(--border);padding:12px;color:var(--text-secondary);line-height:2">Quickstart<br>Endpoints<br><span style="color:var(--text-accent)">Upstream servers</span><br>Management MCP<br>Security audit<br>Caddy<br><span style="font-weight:500;color:var(--text-primary)">Use cases</span><br>Claude Code<br>Cursor<br>Small team</div>
+  <div style="padding:12px 16px"><p style="font-size:16px;font-weight:500;margin:0 0 6px">Upstream servers</p><p style="color:var(--text-secondary);margin:0 0 8px;line-height:1.6">Rendered straight from docs/upstream-servers.md at build time.</p><div style="font-family:var(--font-mono);background:var(--surface-1);padding:8px;border-radius:var(--radius);color:var(--text-secondary)">JUNCTIO_SECRET=$(openssl rand -hex 32)</div></div>
+</div>
+</div>
+</body>
+</html>

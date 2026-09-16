@@ -1,0 +1,35 @@
+---
+title: A custom connector for claude.ai and Claude Desktop
+description: Serve your own MCP servers to claude.ai and Claude Desktop through the built-in OAuth authorization server.
+client: claude.ai
+order: 3
+keywords: ["claude.ai custom connector self-hosted", "claude desktop mcp oauth", "mcp server dynamic client registration"]
+---
+
+claude.ai and Claude Desktop connect to remote MCP servers as custom connectors, and they cannot send an API key header. They need an OAuth authorization server that publishes RFC 8414 metadata, accepts RFC 7591 dynamic client registration and runs authorization code with PKCE. Junctio is that server, so you do not have to set up Keycloak or Auth0 to expose a stdio server on your VPS to claude.ai.
+
+## Prerequisites
+
+- The gateway behind TLS. [Caddy](/docs/caddy/) does it in two lines. OAuth does not work over plain HTTP.
+- `JUNCTIO_BASE_URL` set to the public URL, `JUNCTIO_TRUST_PROXY=true` behind the proxy.
+
+## The setup
+
+1. Create an endpoint and switch its auth to `oauth` or `any`.
+2. In claude.ai, add a custom connector with `https://mcp.example.com/mcp/main`.
+3. The client registers itself, opens the authorization page, and stops at a consent screen that asks for the admin password.
+4. Approve. From here on the client holds an access token that lives an hour and a refresh token that lives thirty days and rotates on every use.
+
+The discovery documents under `/.well-known/` are served only for endpoints whose auth mode includes OAuth. An API-key-only endpoint answers 404 there, so nothing is advertised that you did not switch on.
+
+## Revoking a client
+
+Every registered client is listed in Settings. Revoke it and its tokens die with it. Registering a client grants nothing on its own; the consent screen is the only way in.
+
+## Using your own identity provider
+
+If you already run Keycloak, Authentik or Auth0, set `JUNCTIO_OAUTH_ISSUER` and the gateway validates that provider's JWTs instead of issuing its own. Note that the [management MCP](/docs/management-mcp/) is then reachable only with the admin token, because an external provider cannot ask for your admin password.
+
+## Related
+
+The authentication section of [Endpoints](/docs/endpoints/) has the full token lifetimes and the header the gateway sends on a 401.

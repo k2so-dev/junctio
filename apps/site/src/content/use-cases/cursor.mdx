@@ -1,0 +1,40 @@
+---
+title: Cursor with a self-hosted MCP gateway
+description: Point Cursor at one Streamable HTTP endpoint and stop managing per-project mcp.json files.
+client: Cursor
+order: 2
+keywords: ["cursor mcp gateway", "cursor mcp.json http server", "cursor mcp api key"]
+---
+
+Cursor reads `.cursor/mcp.json` per project and a global one in your home directory. Each file lists its own servers, so a change means editing every copy. With Junctio the file contains one entry.
+
+## The setup
+
+Create an endpoint in the gateway with `api_key` auth and issue a key, then write:
+
+```json
+{
+  "mcpServers": {
+    "junctio": {
+      "url": "https://mcp.example.com/mcp/main",
+      "headers": {
+        "Authorization": "Bearer jn_..."
+      }
+    }
+  }
+}
+```
+
+Junctio speaks Streamable HTTP and falls back to SSE for clients that ask for it, so the same URL keeps working across Cursor versions.
+
+## Per-project namespaces
+
+A namespace is the unit Cursor sees. Give the frontend repo a namespace with the design system server and Playwright, give the backend one with Postgres and the deployment tools, and issue one endpoint per namespace. The key can be bound to a single endpoint, so a leaked project key cannot reach the other namespace.
+
+## Rate limits and the request log
+
+Cursor's agent mode can fan out tool calls quickly. An endpoint can cap requests per minute, counted per key, and answers over the limit with a 429 and `Retry-After`. The request log in the gateway shows every call with the upstream it went to and how long it took.
+
+## Related
+
+[Endpoints](/docs/endpoints/) for the protocol details, [Explore](/docs/explore/) to import the servers you already have from a pasted `mcp.json`.

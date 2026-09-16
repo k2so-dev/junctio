@@ -1,0 +1,48 @@
+---
+import GithubMark from "@/components/GithubMark.astro";
+import ThemeToggle from "@/components/ThemeToggle.vue";
+import { SITE } from "@/lib/site";
+
+const path = Astro.url.pathname;
+const links = [
+  { href: "/docs/", label: "Docs" },
+  { href: "/use-cases/", label: "Use cases" }
+];
+---
+
+<header class="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
+  <div class="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 sm:px-6">
+    <a href="/" class="flex items-center gap-2.5 font-semibold tracking-tight">
+      <img src="/logo-light.png" alt="" width="28" height="28" class="size-7 dark:hidden" />
+      <img src="/logo-dark.png" alt="" width="28" height="28" class="hidden size-7 dark:block" />
+      {SITE.name}
+    </a>
+    <nav class="flex items-center gap-1 text-sm">
+      {
+        links.map((link) => (
+          <a
+            href={link.href}
+            class:list={[
+              "rounded-md px-3 py-1.5 whitespace-nowrap transition-colors hover:bg-accent hover:text-accent-foreground",
+              path.startsWith(link.href) ? "text-foreground" : "text-muted-foreground"
+            ]}
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+    <div class="ml-auto flex items-center gap-1">
+      <a
+        href={SITE.repo}
+        target="_blank"
+        rel="noreferrer"
+        class="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        aria-label="GitHub repository"
+      >
+        <GithubMark class="size-4" />
+      </a>
+      <ThemeToggle client:load />
+    </div>
+  </div>
+</header>

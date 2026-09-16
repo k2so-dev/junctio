@@ -1,0 +1,41 @@
+---
+title: Junctio on a VPS behind Caddy
+description: Run the gateway on your own server with automatic TLS, a persistent volume and OAuth that works.
+client: Self-hosted
+order: 5
+keywords: ["self-hosted mcp gateway docker", "mcp server behind caddy", "mcp gateway vps"]
+---
+
+The image is `ghcr.io/k2so-dev/junctio`, built for amd64 and arm64. A single small VPS runs it comfortably alongside Caddy.
+
+## Compose
+
+```bash
+mkdir junctio && cd junctio
+curl -fsSLO https://raw.githubusercontent.com/k2so-dev/junctio/main/compose.yml
+curl -fsSL https://raw.githubusercontent.com/k2so-dev/junctio/main/.env.example -o .env
+```
+
+In `.env` set `JUNCTIO_SECRET` to the output of `openssl rand -hex 32`, `JUNCTIO_BASE_URL` to `https://mcp.example.com` and `JUNCTIO_TRUST_PROXY=true`. Then `docker compose up -d`. The database lives in the `/data` volume, and [CHANGELOG.md](https://github.com/k2so-dev/junctio/blob/main/CHANGELOG.md) says when a release needs a fresh one.
+
+## Caddy
+
+```caddyfile
+mcp.example.com {
+	reverse_proxy localhost:3000
+}
+```
+
+Caddy obtains and renews the certificate on its own. The base URL must match what clients type: redirect URIs, the expected JWT audience and the resource metadata documents are all derived from it.
+
+## What the volume holds
+
+`junctio.db` with servers, namespaces, endpoints, hashed API keys, encrypted upstream tokens and the request log. Back up the volume and `JUNCTIO_SECRET` together; the database is useless without the key.
+
+## Servers that ship as an image
+
+Mount the Docker socket, or point `JUNCTIO_DOCKER_SOCKET` at it, and the `docker` runtime starts upstream servers as sibling containers. [Upstream servers](/docs/upstream-servers/) has the details and the reason the image sets `TMPDIR` to an executable directory.
+
+## Managed platforms
+
+Prefer a panel over a shell? [Dokploy](/docs/deploy/dokploy/), [Coolify](/docs/deploy/coolify/) and [Portainer](/docs/deploy/portainer/) each have a page with the exact compose to paste.

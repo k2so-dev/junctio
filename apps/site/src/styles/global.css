@@ -1,0 +1,100 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "../../../web/src/assets/tokens.css";
+
+@source "../../../web/src/assets/tokens.css";
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@utility prose-docs {
+  @apply text-[15px] leading-7 text-foreground;
+  & h1 {
+    @apply mb-6 text-3xl font-semibold tracking-tight;
+  }
+  & h2 {
+    @apply mt-12 mb-4 scroll-mt-24 border-b pb-2 text-xl font-semibold tracking-tight;
+  }
+  & h3 {
+    @apply mt-8 mb-3 scroll-mt-24 text-base font-semibold;
+  }
+  & p {
+    @apply my-4;
+  }
+  & a {
+    @apply font-medium underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-foreground;
+  }
+  & ul {
+    @apply my-4 list-disc space-y-1.5 pl-6;
+  }
+  & ol {
+    @apply my-4 list-decimal space-y-1.5 pl-6;
+  }
+  & code {
+    @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[13px];
+  }
+  & pre {
+    @apply my-5 overflow-x-auto rounded-lg border p-4 font-mono text-[13px] leading-6;
+  }
+  & pre code {
+    @apply rounded-none bg-transparent p-0 text-inherit;
+  }
+  & table {
+    @apply my-6 w-full border-collapse text-sm;
+  }
+  & th {
+    @apply border-b bg-muted/50 px-3 py-2 text-left font-semibold;
+  }
+  & td {
+    @apply border-b px-3 py-2 align-top;
+  }
+  & blockquote {
+    @apply my-4 border-l-2 pl-4 text-muted-foreground;
+  }
+  & strong {
+    @apply font-semibold;
+  }
+  & hr {
+    @apply my-10;
+  }
+}
+
+.astro-code,
+.astro-code span {
+  @apply dark:bg-[var(--shiki-dark-bg)] dark:text-[var(--shiki-dark)];
+}
+
+@keyframes flow-dot {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-dot {
+    animation: none !important;
+    display: none;
+  }
+}

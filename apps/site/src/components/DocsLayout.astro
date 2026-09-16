@@ -1,0 +1,98 @@
+---
+import Base from "@/layouts/Base.astro";
+import { DOCS_NAV } from "@/lib/site";
+import { getCollection } from "astro:content";
+
+interface Props {
+  title: string;
+  description: string;
+  current: string;
+  headings?: { depth: number; slug: string; text: string }[];
+  editUrl?: string;
+}
+
+const { title, description, current, headings = [], editUrl } = Astro.props;
+const useCases = (await getCollection("useCases")).sort((a, b) => a.data.order - b.data.order);
+const toc = headings.filter((heading) => heading.depth === 2);
+---
+
+<Base title={title} description={description} ogType="article">
+  <div class="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)_180px]">
+    <aside class="lg:sticky lg:top-24 lg:self-start">
+      <nav class="space-y-6 text-sm">
+        {
+          DOCS_NAV.map((group) => (
+            <div>
+              <p class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{group.label}</p>
+              <ul class="space-y-0.5">
+                {group.items.map((item) => (
+                  <li>
+                    <a
+                      href={`/docs/${item.slug ? `${item.slug}/` : ""}`}
+                      class:list={[
+                        "block rounded-md px-2 py-1.5 transition-colors hover:bg-accent",
+                        current === item.slug ? "bg-accent font-medium" : "text-muted-foreground"
+                      ]}
+                    >
+                      {item.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        }
+        <div>
+          <p class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Use cases</p>
+          <ul class="space-y-0.5">
+            {
+              useCases.map((entry) => (
+                <li>
+                  <a
+                    href={`/use-cases/${entry.id}/`}
+                    class:list={[
+                      "block rounded-md px-2 py-1.5 transition-colors hover:bg-accent",
+                      current === `use-cases/${entry.id}` ? "bg-accent font-medium" : "text-muted-foreground"
+                    ]}
+                  >
+                    {entry.data.title}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+      </nav>
+    </aside>
+    <article class="prose-docs min-w-0">
+      <slot />
+      {
+        editUrl && (
+          <p class="mt-12 border-t pt-4 text-sm text-muted-foreground">
+            <a href={editUrl} target="_blank" rel="noreferrer">
+              Edit this page on GitHub
+            </a>
+          </p>
+        )
+      }
+    </article>
+    <aside class="hidden lg:sticky lg:top-24 lg:block lg:self-start">
+      {
+        toc.length > 0 && (
+          <nav class="text-sm">
+            <p class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">On this page</p>
+            <ul class="space-y-1.5">
+              {toc.map((heading) => (
+                <li>
+                  <a href={`#${heading.slug}`} class="text-muted-foreground transition-colors hover:text-foreground">
+                    {heading.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )
+      }
+    </aside>
+  </div>
+</Base>

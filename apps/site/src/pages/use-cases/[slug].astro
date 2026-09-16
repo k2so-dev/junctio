@@ -1,0 +1,24 @@
+---
+import DocsLayout from "@/components/DocsLayout.astro";
+import { SITE } from "@/lib/site";
+import { getCollection, render } from "astro:content";
+
+export async function getStaticPaths() {
+  const entries = await getCollection("useCases");
+  return entries.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content, headings } = await render(entry);
+---
+
+<DocsLayout
+  title={entry.data.title}
+  description={entry.data.description}
+  current={`use-cases/${entry.id}`}
+  headings={headings}
+  editUrl={`${SITE.repo}/edit/main/apps/site/src/content/use-cases/${entry.id}.mdx`}
+>
+  <h1>{entry.data.title}</h1>
+  <Content />
+</DocsLayout>

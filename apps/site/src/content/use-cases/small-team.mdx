@@ -1,0 +1,28 @@
+---
+title: Shared MCP servers for a small team
+description: One gateway, one namespace per role, one key per person. No shared secrets in client configs.
+client: Team
+order: 4
+keywords: ["mcp gateway for teams", "share mcp servers across team", "mcp server access control api key"]
+---
+
+Three to ten people, a few upstream servers that hold real credentials, and every laptop with its own copy of every token: that is the default MCP setup, and it is the part that a gateway removes.
+
+## The shape of it
+
+- The gateway runs on a small VPS or inside the team's existing Docker host, behind [Caddy](/docs/caddy/) or the platform's own proxy.
+- Upstream servers are configured once. The credentials they need, a database URL, a GitHub token, live in the gateway, encrypted at rest with `JUNCTIO_SECRET`, and are never handed to a client.
+- Namespaces group servers by role. `backend` gets Postgres and the deployment tools, `docs` gets the wiki and the design system, `everyone` gets search and the issue tracker.
+- One endpoint per namespace, one API key per person, each key bound to a single endpoint. Only an argon2id hash of a key is stored and the key is shown once.
+
+## Onboarding and offboarding
+
+A new teammate gets one key and one snippet; their client config is a single entry. When they leave, revoking the key is the whole offboarding, and the upstream credentials they used never existed on their machine.
+
+## Keeping an eye on it
+
+The request log records every call with its key, upstream and duration. Rate limits are per key, so one runaway agent cannot exhaust an upstream's quota for everyone. Turn on the [security audit](/docs/security-audit/) and the gateway checks every stdio server's dependency tree on a schedule, with a per-severity action you choose, from listing the finding to quarantining the server.
+
+## Letting an agent do the admin
+
+Switch on the [management MCP](/docs/management-mcp/) and the person who maintains the gateway can add servers, adjust namespaces and read logs from their own Claude Code session, authenticated with `JUNCTIO_ADMIN_TOKEN`. API keys cannot be issued through it and consent cannot be granted, so an agent cannot widen its own access.

@@ -1,0 +1,34 @@
+---
+title: One MCP endpoint for Claude Code
+description: Replace a dozen server entries in Claude Code with one HTTP endpoint that Junctio keeps authenticated.
+client: Claude Code
+order: 1
+keywords: ["claude code mcp gateway", "claude mcp add http", "claude code mcp oauth refresh"]
+---
+
+Claude Code reads its MCP servers from a config it manages with `claude mcp add`. Every stdio server there is a process started by the editor, with its credentials in plain environment variables, and every remote server is a token that Claude Code refreshes on its own schedule, which is usually after something fails. With a gateway in between, Claude Code knows one URL and one key.
+
+## The setup
+
+Add your servers to Junctio, put them in a namespace, create an endpoint with `api_key` auth and issue a key. Then:
+
+```bash
+claude mcp add --transport http junctio https://mcp.example.com/mcp/main \
+  --header "Authorization: Bearer jn_..."
+```
+
+That is the whole client side. Tools show up as `<prefix>__<tool>`, so `github__create_issue` and `linear__create_issue` do not collide, and the endpoint's `instructions` field carries the namespace description plus whatever each upstream announced on connect, so Claude reads one coherent brief before calling anything.
+
+## What changes day to day
+
+- Adding or removing a server happens in the gateway UI, or through the [management MCP](/docs/management-mcp/) from inside Claude Code itself. The client config never changes.
+- An upstream that needs OAuth, GitHub or Linear for instance, is authorized once in the gateway. The token is [refreshed before it expires](/docs/upstream-servers/), so a long session never hits a 401.
+- One machine or three: the same key works from a laptop and a dev container, and the servers run where the gateway runs.
+
+## Locally, without a domain
+
+`api_key` auth works over plain HTTP, so `http://localhost:3000/mcp/main` is fine on one machine. OAuth is the only mode that needs TLS.
+
+## Related
+
+[Endpoints](/docs/endpoints/) explains aggregation and the auth modes. [Upstream servers](/docs/upstream-servers/) covers stdio runtimes, remote servers and upstream OAuth.

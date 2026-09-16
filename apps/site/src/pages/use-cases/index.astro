@@ -1,0 +1,38 @@
+---
+import Base from "@/layouts/Base.astro";
+import { ArrowRight } from "@lucide/vue";
+import { getCollection } from "astro:content";
+
+const entries = (await getCollection("useCases")).sort((a, b) => a.data.order - b.data.order);
+---
+
+<Base
+  title="Use cases"
+  description="How to put Junctio in front of Claude Code, Cursor, claude.ai and a small team, and how to run it on your own server."
+>
+  <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+    <h1 class="text-3xl font-semibold tracking-tight">Use cases</h1>
+    <p class="mt-3 max-w-2xl text-muted-foreground">
+      Each page is one setup, end to end: the client, the endpoint, the auth mode, and what the gateway does for you
+      once it is in place.
+    </p>
+    <div class="mt-10 grid gap-4 sm:grid-cols-2">
+      {
+        entries.map((entry) => (
+          <a
+            href={`/use-cases/${entry.id}/`}
+            class="group flex flex-col rounded-xl border bg-card p-5 transition-colors hover:border-foreground/40"
+          >
+            <span class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{entry.data.client}</span>
+            <span class="mt-2 text-lg font-semibold tracking-tight">{entry.data.title}</span>
+            <span class="mt-2 flex-1 text-sm text-muted-foreground">{entry.data.description}</span>
+            <span class="mt-4 inline-flex items-center gap-1 text-sm font-medium">
+              Read
+              <ArrowRight class="size-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </a>
+        ))
+      }
+    </div>
+  </section>
+</Base>

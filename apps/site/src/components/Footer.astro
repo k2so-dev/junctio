@@ -1,0 +1,18 @@
+---
+import { SITE } from "@/lib/site";
+---
+
+<footer class="border-t">
+  <div
+    class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6"
+  >
+    <p>{SITE.name} is open source under the MIT license.</p>
+    <nav class="flex flex-wrap gap-x-5 gap-y-2">
+      <a href="/docs/" class="hover:text-foreground">Docs</a>
+      <a href="/use-cases/" class="hover:text-foreground">Use cases</a>
+      <a href={SITE.repo} target="_blank" rel="noreferrer" class="hover:text-foreground">GitHub</a>
+      <a href={`${SITE.repo}/blob/main/CHANGELOG.md`} target="_blank" rel="noreferrer" class="hover:text-foreground">Changelog</a>
+      <a href={`${SITE.repo}/blob/main/.github/SECURITY.md`} target="_blank" rel="noreferrer" class="hover:text-foreground">Security</a>
+    </nav>
+  </div>
+</footer>

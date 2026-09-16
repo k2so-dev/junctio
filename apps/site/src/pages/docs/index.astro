@@ -1,0 +1,76 @@
+---
+import DocsLayout from "@/components/DocsLayout.astro";
+import CopyCommand from "@/components/CopyCommand.vue";
+import { SITE } from "@/lib/site";
+
+const headings = [
+  { depth: 2, slug: "run-it", text: "Run it" },
+  { depth: 2, slug: "connect-a-client", text: "Connect a client" },
+  { depth: 2, slug: "behind-a-domain", text: "Behind a domain" },
+  { depth: 2, slug: "where-to-go-next", text: "Where to go next" }
+];
+---
+
+<DocsLayout
+  title="Getting started"
+  description="Run the Junctio MCP gateway with Docker Compose, add an upstream server, and point Claude Code or Cursor at one endpoint."
+  current=""
+  headings={headings}
+>
+  <h1>Getting started</h1>
+  <p>
+    Junctio is one container and one volume. The image is <code>{SITE.image}</code>, built for amd64 and arm64.
+    <code>latest</code> is the last release, <code>edge</code> follows <code>main</code>.
+  </p>
+
+  <h2 id="run-it">Run it</h2>
+  <p>Fetch the compose file and the environment template:</p>
+  <pre><code>mkdir junctio && cd junctio
+curl -fsSLO {SITE.composeUrl}
+curl -fsSL {SITE.envUrl} -o .env</code></pre>
+  <p>
+    Set <code>JUNCTIO_SECRET</code> in <code>.env</code> to the output of <code>openssl rand -hex 32</code>. The process refuses
+    to start without it, because it is the key that encrypts every stored token. Then:
+  </p>
+  <CopyCommand client:visible command="docker compose up -d" />
+  <p class="mt-4">
+    Open <code>http://localhost:3000</code> and set an admin password. Running from the source tree works too, with
+    <code>bun install</code>, <code>bun run build:web</code> and <code>bun run start</code>.
+  </p>
+
+  <h2 id="connect-a-client">Connect a client</h2>
+  <ol>
+    <li>
+      Add a server. For a package on npm pick the <code>npx</code> runtime and type the package name. The form previews
+      the exact command.
+    </li>
+    <li>Create a namespace and put the server in it.</li>
+    <li>Create an endpoint pointing at that namespace and issue an API key.</li>
+    <li>Paste the snippet into your client.</li>
+  </ol>
+  <pre><code>claude mcp add --transport http junctio https://mcp.example.com/mcp/main \
+  --header "Authorization: Bearer jn_..."</code></pre>
+  <p>
+    Every client sees the same endpoint. Tools from each upstream are exposed with a prefix, so <code>github__search</code>
+    and <code>db__query</code> live side by side without colliding. <a href="/docs/endpoints/">Endpoints</a> covers
+    aggregation, auth modes and protocol negotiation.
+  </p>
+
+  <h2 id="behind-a-domain">Behind a domain</h2>
+  <p>
+    Set <code>JUNCTIO_BASE_URL</code> and <code>JUNCTIO_TRUST_PROXY=true</code>, and terminate TLS in front of the
+    gateway. OAuth does not work over plain HTTP: browsers and MCP clients refuse the redirects. The
+    <a href="/docs/caddy/">Caddy guide</a> is a two-line Caddyfile; <a href="/docs/deploy/dokploy/">Dokploy</a>,
+    <a href="/docs/deploy/coolify/">Coolify</a> and <a href="/docs/deploy/portainer/">Portainer</a> have their own
+    pages.
+  </p>
+
+  <h2 id="where-to-go-next">Where to go next</h2>
+  <ul>
+    <li><a href="/docs/upstream-servers/">Upstream servers</a>: stdio runtimes, remote transports, images, upstream OAuth.</li>
+    <li><a href="/docs/management-mcp/">Management MCP</a>: let an agent configure the gateway instead of clicking.</li>
+    <li><a href="/docs/explore/">Explore</a>: the registry, other catalogs, import from a pasted client config.</li>
+    <li><a href="/docs/security-audit/">Security audit</a>: scheduled vulnerability checks and what a finding does.</li>
+    <li><a href="/use-cases/">Use cases</a>: Claude Code, Cursor, claude.ai connectors, a small team, a VPS.</li>
+  </ul>
+</DocsLayout>

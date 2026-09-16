@@ -11,3 +11,4 @@ apps/gateway/data/
 junctio
 .prototype/
 .cache/
+.astro/

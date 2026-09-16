@@ -1,0 +1,208 @@
+---
+import Base from "@/layouts/Base.astro";
+import CopyCommand from "@/components/CopyCommand.vue";
+import GatewayFlow from "@/components/GatewayFlow.vue";
+import TokenTimeline from "@/components/TokenTimeline.vue";
+import { SITE } from "@/lib/site";
+import { ArrowRight, Box, EyeOff, KeyRound, Layers, RefreshCw, ShieldCheck, Terminal } from "@lucide/vue";
+import { getCollection } from "astro:content";
+
+const useCases = (await getCollection("useCases")).sort((a, b) => a.data.order - b.data.order);
+
+const features = [
+  {
+    icon: RefreshCw,
+    title: "Proactive token refresh",
+    text: "Upstream OAuth tokens are renewed on a schedule, not after a request has already failed. Refresh tokens rotate on every use."
+  },
+  {
+    icon: EyeOff,
+    title: "No telemetry",
+    text: "No phone-home, no analytics, no update ping. The only outbound call the UI makes is to the public MCP registry, while you look at it."
+  },
+  {
+    icon: Layers,
+    title: "One endpoint, many servers",
+    text: "Tools from every upstream are aggregated under prefixes. A dead upstream does not take the rest down."
+  },
+  {
+    icon: KeyRound,
+    title: "Its own authorization server",
+    text: "PKCE, dynamic client registration and a consent screen behind the admin password. What claude.ai and Claude Desktop connectors need."
+  },
+  {
+    icon: Terminal,
+    title: "Management MCP",
+    text: "Forty-six tools over the same REST API the UI uses, so an agent can configure the gateway instead of you clicking through it."
+  },
+  {
+    icon: ShieldCheck,
+    title: "Security audit",
+    text: "Optional scheduled vulnerability checks for every stdio server, with a per-severity action you choose."
+  }
+];
+
+const steps = [
+  { title: "Add a server", text: "Pick a runtime, type the package name, the form previews the exact command." },
+  { title: "Group it in a namespace", text: "Choose a prefix per server, hide or rename tools, add instructions." },
+  { title: "Create an endpoint", text: "API key, OAuth, both or none. Issue a key or let a client register itself." },
+  { title: "Paste one snippet", text: "Every client points at the same URL. Change upstreams without touching clients." }
+];
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: SITE.name,
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "Linux, Docker",
+  description: SITE.description,
+  url: Astro.site?.toString(),
+  license: "https://opensource.org/licenses/MIT",
+  codeRepository: SITE.repo,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }
+};
+---
+
+<Base title={SITE.name} jsonLd={jsonLd}>
+  <section class="mx-auto grid max-w-6xl items-center gap-12 px-4 pt-20 pb-16 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:pt-28">
+    <div class="animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <p class="mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground">
+        <Box class="size-3.5" />
+        Self-hosted MCP gateway
+      </p>
+      <h1 class="text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-4xl xl:text-5xl">
+        One endpoint for every MCP client. Auth that does not go stale.
+      </h1>
+      <p class="mt-5 max-w-xl text-lg text-muted-foreground text-pretty">
+        Point Claude Code, Cursor, Codex or claude.ai at a single URL and manage the servers behind it from a web UI.
+        One container, one volume, nothing leaves your machine.
+      </p>
+      <div class="mt-8 flex flex-wrap items-center gap-3">
+        <a
+          href="/docs/"
+          class="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          Get started
+          <ArrowRight class="size-4" />
+        </a>
+        <a
+          href={SITE.repo}
+          target="_blank"
+          rel="noreferrer"
+          class="inline-flex h-10 items-center rounded-md border px-5 text-sm font-medium transition-colors hover:bg-accent"
+        >
+          View on GitHub
+        </a>
+      </div>
+      <div class="mt-8 max-w-md">
+        <CopyCommand client:visible command="docker compose up -d" />
+      </div>
+    </div>
+    <div class="animate-in fade-in duration-1000 delay-200 fill-mode-both">
+      <GatewayFlow client:visible />
+    </div>
+  </section>
+
+  <section class="border-t bg-muted/30">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <h2 class="text-2xl font-semibold tracking-tight">Why a gateway at all</h2>
+      <p class="mt-2 max-w-2xl text-muted-foreground">
+        Every client keeps its own list of servers and its own copy of every token. Junctio holds them once, keeps them
+        fresh, and hands out one URL.
+      </p>
+      <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {
+          features.map((feature) => (
+            <div class="rounded-xl border bg-card p-5">
+              <feature.icon class="size-5 text-muted-foreground" />
+              <h3 class="mt-4 font-semibold">{feature.title}</h3>
+              <p class="mt-1.5 text-sm leading-6 text-muted-foreground">{feature.text}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-auto grid max-w-6xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:items-center">
+    <div>
+      <h2 class="text-2xl font-semibold tracking-tight">The promise: auth does not go stale</h2>
+      <p class="mt-3 text-muted-foreground">
+        An upstream token that expires mid-session surfaces as a 401 inside your editor, and the fix is a manual
+        re-login. Junctio refreshes each upstream token on a schedule, well before it expires, and collapses concurrent
+        refreshes into one. The test suite runs a hundred calls under a five second token lifetime with zero
+        client-visible failures.
+      </p>
+      <p class="mt-3 text-muted-foreground">
+        The same holds between your client and the gateway: access tokens live an hour, refresh tokens thirty days and
+        rotate on every use, and revoking a client from Settings kills its tokens with it.
+      </p>
+    </div>
+    <div class="rounded-xl border bg-muted/30 p-6">
+      <TokenTimeline client:visible />
+    </div>
+  </section>
+
+  <section class="border-t">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <h2 class="text-2xl font-semibold tracking-tight">Four steps from container to client</h2>
+      <ol class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {
+          steps.map((step, index) => (
+            <li class="relative pl-12">
+              <span class="absolute top-0 left-0 flex size-8 items-center justify-center rounded-full border bg-card text-sm font-semibold">
+                {index + 1}
+              </span>
+              <h3 class="font-semibold">{step.title}</h3>
+              <p class="mt-1.5 text-sm leading-6 text-muted-foreground">{step.text}</p>
+            </li>
+          ))
+        }
+      </ol>
+      <pre class="mt-10 overflow-x-auto rounded-lg border bg-card p-4 font-mono text-[13px] leading-6"><code>claude mcp add --transport http junctio https://mcp.example.com/mcp/main \
+  --header "Authorization: Bearer jn_..."</code></pre>
+    </div>
+  </section>
+
+  <section class="border-t bg-muted/30">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <div class="flex items-end justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-semibold tracking-tight">Pick your setup</h2>
+          <p class="mt-2 text-muted-foreground">One page per client and per way of hosting it.</p>
+        </div>
+        <a href="/use-cases/" class="hidden text-sm font-medium hover:underline sm:inline">All use cases</a>
+      </div>
+      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {
+          useCases.slice(0, 6).map((entry) => (
+            <a
+              href={`/use-cases/${entry.id}/`}
+              class="group rounded-xl border bg-card p-5 transition-colors hover:border-foreground/40"
+            >
+              <span class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{entry.data.client}</span>
+              <span class="mt-2 block font-semibold">{entry.data.title}</span>
+              <span class="mt-1.5 block text-sm leading-6 text-muted-foreground">{entry.data.description}</span>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-6xl px-4 py-20 text-center sm:px-6">
+    <h2 class="text-2xl font-semibold tracking-tight">Runs wherever Docker does</h2>
+    <p class="mx-auto mt-3 max-w-xl text-muted-foreground">
+      A multi-arch image on GHCR, a compose file, and guides for Caddy, Dokploy, Coolify and Portainer. Read
+      the security notes before exposing it to anyone but yourself.
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3">
+      <a href="/docs/" class="inline-flex h-10 items-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground hover:opacity-90">
+        Read the docs
+      </a>
+      <a href="/docs/caddy/" class="inline-flex h-10 items-center rounded-md border px-5 text-sm font-medium hover:bg-accent">
+        Deploy behind Caddy
+      </a>
+    </div>
+  </section>
+</Base>

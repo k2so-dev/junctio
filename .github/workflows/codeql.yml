@@ -12,6 +12,7 @@ on:
       - "**.md"
       - "docs/**"
       - "screenshots/**"
+  workflow_dispatch:
   schedule:
     - cron: "0 7 * * 1"
 

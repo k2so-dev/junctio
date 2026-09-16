@@ -81,6 +81,8 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -111,6 +113,15 @@ jobs:
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf "${IMAGE}@sha256:%s " *)
       - run: docker buildx imagetools inspect ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}
+
+  scan:
+    needs: merge
+    permissions:
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/scan.yml
+    with:
+      tag: ${{ needs.merge.outputs.version }}
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v')

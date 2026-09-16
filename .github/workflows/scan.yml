@@ -1,0 +1,57 @@
+name: scan
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: image tag to scan, the latest release when empty
+        type: string
+        default: ""
+  schedule:
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+  TRIVY: aquasec/trivy:0.74.0
+
+jobs:
+  trivy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName | ltrimstr("v")')
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - env:
+          REF: ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/trivy"
+          scan() {
+            docker run --rm \
+              -v "$RUNNER_TEMP/trivy:/root/.cache/trivy" \
+              -v "$RUNNER_TEMP:/out" \
+              "$TRIVY" image --scanners vuln --ignore-unfixed --severity CRITICAL,HIGH,MEDIUM "$@" "$REF"
+          }
+          scan --format sarif --output /out/trivy.sarif
+          scan --format table
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ runner.temp }}/trivy.sarif
+          category: trivy

@@ -10,6 +10,7 @@
 Self-hosted MCP gateway for one developer or a small team. One container, one volume, one endpoint per client.
 
 [![ci](https://github.com/k2so-dev/junctio/actions/workflows/ci.yml/badge.svg)](https://github.com/k2so-dev/junctio/actions/workflows/ci.yml)
+[![codeql](https://github.com/k2so-dev/junctio/actions/workflows/codeql.yml/badge.svg)](https://github.com/k2so-dev/junctio/security/code-scanning)
 [![ghcr.io](https://img.shields.io/github/v/tag/k2so-dev/junctio?sort=semver&label=ghcr.io)](https://github.com/k2so-dev/junctio/pkgs/container/junctio)
 [![license](https://img.shields.io/github/license/k2so-dev/junctio)](LICENSE)
 

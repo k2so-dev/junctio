@@ -1,0 +1,51 @@
+---
+title: A VPN panel your agent operates
+description: 3x-ui publishes an OpenAPI spec and issues bearer tokens. Load it into the OpenAPI MCP Server behind Junctio and ask for a client, a limit and a link.
+client: 3x-ui
+group: agent
+order: 8
+keywords: ["3x-ui api mcp", "3x-ui automation claude", "xray panel agent", "mcp vpn panel"]
+---
+
+3x-ui already has everything this needs: a REST API under `/panel/api/`, a generated OpenAPI document, and bearer tokens you create in the panel. So there is no integration to write. One upstream server in Junctio, pointed at the spec, and the panel becomes a set of tools your agent can call from Claude Desktop.
+
+What that buys you: ask for a client on an inbound with thirty days and fifty gigabytes, get the subscription link back. Ask which clients are near their limit. Reset the traffic on one, disable an expired one. The panel is still the source of truth and still where you look when something is wrong.
+
+## The setup
+
+Make a token first, in Settings, Security, API Token. It is a full-admin credential, so treat it like the panel password.
+
+Then add one server with runtime `uvx` and the argument `awslabs.openapi-mcp-server@latest`, carrying this environment:
+
+```
+API_NAME=3x-ui
+API_BASE_URL=https://panel.example.com
+API_SPEC_URL=https://docs.sanaei.dev/openapi.json
+AUTH_TYPE=bearer
+AUTH_TOKEN=<the token>
+```
+
+The spec declares its server as `/`, so `API_BASE_URL` carries the real origin, including the base path if your panel runs under one. If the panel sits on the same host as the gateway and is reached over a private address, add `ALLOW_PRIVATE_NETWORKS=true`. Pinning a copy of the spec on the gateway's volume and pointing `API_SPEC_PATH` at it is the safer choice for a panel you upgrade rarely.
+
+The rest is the usual three clicks: a `vpn` namespace holding this one server, an endpoint with `oauth` auth, then the endpoint URL added as a custom connector in Claude Desktop. The consent screen asks for your admin password once.
+
+## Instructions worth writing
+
+The spec describes shapes, not conventions, and the conventions are what an agent gets wrong. Put them in the namespace instructions, by hand in the Namespaces page or through the [management MCP](/docs/management-mcp/):
+
+- Which inbound new clients go on, when there is more than one.
+- The naming convention for clients, and the fact that the identifier has to be unique.
+- The units the panel actually uses. Expiry is a millisecond timestamp and the traffic cap is counted in bytes regardless of what the field is called, and an agent that guesses will create a client that expired in 1970.
+- How a subscription link is composed from the panel's subscription settings, so the agent hands over a URL rather than a raw config.
+
+[Endpoints](/docs/endpoints/) explains how that text reaches the client and how a per-tool description override works when one operation needs more than the namespace text can carry.
+
+## Keeping it safe
+
+The token is full control of the panel and it stays in the gateway, encrypted with `JUNCTIO_SECRET`. The client gets tools, never the credential. Hide the operations that have no business being one sentence away from a chat window: backup and restore, restart, anything under settings or Xray configuration. An endpoint with `oauth` auth means every client passed the consent screen, and revoking that client in Settings ends its access immediately.
+
+The panel controls who reaches the network behind it. Whether that is allowed, and for whom, is your jurisdiction's question and not the gateway's.
+
+## Related
+
+[Any REST API as MCP tools](/use-cases/openapi/) for the general pattern and every environment variable, [Endpoints](/docs/endpoints/) for tool overrides and auth modes, [a custom connector for claude.ai](/use-cases/claude-ai-connector/) for the OAuth flow.

@@ -1,0 +1,33 @@
+---
+import { ArrowRight } from "@lucide/vue";
+import type { CollectionEntry } from "astro:content";
+
+interface Props {
+  entry: CollectionEntry<"useCases">;
+  detailed?: boolean;
+}
+
+const { entry, detailed = false } = Astro.props;
+---
+
+<a
+  href={`/use-cases/${entry.id}/`}
+  class:list={[
+    "group rounded-xl border bg-card p-5 transition-colors hover:border-foreground/40",
+    detailed && "flex flex-col"
+  ]}
+>
+  <span class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{entry.data.client}</span>
+  <span class:list={["mt-2 block font-semibold", detailed && "text-lg tracking-tight"]}>{entry.data.title}</span>
+  <span class:list={["mt-1.5 block text-sm leading-6 text-muted-foreground", detailed && "flex-1"]}>
+    {entry.data.description}
+  </span>
+  {
+    detailed && (
+      <span class="mt-4 inline-flex items-center gap-1 text-sm font-medium">
+        Read
+        <ArrowRight class="size-4 transition-transform group-hover:translate-x-0.5" />
+      </span>
+    )
+  }
+</a>

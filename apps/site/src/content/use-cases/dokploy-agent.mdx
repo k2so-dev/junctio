@@ -1,0 +1,51 @@
+---
+title: A Lovable alternative on a $5 VPS
+description: Your agent writes the site and deploys it through the Dokploy MCP behind your gateway. No preview pane, but the code is yours and the bill is a VPS.
+client: Dokploy
+group: agent
+order: 6
+keywords: ["lovable alternative self-hosted", "dokploy mcp claude", "deploy from claude.ai", "ai agent deploy vps"]
+---
+
+Three pieces, all of which you either already pay for or can rent for the price of a coffee: Dokploy on a small VPS, Junctio next to it, and the Claude or OpenAI subscription in your editor. The gateway holds the Dokploy MCP server and publishes it to your client over OAuth, so the agent that writes the code is also the agent that ships it.
+
+What this is not: there is no preview pane, no visual editor, no click-to-edit on a rendered page. The agent reads build logs, not screenshots. What it is instead: the code lives in your repository, the server is yours, nothing is locked behind a seat price, and the same gateway serves every other tool the agent needs.
+
+## Prerequisites
+
+- Dokploy on the VPS, and Junctio deployed as a Compose service inside it. [Dokploy](/docs/deploy/dokploy/) has the exact YAML, the network it has to join and the Domains tab settings.
+- TLS on the gateway's domain, `JUNCTIO_BASE_URL` set to it and `JUNCTIO_TRUST_PROXY=true` behind Traefik. OAuth does not work over plain HTTP.
+- A Dokploy API key from Settings, Profile, the API/CLI section.
+
+## The setup
+
+1. **Add the server.** Runtime `npx`, arguments `-y` and `@dokploy/mcp`, environment `DOKPLOY_URL` set to the panel's URL without a path and `DOKPLOY_API_KEY` set to the key. The key is stored encrypted with `JUNCTIO_SECRET` and is never handed to a client.
+2. **Create a namespace and cut it down.** The package announces upwards of six hundred tools across every corner of the Dokploy API. An agent does not need SSO, user management, registries or cluster settings, and a tool list that size costs context on every request. Keep projects, applications, Compose, domains, environments, deployments and logs; hide the rest. Hiding is per namespace membership and it is real: a hidden tool is not callable, not merely absent from the listing.
+3. **Write the instructions.** The namespace description is what the client reads before it calls anything. Name the project the agent should deploy into, the domain pattern for new applications, and the rule that it asks before deleting or stopping something. [Endpoints](/docs/endpoints/) explains how that text is composed with what each upstream announced.
+4. **Create the endpoint.** Auth `oauth` for claude.ai and Claude Desktop, `any` if a Claude Code session on your laptop should also reach it with an API key.
+5. **Connect the client.** Add the endpoint URL as a custom connector, approve the consent screen, and the client holds a token that refreshes itself from there on.
+
+## Two ways to write the code
+
+**With a filesystem.** Claude Code or Codex on your machine writes the files, commits and pushes, then calls `dokploy__application-deploy` through the gateway. The editor does what editors are good at and the gateway does the deployment.
+
+**Without one.** claude.ai and Claude Desktop have no filesystem, so put a GitHub MCP server in the same namespace. The agent commits through GitHub and deploys through Dokploy, and both arrive at the client as one endpoint behind one consent screen. This is the configuration that reads most like a hosted app builder: you describe a page in a chat window and a URL comes back.
+
+## A session, roughly
+
+Ask for a landing page for a client. The agent writes the files and pushes them. It calls the create-application tool with the repository and branch, attaches a domain, triggers a deployment, then polls the deployment tool until the build finishes. If the build fails it reads the log, fixes the Dockerfile or the build command, and deploys again. You see each tool call by its prefixed name, `dokploy__application-deploy` and friends, and every one of them is written to the gateway's request log with the key that made it.
+
+## Where it stops
+
+- **No live preview.** The agent cannot see the rendered page. Give it a screenshot yourself, or add a Playwright server to the namespace and let it take one.
+- **Builds take what they take.** A small VPS building a Next.js image is not instant, and the agent waits with you.
+- **Frameworks are Dokploy's business.** Whatever Nixpacks detects, or whatever your Dockerfile says. Nothing here changes that.
+- **Rollbacks are manual in practice.** The tools exist, but knowing which deployment to go back to is still your call.
+
+## Keeping it safe
+
+The Dokploy key is full control over that panel, which means the host. It lives in the gateway, encrypted, and the agent gets a set of tools rather than the key itself. Bind the endpoint to OAuth so every client authorizes through the consent screen, and revoke the client in Settings when the work is done; its tokens die with it. If you also switch on the [management MCP](/docs/management-mcp/), remember it can add stdio servers, which is equivalent to shell access on the gateway host.
+
+## Related
+
+[Dokploy](/docs/deploy/dokploy/) for the deployment itself, [Endpoints](/docs/endpoints/) for auth modes and tool overrides, [a custom connector for claude.ai](/use-cases/claude-ai-connector/) for the OAuth side in detail.

@@ -13,6 +13,7 @@ const useCases = defineCollection({
     title: z.string(),
     description: z.string(),
     client: z.string(),
+    group: z.enum(["client", "agent"]).default("client"),
     order: z.number(),
     keywords: z.array(z.string()).default([])
   })

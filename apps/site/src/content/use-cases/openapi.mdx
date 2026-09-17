@@ -1,0 +1,58 @@
+---
+title: Any REST API as MCP tools, in an evening
+description: Point the OpenAPI MCP Server at a spec, let an agent write the tool descriptions through the management MCP, hand the client one endpoint.
+client: OpenAPI
+group: agent
+order: 7
+keywords: ["openapi to mcp", "rest api as mcp server", "awslabs openapi-mcp-server", "mcp gateway openapi"]
+---
+
+The OpenAPI MCP Server from AWS Labs reads an OpenAPI document and turns every operation in it into a tool. That is the whole trick, and on its own it produces tools that are exactly as good as the summaries in the spec, which is to say usually not good enough for an agent to use well.
+
+Behind Junctio it becomes something better. The gateway runs the Python process and keeps the API credential, so the client never sees either. The tool descriptions and the namespace instructions are rewritten in the gateway, by hand or by an agent, and the upstream spec is left untouched. What reaches the client is a Streamable HTTP endpoint with a curated set of tools.
+
+## The setup
+
+Add a server with runtime `uvx` and one argument, `awslabs.openapi-mcp-server@latest`. The environment does the rest:
+
+| Variable | Meaning |
+|---|---|
+| `API_NAME` | Short name for the API. It shows up in tool names and prompts. |
+| `API_BASE_URL` | Where requests go. The spec's own server URL is often relative or wrong. |
+| `API_SPEC_URL` | URL of the OpenAPI document. Use `API_SPEC_PATH` instead for a copy on the gateway's volume. |
+| `AUTH_TYPE` | `none`, `bearer`, `basic` or `api_key`. |
+| `AUTH_TOKEN` | The bearer token, when `AUTH_TYPE` is `bearer`. |
+| `AUTH_API_KEY`, `AUTH_API_KEY_NAME`, `AUTH_API_KEY_IN` | The key, the parameter name and whether it rides in a header, the query string or a cookie. |
+| `AUTH_USERNAME`, `AUTH_PASSWORD` | Basic credentials. |
+| `INCLUDE_TAGS`, `EXCLUDE_TAGS` | Cut a large spec down at the source, before it becomes tools. |
+| `ALLOW_PRIVATE_NETWORKS` | Needed when the API is on the same host or Docker network as the gateway. |
+
+From there it is an ordinary upstream: put it in a namespace, create an endpoint, connect a client. [Upstream servers](/docs/upstream-servers/) covers the runtime side, including why `uvx` needs an exec-capable `TMPDIR` and why the image already gives it one.
+
+## Let the agent finish the job
+
+This is the part a bare OpenAPI server cannot do. Connect the [management MCP](/docs/management-mcp/) from Claude Code or Codex and ask it to work on the namespace you just created:
+
+- List the tools and read what each one announces. Specs written for humans leave summaries empty or cryptic.
+- Rewrite the descriptions that say nothing. A per-namespace override replaces what the upstream announced, and clearing it goes back to the original.
+- Hide the operations that should never be called from a chat window: anything that deletes in bulk, anything that rotates credentials.
+- Write the namespace instructions. The conventions that are obvious to you and invisible in the spec go here: which identifiers to use, which fields are in milliseconds, the order operations are normally done in. The `preview_namespace_instructions` tool returns the composed text so the agent can check its own work.
+
+Everything it writes is stored in the gateway. Replace the upstream later and the wording survives.
+
+## What this fits
+
+- **A self-hosted shop.** Medusa, Saleor and WooCommerce all publish a spec. The agent creates products, edits prices and answers questions about stock, in the same session where it writes the storefront.
+- **A CMS or an internal admin API.** The one with twelve endpoints that nobody wants to build a client for.
+- **A panel.** [3x-ui](/use-cases/3x-ui/) is the worked example: a VPN panel the agent operates through its own spec.
+
+## Where it stops
+
+- **One spec, one server.** `ADDITIONAL_SPECS` takes more, but a server per API keeps the prefixes and the audit trail legible.
+- **No OAuth to the upstream.** This server speaks bearer, basic and API key. When the API behind it needs an OAuth dance, use a native MCP server and Junctio's own [upstream OAuth](/docs/upstream-servers/), which refreshes tokens before they expire.
+- **A bad spec makes bad tools.** If the document lies about its parameters, the agent inherits the lie. Overrides fix descriptions, not schemas.
+- **Large specs cost context.** Three hundred tools in one namespace is a slow client. Use the tag filters, then hide what survives them.
+
+## Related
+
+[Upstream servers](/docs/upstream-servers/) for runtimes and credentials, [Endpoints](/docs/endpoints/) for prefixes, overrides and instructions, [Management MCP](/docs/management-mcp/) for the agent that does the curation.

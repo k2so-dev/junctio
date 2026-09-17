@@ -3,11 +3,14 @@ import Base from "@/layouts/Base.astro";
 import CopyCommand from "@/components/CopyCommand.vue";
 import GatewayFlow from "@/components/GatewayFlow.vue";
 import TokenTimeline from "@/components/TokenTimeline.vue";
+import UseCaseCard from "@/components/UseCaseCard.astro";
 import { SITE } from "@/lib/site";
 import { ArrowRight, Box, EyeOff, KeyRound, Layers, RefreshCw, ShieldCheck, Terminal } from "@lucide/vue";
 import { getCollection } from "astro:content";
 
 const useCases = (await getCollection("useCases")).sort((a, b) => a.data.order - b.data.order);
+const clientCases = useCases.filter((entry) => entry.data.group === "client");
+const agentCases = useCases.filter((entry) => entry.data.group === "agent");
 
 const features = [
   {
@@ -164,6 +167,21 @@ const jsonLd = {
     </div>
   </section>
 
+  <section class="border-t">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+      <div class="max-w-2xl">
+        <h2 class="text-2xl font-semibold tracking-tight">Give the agent hands</h2>
+        <p class="mt-2 text-muted-foreground">
+          The gateway is the OAuth door for claude.ai, Claude Desktop, Codex and Claude Code. Behind it, anything with
+          an API becomes tools the agent can call: a deploy platform, a shop, a VPN panel.
+        </p>
+      </div>
+      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {agentCases.map((entry) => <UseCaseCard entry={entry} />)}
+      </div>
+    </div>
+  </section>
+
   <section class="border-t bg-muted/30">
     <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6">
       <div class="flex items-end justify-between gap-4">
@@ -174,18 +192,7 @@ const jsonLd = {
         <a href="/use-cases/" class="hidden text-sm font-medium hover:underline sm:inline">All use cases</a>
       </div>
       <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {
-          useCases.slice(0, 6).map((entry) => (
-            <a
-              href={`/use-cases/${entry.id}/`}
-              class="group rounded-xl border bg-card p-5 transition-colors hover:border-foreground/40"
-            >
-              <span class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{entry.data.client}</span>
-              <span class="mt-2 block font-semibold">{entry.data.title}</span>
-              <span class="mt-1.5 block text-sm leading-6 text-muted-foreground">{entry.data.description}</span>
-            </a>
-          ))
-        }
+        {clientCases.map((entry) => <UseCaseCard entry={entry} />)}
       </div>
     </div>
   </section>

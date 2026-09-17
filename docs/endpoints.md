@@ -42,7 +42,8 @@ Verified by hand before each release.
 
 | Client | Version | Status |
 |---|---|---|
-| Claude Code | | pending |
-| Codex | | pending |
+| Claude Code | | verified, API key and OAuth |
+| Codex | | verified, API key and OAuth |
 | Cursor | | pending |
-| claude.ai connector | | implemented, not yet verified against the live service |
+| Claude Desktop | | verified, OAuth |
+| claude.ai connector | | verified, OAuth |

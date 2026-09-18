@@ -1,6 +1,6 @@
 # Junctio site
 
-The landing page and the rendered documentation at junctio.pages.dev, built with Astro, Tailwind 4 and Vue islands.
+The landing page and the rendered documentation at junctio.org, built with Astro, Tailwind 4 and Vue islands.
 
 The documentation pages are generated from `../../docs/*.md` at build time; nothing under `src/content` duplicates them. Use-case pages live in `src/content/use-cases` and are the only prose authored here.
 
@@ -27,4 +27,4 @@ Two environment variables, both for the production and the preview environment:
 | `SKIP_DEPENDENCY_INSTALL` | `1` | Stops Pages from running `npm install` before the build command |
 | `BUN_VERSION` | `1.4.2` | Matches the version CI uses |
 
-`SITE_URL` is optional and defaults to `https://junctio.pages.dev`. Set it once the site has its own domain; canonical URLs, the sitemap and the link to it in `robots.txt` all follow it.
+`SITE_URL` is optional and defaults to `https://junctio.org`; canonical URLs, the sitemap and the link to it in `robots.txt` all follow it.

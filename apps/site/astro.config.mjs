@@ -7,7 +7,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { rehypeDocLinks } from "./src/lib/rehype-doc-links.ts";
 
 export default defineConfig({
-  site: process.env.SITE_URL ?? "https://junctio.pages.dev",
+  site: process.env.SITE_URL ?? "https://junctio.org",
   trailingSlash: "always",
   integrations: [vue(), mdx(), sitemap()],
   markdown: {

@@ -1,39 +1,129 @@
 ---
-title: A Lovable alternative on a $5 VPS
-description: Your agent writes the site and deploys it through the Dokploy MCP behind your gateway. No preview pane, but the code is yours and the bill is a VPS.
+title: Replacing Lovable with a $5 VPS and Dokploy
+description: Deploy the gateway on Dokploy, put the Dokploy MCP server behind it, and let your agent write a site and ship it to your own VPS.
 client: Dokploy
 group: agent
 order: 6
-keywords: ["lovable alternative self-hosted", "dokploy mcp claude", "deploy from claude.ai", "ai agent deploy vps"]
+keywords: ["lovable alternative self-hosted", "dokploy mcp claude", "deploy from claude.ai", "ai agent deploy vps", "mcp gateway dokploy"]
 ---
 
-Three pieces, all of which you either already pay for or can rent for the price of a coffee: Dokploy on a small VPS, Junctio next to it, and the Claude or OpenAI subscription in your editor. The gateway holds the Dokploy MCP server and publishes it to your client over OAuth, so the agent that writes the code is also the agent that ships it.
+Lovable describes a site, writes it and publishes it, for $25 to $50 a month on the tiers that are actually usable, with the code on their side. The parts to do the same thing yourself are cheaper and you probably own most of them already: a small VPS, Dokploy on it, the subscription your editor already uses, and a gateway that lets the agent reach the deployment platform.
+
+Three containers and one URL. The gateway runs the official `@dokploy/mcp` server as a stdio process, keeps the Dokploy API key, and publishes a trimmed set of tools to your client over Streamable HTTP with OAuth.
+
+```
+client (claude.ai, Claude Desktop, Claude Code, Codex, Cursor)
+  |  OAuth, one endpoint URL
+Junctio
+  |  stdio, the API key lives here
+@dokploy/mcp
+  |  REST
+Dokploy
+```
 
 What this is not: there is no preview pane, no visual editor, no click-to-edit on a rendered page. The agent reads build logs, not screenshots. What it is instead: the code lives in your repository, the server is yours, nothing is locked behind a seat price, and the same gateway serves every other tool the agent needs.
 
-## Prerequisites
+## What you need
 
-- Dokploy on the VPS, and Junctio deployed as a Compose service inside it. [Dokploy](/docs/deploy/dokploy/) has the exact YAML, the network it has to join and the Domains tab settings.
-- TLS on the gateway's domain, `JUNCTIO_BASE_URL` set to it and `JUNCTIO_TRUST_PROXY=true` behind Traefik. OAuth does not work over plain HTTP.
+- A VPS. Dokploy asks for 2 GB of RAM, the gateway idles at about 60 MB, a running stdio server adds its own footprint.
+- Dokploy installed, with a domain pointed at the machine.
 - A Dokploy API key from Settings, Profile, the API/CLI section.
+- A client that speaks MCP. claude.ai and Claude Desktop need OAuth; Claude Code and Codex can use an API key instead.
 
-## The setup
+## 1. Deploy the gateway
 
-1. **Add the server.** Runtime `npx`, arguments `-y` and `@dokploy/mcp`, environment `DOKPLOY_URL` set to the panel's URL without a path and `DOKPLOY_API_KEY` set to the key. The key is stored encrypted with `JUNCTIO_SECRET` and is never handed to a client.
-2. **Create a namespace and cut it down.** The package announces upwards of six hundred tools across every corner of the Dokploy API. An agent does not need SSO, user management, registries or cluster settings, and a tool list that size costs context on every request. Keep projects, applications, Compose, domains, environments, deployments and logs; hide the rest. Hiding is per namespace membership and it is real: a hidden tool is not callable, not merely absent from the listing.
-3. **Write the instructions.** The namespace description is what the client reads before it calls anything. Name the project the agent should deploy into, the domain pattern for new applications, and the rule that it asks before deleting or stopping something. [Endpoints](/docs/endpoints/) explains how that text is composed with what each upstream announced.
-4. **Create the endpoint.** Auth `oauth` for claude.ai and Claude Desktop, `any` if a Claude Code session on your laptop should also reach it with an API key.
-5. **Connect the client.** Add the endpoint URL as a custom connector, approve the consent screen, and the client holds a token that refreshes itself from there on.
+In Dokploy create a project, add a service of type Compose, choose the Raw provider and paste this:
 
-## Two ways to write the code
+```yaml
+services:
+  junctio:
+    image: ghcr.io/k2so-dev/junctio:latest
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      JUNCTIO_SECRET: ${JUNCTIO_SECRET:?set JUNCTIO_SECRET, e.g. openssl rand -hex 32}
+      JUNCTIO_BASE_URL: ${JUNCTIO_BASE_URL:?set JUNCTIO_BASE_URL, e.g. https://mcp.example.com}
+      JUNCTIO_TRUST_PROXY: "true"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - junctio-data:/data
+      - junctio-cache:/cache
+    tmpfs:
+      - /tmp
+    read_only: true
+    networks:
+      - dokploy-network
 
-**With a filesystem.** Claude Code or Codex on your machine writes the files, commits and pushes, then calls `dokploy__application-deploy` through the gateway. The editor does what editors are good at and the gateway does the deployment.
+networks:
+  dokploy-network:
+    external: true
 
-**Without one.** claude.ai and Claude Desktop have no filesystem, so put a GitHub MCP server in the same namespace. The agent commits through GitHub and deploys through Dokploy, and both arrive at the client as one endpoint behind one consent screen. This is the configuration that reads most like a hosted app builder: you describe a page in a chat window and a URL comes back.
+volumes:
+  junctio-data:
+  junctio-cache:
+```
 
-## A session, roughly
+The Environment tab takes `JUNCTIO_SECRET`, generated with `openssl rand -hex 32`, and `JUNCTIO_BASE_URL`, exactly the domain you are about to attach, with `https://` and no trailing slash. On the Domains tab point the host at the `junctio` service on container port `3000` and switch on HTTPS with Let's Encrypt, then deploy.
 
-Ask for a landing page for a client. The agent writes the files and pushes them. It calls the create-application tool with the repository and branch, attaches a domain, triggers a deployment, then polls the deployment tool until the build finishes. If the build fails it reads the log, fixes the Dockerfile or the build command, and deploys again. You see each tool call by its prefixed name, `dokploy__application-deploy` and friends, and every one of them is written to the gateway's request log with the key that made it.
+Three details decide whether this works at all. The service publishes no ports and joins `dokploy-network`, because Dokploy routes through its own Traefik and a published port would put the gateway next to the proxy instead of behind it. `JUNCTIO_TRUST_PROXY` is `true` because Traefik sets `X-Forwarded-For` and the login rate limiter reads it. `JUNCTIO_SECRET` encrypts every stored token, so a lost secret is a lost database; keep a copy somewhere other than the server. [Dokploy](/docs/deploy/dokploy/) has the rest, including the docker socket if you want container runtimes.
+
+Open the domain and set the admin password on first start. That password is the one the consent screen will ask for later.
+
+## 2. Add the Dokploy MCP server
+
+Servers, add, runtime `npx`, arguments `-y` and `@dokploy/mcp` on separate lines, environment `DOKPLOY_URL` set to the panel's URL without a path and `DOKPLOY_API_KEY` set to the key. Save and hit Test.
+
+![The servers table in Junctio](https://github.com/user-attachments/assets/a8c268d1-b10d-46fd-8126-d20374d94975)
+
+The key is encrypted with `JUNCTIO_SECRET` and never reaches a client. The process is started on the first call and stopped again after fifteen idle minutes, so most of the time it costs nothing.
+
+## 3. Cut six hundred tools down to twenty
+
+The package announces upwards of 600 tools across every corner of the Dokploy API. An agent does not need SSO, user management, registries or cluster settings, and a tool list that size costs context on every request and invites the wrong `application-*` call.
+
+Create a namespace, add the server to it, and hide everything except what shipping a site needs: projects, applications, Compose, domains, environments, deployments and logs. Hiding is per namespace membership and it is real, not cosmetic: a hidden tool is not callable, not merely absent from the listing.
+
+Then write the namespace instructions. That text is what the client reads before it calls anything, so name the project the agent deploys into, the domain pattern for new applications, and the rule that it asks before deleting or stopping something.
+
+## 4. Create the endpoint
+
+Endpoints, add, pick the namespace, set auth to `oauth` for claude.ai and Claude Desktop, or `any` if a Claude Code session on your laptop should also reach it with an API key.
+
+![The endpoints screen in Junctio](https://github.com/user-attachments/assets/ee265770-a633-4cd6-a0dc-2b01ca09656a)
+
+claude.ai in the browser cannot run a stdio server and cannot send an API key header, so a custom connector needs a remote MCP server with a real OAuth authorization server behind it. The gateway is that server: RFC 8414 metadata, RFC 7591 dynamic client registration, authorization code with PKCE, and a consent screen that asks for the admin password. No Cloudflare Worker wrapper, no Keycloak.
+
+Paste `https://mcp.example.com/mcp/<slug>` into the client as a custom connector, approve the consent screen, and it holds an access token that lives an hour and a refresh token that lives thirty days and rotates on every use. Revoke the client in Settings and its tokens die with it. [A custom connector for claude.ai](/use-cases/claude-ai-connector/) covers that side in detail.
+
+## 5. Write and ship
+
+With a filesystem: Claude Code or Codex writes the files, commits and pushes, then calls `dokploy__application-deploy` through the gateway.
+
+Without one: claude.ai and Claude Desktop have no filesystem, so put a GitHub MCP server in the same namespace. The agent commits through GitHub and deploys through Dokploy, and both arrive at the client as one endpoint behind one consent screen. This is the configuration that reads most like a hosted app builder — you describe a page in a chat window and a URL comes back.
+
+A session looks like this. Ask for a landing page for a client. The agent writes the files and pushes them, calls the create-application tool with the repository and branch, attaches a domain, triggers a deployment, then polls until the build finishes. If the build fails it reads the log, fixes the Dockerfile or the build command, and deploys again. Minutes end to end, most of it the Docker build.
+
+## What you see afterwards
+
+Every tool call is written to the request log with its method, tool name, upstream, status and duration.
+
+![The request log in Junctio](https://github.com/user-attachments/assets/4f1c5289-34b5-46f7-b6db-3d5f9590096f)
+
+Request and response bodies are not stored. Arguments and results can carry anything the agent touched, and a log full of that is a leak waiting to happen. Retention is a setting; rows older than it are pruned.
+
+## Keeping it safe
+
+The Dokploy key is full control over that panel, which means the host. It lives in the gateway, encrypted, and the agent gets a set of tools rather than the key itself. Hiding the destructive tools helps and does not make this safe: an agent with deploy rights will eventually aim them at the wrong application, so keep a namespace per project and read the log.
+
+![The security screen in Junctio](https://github.com/user-attachments/assets/309c8368-2b5c-4a75-9c67-d4d111564b8f)
+
+Switch on the [security audit](/docs/security-audit/) and the gateway checks the dependency tree of everything it launches through `npx`, `bunx`, `node` or `uvx` on a schedule, with a per-severity action from listing a finding to quarantining the server. It is off by default, it is advisory data rather than analysis, and container images, custom commands and remote servers are marked not audited because the gateway cannot tell what is inside them. If you also switch on the [management MCP](/docs/management-mcp/), remember it can add stdio servers, which is equivalent to shell access on the gateway host.
+
+## The next server is a click
+
+The same shape works for anything with an API: an OpenAPI-to-MCP server for your shop, DNS or VPN panel, hidden down to the calls you trust. The [Explore](/docs/explore/) page browses the official MCP registry, and the other places servers are published, and prefills the form from an entry.
+
+![The explore page browsing the MCP registry](https://github.com/user-attachments/assets/c3a74bf7-c196-4c86-94a4-771422f260c9)
 
 ## Where it stops
 
@@ -42,10 +132,6 @@ Ask for a landing page for a client. The agent writes the files and pushes them.
 - **Frameworks are Dokploy's business.** Whatever Nixpacks detects, or whatever your Dockerfile says. Nothing here changes that.
 - **Rollbacks are manual in practice.** The tools exist, but knowing which deployment to go back to is still your call.
 
-## Keeping it safe
-
-The Dokploy key is full control over that panel, which means the host. It lives in the gateway, encrypted, and the agent gets a set of tools rather than the key itself. Bind the endpoint to OAuth so every client authorizes through the consent screen, and revoke the client in Settings when the work is done; its tokens die with it. If you also switch on the [management MCP](/docs/management-mcp/), remember it can add stdio servers, which is equivalent to shell access on the gateway host.
-
 ## Related
 
-[Dokploy](/docs/deploy/dokploy/) for the deployment itself, [Endpoints](/docs/endpoints/) for auth modes and tool overrides, [a custom connector for claude.ai](/use-cases/claude-ai-connector/) for the OAuth side in detail.
+[Dokploy](/docs/deploy/dokploy/) for the deployment itself, [Endpoints](/docs/endpoints/) for auth modes and tool overrides, [Upstream servers](/docs/upstream-servers/) for the stdio runtimes. There is a longer write-up of this setup [on Medium](https://medium.com/@web-artisan/i-almost-replaced-lovable-with-a-5-vps-dokploy-and-one-mcp-gateway-a41905c86549).

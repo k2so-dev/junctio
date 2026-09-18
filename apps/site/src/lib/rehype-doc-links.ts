@@ -5,10 +5,10 @@ import type { Element, Root } from "hast";
 import type { VFile } from "vfile";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../..", import.meta.url)));
-const DOCS_ROOT = resolve(REPO_ROOT, "docs");
+export const DOCS_ROOT = resolve(REPO_ROOT, "docs");
 const GITHUB_BLOB = "https://github.com/k2so-dev/junctio/blob/main";
 
-function rewrite(href: string, fromFile: string): string {
+export function rewriteDocLink(href: string, fromFile: string): string {
   if (/^[a-z]+:/i.test(href) || href.startsWith("#") || href.startsWith("/")) return href;
   const [pathPart, hash] = href.split("#", 2);
   if (!pathPart?.endsWith(".md")) return href;
@@ -31,7 +31,7 @@ export function rehypeDocLinks() {
       if (node.tagName !== "a") return;
       const href = node.properties?.href;
       if (typeof href !== "string") return;
-      const next = rewrite(href, from);
+      const next = rewriteDocLink(href, from);
       node.properties.href = next;
       if (next.startsWith("http")) {
         node.properties.target = "_blank";

@@ -2,7 +2,7 @@
 
 The landing page and the rendered documentation at junctio.org, built with Astro, Tailwind 4 and Vue islands.
 
-The documentation pages are generated from `../../docs/*.md` at build time; nothing under `src/content` duplicates them. Use-case pages live in `src/content/use-cases` and are the only prose authored here.
+The documentation pages are generated from `../../docs/*.md` at build time; nothing under `src/content` duplicates them. The same files feed `/llms.txt`, `/llms-full.txt` and the raw Markdown at `/docs/<slug>.md`. Use-case pages live in `src/content/use-cases` and are the only prose authored here.
 
 ```bash
 bun run dev:site     # astro dev server on 4321

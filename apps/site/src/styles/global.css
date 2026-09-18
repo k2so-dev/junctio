@@ -59,6 +59,9 @@
   & td {
     @apply border-b px-3 py-2 align-top;
   }
+  & img {
+    @apply my-6 w-full rounded-lg border;
+  }
   & blockquote {
     @apply my-4 border-l-2 pl-4 text-muted-foreground;
   }

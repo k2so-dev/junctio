@@ -1,12 +1,6 @@
 name: codeql
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - "screenshots/**"
   pull_request:
     paths-ignore:
       - "**.md"

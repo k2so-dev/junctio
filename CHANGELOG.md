@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-05
+
 ### Security
 
 - **The image is rebuilt on current Debian bookworm packages.** It picks up the fixed `perl-base`, `libpcre2-8-0` and `openssl` builds that Trivy flagged, including three critical Perl advisories; none of these are reached by the gateway itself, but they ship in the image. The bundled npm moves to 12.2.0, and the gateway's own `ip-address` and `fast-uri` move to 10.7.3 and 3.1.8.
@@ -88,7 +90,8 @@ First public release.
 
 - The plaintext `servers.env` column and its backfill. Server environments have been stored encrypted for several releases.
 
-[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/k2so-dev/junctio/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/k2so-dev/junctio/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/k2so-dev/junctio/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/k2so-dev/junctio/releases/tag/v0.1.0

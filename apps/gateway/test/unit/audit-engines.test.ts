@@ -6,7 +6,9 @@ import {
   affectedVersions,
   manifestFor,
   parseBunAuditOutput,
+  parseInstalledEntries,
   parseLockVersions,
+  restrictToInstalled,
   toFindings,
   toSeverity
 } from "../../src/audit/engines/npm.ts";
@@ -107,6 +109,45 @@ describe("parseLockVersions", () => {
     const versions = parseLockVersions(lock);
     expect(versions.get("esbuild")).toEqual(["0.18.20", "0.24.0"]);
     expect(versions.get("@scope/pkg")).toEqual(["2.1.0"]);
+  });
+});
+
+describe("parseInstalledEntries", () => {
+  test("reads names and versions out of the bun package store", () => {
+    const versions = parseInstalledEntries([
+      "esbuild@0.24.0",
+      "@hono+node-server@2.1.1+2ac783cc5e75a70c",
+      "@astrojs+check@0.9.10+89f04375bf363cfa",
+      "esbuild@0.18.20",
+      "node_modules"
+    ]);
+    expect(versions.get("esbuild")).toEqual(["0.18.20", "0.24.0"]);
+    expect(versions.get("@hono/node-server")).toEqual(["2.1.1"]);
+    expect(versions.get("@astrojs/check")).toEqual(["0.9.10"]);
+    expect(versions.has("node_modules")).toBe(false);
+  });
+});
+
+describe("restrictToInstalled", () => {
+  const report = {
+    ...REPORT,
+    devalue: [{ id: 1, url: "https://github.com/advisories/GHSA-j22f-vq7h-c4qm", vulnerable_versions: "<=5.9.2" }],
+    undici: [{ id: 2, vulnerable_versions: "<6.28.1" }, { id: 3, vulnerable_versions: ">=7.0.0 <7.29.1" }, { id: 4 }]
+  };
+
+  test("drops advisories for packages the image does not ship", () => {
+    const installed = new Map([["esbuild", ["0.25.12"]]]);
+    expect(Object.keys(restrictToInstalled(report, installed))).toEqual([]);
+  });
+
+  test("keeps advisories whose range covers an installed version", () => {
+    const installed = new Map([
+      ["esbuild", ["0.18.20", "0.28.2"]],
+      ["undici", ["6.27.0"]]
+    ]);
+    const kept = restrictToInstalled(report, installed);
+    expect(Object.keys(kept).sort()).toEqual(["esbuild", "undici"]);
+    expect(kept.undici!.map((advisory) => advisory.id)).toEqual([2, 4]);
   });
 });
 

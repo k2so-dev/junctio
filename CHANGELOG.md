@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The gateway's audit of itself only reports packages the image actually ships.** `bun audit` reads the whole workspace lockfile, so the site and development tooling (`astro`, `drizzle-kit` and what they pull in) showed up as eight advisories, four of them high, against a container that does not contain them, and turned `/health` to `degraded`. Findings are now matched against `node_modules`, and "Audited N packages" counts what is installed.
+
 ### Changed
 
 - **The `edge` image tag is no longer updated.** Images are published only for release tags, as `X.Y.Z`, `X.Y` and `latest`; anything pinned to `edge` stays on the last build from `main` and should move to `latest` or a version.

@@ -40,7 +40,7 @@ jobs:
 
   test:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -58,7 +58,7 @@ jobs:
 
   image:
     needs: changes
-    if: needs.changes.outputs.image == 'true'
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.image == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

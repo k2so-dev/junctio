@@ -65,7 +65,7 @@ Early, but the whole path works: gateway, aggregation, API key auth, a built-in 
 
 ## Quickstart
 
-The image is `ghcr.io/k2so-dev/junctio`, built for amd64 and arm64. `latest` is the last release, `edge` follows `main`.
+The image is `ghcr.io/k2so-dev/junctio`, built for amd64 and arm64. `latest` is the last release, and every release is also tagged `X.Y.Z` and `X.Y`.
 
 ```bash
 mkdir junctio && cd junctio

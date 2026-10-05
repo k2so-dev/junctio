@@ -2,15 +2,7 @@ name: release
 
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-    paths:
-      - "**"
-      - "!**.md"
-      - "!docs/**"
-      - "!screenshots/**"
-      - "!.github/**"
-      - ".github/workflows/release.yml"
 
 permissions:
   contents: read
@@ -52,7 +44,6 @@ jobs:
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            type=edge,branch=main
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
       - id: build
@@ -100,7 +91,6 @@ jobs:
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            type=edge,branch=main
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
           flavor: |
@@ -124,7 +114,6 @@ jobs:
       tag: ${{ needs.merge.outputs.version }}
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/v')
     needs: merge
     runs-on: ubuntu-24.04
     timeout-minutes: 5

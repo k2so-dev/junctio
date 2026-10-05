@@ -33,7 +33,7 @@ export const GET: APIRoute = async ({ site }) => {
     "",
     `- [Full documentation](${url("/llms-full.txt")}): every docs page in one file`,
     `- [Source](${SITE.repo})`,
-    `- [Container image](${SITE.repo}/pkgs/container/junctio): ${SITE.image}, latest is the last release, edge follows main`,
+    `- [Container image](${SITE.repo}/pkgs/container/junctio): ${SITE.image}, latest is the last release, every release is also tagged X.Y.Z and X.Y`,
     ""
   );
 

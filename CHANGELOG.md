@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The `edge` image tag is no longer updated.** Images are published only for release tags, as `X.Y.Z`, `X.Y` and `latest`; anything pinned to `edge` stays on the last build from `main` and should move to `latest` or a version.
+
 ## [0.2.2] - 2026-10-05
 
 ### Security

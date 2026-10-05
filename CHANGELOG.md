@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **The image is rebuilt on current Debian bookworm packages.** It picks up the fixed `perl-base`, `libpcre2-8-0` and `openssl` builds that Trivy flagged, including three critical Perl advisories; none of these are reached by the gateway itself, but they ship in the image. The bundled npm moves to 12.2.0, and the gateway's own `ip-address` and `fast-uri` move to 10.7.3 and 3.1.8.
+
 ### Fixed
 
 - **The bundled compose file and the Dokploy, Coolify and Portainer snippets pull the image on every deploy.** Without `pull_policy: always` a platform that redeploys with `docker compose up` kept starting the image it had already cached, so pointing at the `latest` tag never actually updated anything. Automatic restarts are unaffected; only a deliberate deploy talks to the registry. The local build stack overrides the policy so it still builds instead of looking for `junctio:local` on a registry.

@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { AuditEngine, AuditFinding, AuditTarget, EngineContext, EngineResult, TargetKind } from "../types.ts";
 import type { Severity } from "@junctio/schema";
@@ -121,6 +121,52 @@ export function parseLockVersions(lock: string): Map<string, string[]> {
   return versions;
 }
 
+export function parseInstalledEntries(entries: string[]): Map<string, string[]> {
+  const versions = new Map<string, string[]>();
+  for (const entry of entries) {
+    const at = entry.indexOf("@", 1);
+    if (at < 0) continue;
+    const stored = entry.slice(0, at);
+    const name = stored.startsWith("@") ? stored.replace("+", "/") : stored;
+    const version = entry.slice(at + 1).split("+")[0]!;
+    if (!/^\d/.test(version)) continue;
+    const list = versions.get(name) ?? [];
+    if (!list.includes(version)) list.push(version);
+    versions.set(name, list);
+  }
+  for (const list of versions.values()) list.sort();
+  return versions;
+}
+
+export function installedVersions(appDir: string): Map<string, string[]> | null {
+  const store = join(appDir, "node_modules", ".bun");
+  if (!existsSync(store)) return null;
+  try {
+    return parseInstalledEntries(readdirSync(store));
+  } catch {
+    return null;
+  }
+}
+
+export function restrictToInstalled(report: BunAuditReport, installed: Map<string, string[]>): BunAuditReport {
+  const kept: BunAuditReport = {};
+  for (const [name, advisories] of Object.entries(report)) {
+    const versions = installed.get(name);
+    if (!versions || !Array.isArray(advisories)) continue;
+    const matching = advisories.filter((advisory) => {
+      const range = advisory.vulnerable_versions;
+      if (!range) return true;
+      try {
+        return versions.some((version) => Bun.semver.satisfies(version, range));
+      } catch {
+        return true;
+      }
+    });
+    if (matching.length > 0) kept[name] = matching;
+  }
+  return kept;
+}
+
 function lastLines(text: string, count = 3): string {
   return text
     .split("\n")
@@ -164,7 +210,12 @@ export class BunAuditEngine implements AuditEngine {
     return { stdout, stderr, code };
   }
 
-  private async auditIn(cwd: string, ctx: EngineContext, versions: Map<string, string[]>): Promise<EngineResult> {
+  private async auditIn(
+    cwd: string,
+    ctx: EngineContext,
+    versions: Map<string, string[]>,
+    installed: Map<string, string[]> | null = null
+  ): Promise<EngineResult> {
     const audit = await this.run(["audit", "--json"], cwd, ctx);
     if (audit.code > 1) {
       const detail = lastLines(audit.stderr) || lastLines(audit.stdout) || `exit code ${audit.code}`;
@@ -179,6 +230,10 @@ export class BunAuditEngine implements AuditEngine {
           ? error.message
           : lastLines(audit.stderr) || lastLines(audit.stdout) || `exit code ${audit.code}`;
       throw new Error(`bun audit failed: ${detail}`);
+    }
+    if (installed) {
+      report = restrictToInstalled(report, installed);
+      versions = installed;
     }
     return {
       findings: toFindings(report, versions),
@@ -206,8 +261,9 @@ export class BunAuditEngine implements AuditEngine {
       if (!existsSync(join(appDir, "bun.lock"))) {
         throw new Error("bun.lock is not shipped next to package.json, the gateway cannot audit itself");
       }
+      const installed = installedVersions(appDir);
       try {
-        return await this.auditIn(appDir, ctx, this.lockVersions(appDir));
+        return await this.auditIn(appDir, ctx, this.lockVersions(appDir), installed);
       } catch (error) {
         if (!String(error).includes("EROFS")) throw error;
         return withTempDir(ctx.tmpRoot, (dir) => {
@@ -218,7 +274,7 @@ export class BunAuditEngine implements AuditEngine {
             mkdirSync(dirname(destination), { recursive: true });
             copyFileSync(source, destination);
           }
-          return this.auditIn(dir, ctx, this.lockVersions(dir));
+          return this.auditIn(dir, ctx, this.lockVersions(dir), installed);
         });
       }
     }

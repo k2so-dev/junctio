@@ -9,7 +9,7 @@ Turned on in Settings, a background job resolves the dependency tree of every st
 | `npx`, `bunx` | a synthesized manifest and `bun install --lockfile-only` | `bun audit`, which reads the npm advisory database |
 | `node` | the `bun.lock` in the server's working directory | `bun audit` |
 | `uvx`, `uv` | `uv pip compile` | OSV.dev |
-| the gateway itself | its own `bun.lock` | `bun audit`, report only |
+| the gateway itself | its own `bun.lock`, narrowed to the packages installed next to it | `bun audit`, report only |
 
 Container images, custom commands and remote servers are marked "not audited" with the reason, because the gateway cannot tell which packages they contain.
 

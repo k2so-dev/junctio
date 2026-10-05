@@ -30,7 +30,7 @@ jobs:
             echo "code=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          docs='^(.*\.md|docs/.*|screenshots/.*|\.github/(assets/.*|ISSUE_TEMPLATE/.*|dependabot\.yml|workflows/(links|release)\.yml))$'
+          docs='^(.*\.md|docs/.*|screenshots/.*|\.github/(assets/.*|ISSUE_TEMPLATE/.*|dependabot\.yml|workflows/release\.yml))$'
           changed=$(git diff --name-only "$BASE" "$GITHUB_SHA" | grep -Ev "$docs" || true)
           if [ -n "$changed" ]; then
             echo "$changed"

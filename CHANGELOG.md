@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **`proxy-addr` moves to 2.0.8**, closing [GHSA-jqcg-44mw-7w3h](https://github.com/advisories/GHSA-jqcg-44mw-7w3h) (IP spoofing via an IPv4-mapped IPv6 trust subnet). It ships transitively through `@modelcontextprotocol/sdk`'s `express` dependency, which the gateway never imports, so the vulnerable code path was not reachable; the version bump closes the self-audit finding regardless.
+
 ## [0.2.3] - 2026-10-06
 
 ### Fixed

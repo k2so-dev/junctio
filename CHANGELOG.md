@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-06
+
 ### Fixed
 
 - **The gateway's audit of itself only reports packages the image actually ships.** `bun audit` reads the whole workspace lockfile, so the site and development tooling (`astro`, `drizzle-kit` and what they pull in) showed up as eight advisories, four of them high, against a container that does not contain them, and turned `/health` to `degraded`. Findings are now matched against `node_modules`, and "Audited N packages" counts what is installed.
@@ -98,7 +100,8 @@ First public release.
 
 - The plaintext `servers.env` column and its backfill. Server environments have been stored encrypted for several releases.
 
-[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/k2so-dev/junctio/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/k2so-dev/junctio/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/k2so-dev/junctio/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/k2so-dev/junctio/compare/v0.1.0...v0.2.0

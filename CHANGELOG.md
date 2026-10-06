@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-06
+
 ### Security
 
 - **`proxy-addr` moves to 2.0.8**, closing [GHSA-jqcg-44mw-7w3h](https://github.com/advisories/GHSA-jqcg-44mw-7w3h) (IP spoofing via an IPv4-mapped IPv6 trust subnet). It ships transitively through `@modelcontextprotocol/sdk`'s `express` dependency, which the gateway never imports, so the vulnerable code path was not reachable; the version bump closes the self-audit finding regardless.
@@ -104,7 +106,8 @@ First public release.
 
 - The plaintext `servers.env` column and its backfill. Server environments have been stored encrypted for several releases.
 
-[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/k2so-dev/junctio/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/k2so-dev/junctio/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/k2so-dev/junctio/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/k2so-dev/junctio/compare/v0.2.0...v0.2.1

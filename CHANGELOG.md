@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-08
+
 ### Security
 
 - **`@modelcontextprotocol/sdk` moves to 1.32.1 and `@modelcontextprotocol/client`, `core` and `server` to 2.3.1**, closing [GHSA-6qxp-vccf-f47h](https://github.com/advisories/GHSA-6qxp-vccf-f47h) (the OAuth client could send credentials to an authorization server chosen by the MCP server). Upstream OAuth goes through the client package, so the gateway was exposed when connecting to an untrusted upstream.

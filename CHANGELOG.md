@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-10-26
+
 ### Security
 
 - **`zod` moves to 4.6.7**, closing CVE-2023-54404 (denial of service through validation of an unbounded array). Every request body the gateway accepts, including the MCP and OAuth endpoints, is validated with zod, so this was reachable.

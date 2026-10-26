@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **`zod` moves to 4.6.7**, closing CVE-2023-54404 (denial of service through validation of an unbounded array). Every request body the gateway accepts, including the MCP and OAuth endpoints, is validated with zod, so this was reachable.
+- **The image is rebuilt on a patched Debian base and ships uv 0.12.19, Bun 1.4.4 and npm 12.2.1**, closing the OpenSSL advisories (CVE-2026-84782 and four medium ones), CVE-2026-104843 and GHSA-2mjx-qc3c-rqvc in uv.
+- **`hono` moves to 4.13.13; `body-parser`, `fast-uri`, `ip-address` and `qs` are bumped in the lockfile**, closing CVE-2026-111757, CVE-2026-111181, CVE-2026-110306, CVE-2026-110180 and CVE-2026-111997. None of these code paths is used by the gateway (it does not use `serveStatic` and never imports `express`), the bumps clear the scanner findings.
+- **The `undici` and `ip-address` copies bundled inside npm itself stay flagged** until npm ships a release that updates them; npm only launches `npx` servers and never handles gateway traffic.
+
 ## [0.2.5] - 2026-10-08
 
 ### Security

@@ -4,7 +4,7 @@ Thanks for taking the time. This document covers what you need to build the gate
 
 ## Setup
 
-You need [Bun](https://bun.sh) 1.4.2 or newer. Docker is optional and only needed for the container runtime and its tests.
+You need [Bun](https://bun.sh) 1.4.4 or newer. Docker is optional and only needed for the container runtime and its tests.
 
 ```sh
 bun install

@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-26
+
 ### Added
 
 - **An endpoint can hand out its tools in compact mode: two tools, `search` and `execute`, instead of every tool of every server.** The model searches the catalog with a line of JavaScript, reads each tool as a TypeScript signature that carries its descriptions, and calls several tools from one short function whose result is the only thing that reaches its context. The code runs in QuickJS compiled to WebAssembly, in a short-lived child process with no network, no file system, a 64 MiB memory cap for the code on top of the catalog, a 64 MiB catalog limit and a 120 second limit. Hidden, renamed and annotated tools, the audit gate, resources, prompts and the request log behave as before, and a tool can still be called directly by its name. See [Tool modes](docs/tool-modes.md).
@@ -132,7 +134,10 @@ First public release.
 
 - The plaintext `servers.env` column and its backfill. Server environments have been stored encrypted for several releases.
 
-[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/k2so-dev/junctio/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/k2so-dev/junctio/compare/v0.2.6...v0.3.0
+[0.2.6]: https://github.com/k2so-dev/junctio/compare/v0.2.5...v0.2.6
+[0.2.5]: https://github.com/k2so-dev/junctio/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/k2so-dev/junctio/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/k2so-dev/junctio/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/k2so-dev/junctio/compare/v0.2.1...v0.2.2

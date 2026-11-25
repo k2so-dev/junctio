@@ -118,6 +118,17 @@ export class Sandbox {
       };
     }
     const release = await this.runs.acquire();
+    if (this.closed) {
+      release();
+      return {
+        ok: false,
+        kind: "busy",
+        error: { name: "BusyError", message: "the gateway is shutting down" },
+        logs: [],
+        calls: [],
+        durationMs: Date.now() - started
+      };
+    }
     try {
       const outcome = await this.spawn(request);
       return { ...outcome, durationMs: Date.now() - started };

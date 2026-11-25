@@ -144,6 +144,8 @@ The endpoint's instructions start with a short paragraph explaining search and e
 - A tool can still be called directly by its catalog name, `github__list_issues`, even though it is not listed. A client that cached a full tool list keeps working after you switch an endpoint to compact.
 - Hidden tools stay hidden: they are not in the catalog and calling them fails, from the code or directly.
 - The [security audit](security-audit.md) gate applies to every call the code makes, the same way it does to a direct call.
+- The rate limit of an endpoint counts requests, so one `execute` counts once however many tools it calls; the per-run call limit below bounds the rest.
+- The [management server](management-mcp.md) at `/mcp/_admin` always lists its tools in full.
 
 ## The sandbox
 

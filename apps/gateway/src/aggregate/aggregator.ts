@@ -129,20 +129,24 @@ export class Aggregator {
     );
   }
 
-  async serverNotes(namespaceId: string): Promise<ServerNote[]> {
+  async overview(namespaceId: string): Promise<{ tools: AggregatedTool[]; notes: ServerNote[] }> {
     const entries = await this.catalogs(namespaceId);
-    return entries.map(({ member, catalog }) => ({
+    const notes = entries.map(({ member, catalog }) => ({
       serverId: member.serverId,
       prefix: member.prefix,
       quarantined: member.quarantined,
       text: member.description ?? catalog.instructions
     }));
+    return { tools: this.exposeTools(namespaceId, entries), notes };
   }
 
   async listTools(namespaceId: string): Promise<AggregatedTool[]> {
+    return this.exposeTools(namespaceId, await this.catalogs(namespaceId));
+  }
+
+  private exposeTools(namespaceId: string, entries: Awaited<ReturnType<Aggregator["catalogs"]>>): AggregatedTool[] {
     const overrides = this.overrides(namespaceId);
     const separator = this.separator;
-    const entries = await this.catalogs(namespaceId);
     const out: AggregatedTool[] = [];
     const seen = new Set<string>();
     for (const { member, catalog } of entries) {

@@ -36,10 +36,7 @@ export function isCompactTool(name: string): name is typeof SEARCH_TOOL | typeof
 }
 
 export async function compactCatalog(core: Core, namespaceId: string): Promise<Catalog> {
-  const [tools, notes] = await Promise.all([
-    core.aggregator.listTools(namespaceId),
-    core.aggregator.serverNotes(namespaceId)
-  ]);
+  const { tools, notes } = await core.aggregator.overview(namespaceId);
   return buildCatalog(tools, notes);
 }
 

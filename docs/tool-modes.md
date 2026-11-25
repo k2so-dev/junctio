@@ -159,7 +159,8 @@ Every run starts a fresh child process that evaluates the code in [QuickJS](http
 | Wall clock per search run | 10 s |
 | Tool calls per run | 100 |
 | Tool calls in flight at once | 8 |
-| Memory | 64 MiB |
+| Memory | 64 MiB for the code, on top of what the catalog takes |
+| Catalog | 64 MiB, roughly 20,000 tools with a few parameters each |
 | Stack | 1 MiB |
 | Code size | 100,000 characters |
 | Console output | 200 lines, 8,000 characters |
@@ -167,6 +168,8 @@ Every run starts a fresh child process that evaluates the code in [QuickJS](http
 | Runs at once, gateway-wide | 8, with up to 32 waiting |
 
 A loop that never ends is interrupted inside the interpreter and the process is killed at the deadline, so it costs one core for at most the time limit and never blocks the gateway. A run that would wait behind 32 others is refused straight away with a message to retry.
+
+Every run loads the catalog afresh, so its size sets the floor of a run's time: about 60 ms with 500 tools, 0.35 s with 5,000 and 0.65 s with 10,000. The first `find` of a run builds its index, which adds about as much again on large catalogs. An endpoint whose catalog is over the limit refuses search and execute with a message that says so; hide tools in the namespace or split the servers across endpoints.
 
 ## Approvals
 
@@ -185,3 +188,4 @@ A compact run writes one row for the `search` or `execute` call and one row per 
 | `code_cancelled` | the client cancelled the request |
 | `sandbox_crashed` | the interpreter process died, usually out of memory |
 | `sandbox_busy` | too many runs were waiting |
+| `catalog_too_large` | the catalog of the endpoint is over the size limit |

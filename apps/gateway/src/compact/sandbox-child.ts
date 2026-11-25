@@ -10,6 +10,9 @@ import variant from "@jitl/quickjs-ng-wasmfile-release-sync";
 import { PRELUDE, sourceCandidates } from "./prelude.ts";
 import type { ChildMessage, HostMessage, RunMessage, SandboxFailure } from "./protocol.ts";
 
+const LOADING_FACTOR = 4;
+const INDEX_FACTOR = 1;
+
 const deferred = new Map<number, QuickJSDeferredPromise>();
 let runtime: QuickJSRuntime | null = null;
 let context: QuickJSContext | null = null;
@@ -119,7 +122,7 @@ function compile(vm: QuickJSContext, code: string): { source: string; offset: nu
 async function execute(run: RunMessage): Promise<void> {
   const module = await newQuickJSWASMModuleFromVariant(variant);
   runtime = module.newRuntime();
-  runtime.setMemoryLimit(-1);
+  runtime.setMemoryLimit(run.memoryBytes + run.catalog.length * LOADING_FACTOR);
   runtime.setMaxStackSize(run.stackBytes);
   runtime.setInterruptHandler(shouldInterruptAfterDeadline(run.deadline));
   const vm = runtime.newContext();
@@ -135,7 +138,7 @@ async function execute(run: RunMessage): Promise<void> {
     return;
   }
   prelude.value.dispose();
-  runtime.setMemoryLimit(memoryUsed(vm) + run.memoryBytes);
+  runtime.setMemoryLimit(memoryUsed(vm) + run.memoryBytes + run.catalog.length * INDEX_FACTOR);
 
   const compiled = compile(vm, run.code);
   if ("error" in compiled) {

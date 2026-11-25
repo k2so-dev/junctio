@@ -59,10 +59,12 @@ export const PRELUDE = String.raw`"use strict";
       .split(/[^\p{L}\p{N}]+/u)
       .filter((word) => word !== "");
 
+  const searchable = catalog.slice();
+  const searchWords = data.words;
   let indexed = null;
   const index = () =>
-    (indexed ??= catalog.map((tool, position) => {
-      const [name, title, server, description] = data.words[position].map((text) =>
+    (indexed ??= searchable.map((tool, position) => {
+      const [name, title, server, description] = searchWords[position].map((text) =>
         text === "" ? [] : text.split(" ")
       );
       return { tool, name, title, server, description };

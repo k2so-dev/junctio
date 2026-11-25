@@ -13,7 +13,7 @@ export type SandboxLimits = {
   maxConcurrentCalls: number;
   logLines: number;
   logChars: number;
-  maxCatalogChars: number;
+  maxCatalogBytes: number;
 };
 
 export const DEFAULT_LIMITS: SandboxLimits = {
@@ -24,7 +24,7 @@ export const DEFAULT_LIMITS: SandboxLimits = {
   maxConcurrentCalls: 8,
   logLines: 200,
   logChars: 8_000,
-  maxCatalogChars: 64 * 1024 * 1024
+  maxCatalogBytes: 64 * 1024 * 1024
 };
 
 export const SEARCH_TIMEOUT_MS = 10_000;
@@ -80,8 +80,8 @@ function errorName(error: unknown): string {
   return error instanceof Error && error.name !== "" ? error.name : "Error";
 }
 
-function megabytes(chars: number): string {
-  return (chars / (1024 * 1024)).toFixed(1);
+function megabytes(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(1);
 }
 
 function errorText(error: unknown): string {
@@ -122,17 +122,18 @@ export class Sandbox {
       calls: [],
       durationMs: Date.now() - started
     });
+    if (this.closed || this.runs.queued >= this.maxQueued) {
+      return refuse("busy", "BusyError", "the gateway is running too much code right now, retry shortly");
+    }
     const limits = { ...this.limits, ...request.limits };
     const catalog = catalogPayload(request.catalog);
-    if (catalog.length > limits.maxCatalogChars) {
+    const catalogBytes = Buffer.byteLength(catalog);
+    if (catalogBytes > limits.maxCatalogBytes) {
       return refuse(
         "catalog",
         "CatalogError",
-        `the catalog of this endpoint is too large for compact mode (${request.catalog.tools.length} tools, ${megabytes(catalog.length)} MB, the limit is ${megabytes(limits.maxCatalogChars)} MB): hide tools in the namespace or split the servers across endpoints`
+        `the catalog of this endpoint is too large for compact mode (${request.catalog.tools.length} tools, ${megabytes(catalogBytes)} MB, the limit is ${megabytes(limits.maxCatalogBytes)} MB): hide tools in the namespace or split the servers across endpoints`
       );
-    }
-    if (this.closed || this.runs.queued >= this.maxQueued) {
-      return refuse("busy", "BusyError", "the gateway is running too much code right now, retry shortly");
     }
     const release = await this.runs.acquire();
     if (this.closed) {

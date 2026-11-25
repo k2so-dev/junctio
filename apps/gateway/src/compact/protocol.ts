@@ -1,3 +1,5 @@
+export const CATALOG_ADVICE = "hide tools in the namespace or split the servers across endpoints";
+
 export type SandboxMode = "search" | "execute";
 
 export type SandboxFailure = { name: string; message: string; location?: string };

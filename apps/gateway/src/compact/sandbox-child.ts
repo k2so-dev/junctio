@@ -8,7 +8,13 @@ import {
 } from "quickjs-emscripten-core";
 import variant from "@jitl/quickjs-ng-wasmfile-release-sync";
 import { PRELUDE, sourceCandidates } from "./prelude.ts";
-import type { ChildMessage, HostMessage, RunMessage, SandboxFailure } from "./protocol.ts";
+import {
+  CATALOG_ADVICE,
+  type ChildMessage,
+  type HostMessage,
+  type RunMessage,
+  type SandboxFailure
+} from "./protocol.ts";
 
 const LOADING_FACTOR = 4;
 const INDEX_FACTOR = 1;
@@ -135,13 +141,17 @@ async function execute(run: RunMessage): Promise<void> {
   const prelude = vm.evalCode(PRELUDE, "prelude.js");
   if (prelude.error) {
     const failure = describeError(vm, prelude.error);
+    if (failure.name === "InternalError" && failure.message === "interrupted") {
+      finish({ type: "done", ok: false, error: failure });
+      return;
+    }
     finish({
       type: "done",
       ok: false,
       catalog: true,
       error: {
         name: "CatalogError",
-        message: `the catalog of this endpoint could not be loaded into the sandbox (${failure.message}): hide tools in the namespace or split the servers across endpoints`
+        message: `the catalog of this endpoint could not be loaded into the sandbox (${failure.message}): ${CATALOG_ADVICE}`
       }
     });
     return;

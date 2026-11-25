@@ -1,10 +1,15 @@
 import type { Subprocess } from "bun";
 import { catalogPayload, type Catalog } from "./catalog.ts";
-import type { ChildMessage, RunMessage, SandboxFailure, SandboxMode } from "./protocol.ts";
+import {
+  CATALOG_ADVICE,
+  type ChildMessage,
+  type RunMessage,
+  type SandboxFailure,
+  type SandboxMode
+} from "./protocol.ts";
 
 const CHILD = new URL("./sandbox-child.ts", import.meta.url).pathname;
 const STDERR_LIMIT = 4_000;
-const CATALOG_ADVICE = "hide tools in the namespace or split the servers across endpoints";
 
 export type SandboxLimits = {
   timeoutMs: number;

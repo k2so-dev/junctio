@@ -57,12 +57,20 @@ function literal(value: unknown): string {
   return "unknown";
 }
 
+function decodePointer(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 function resolveRef(ref: string, root: JsonObject): unknown {
   if (ref === "#") return root;
   if (!ref.startsWith("#/")) return undefined;
   let current: unknown = root;
   for (const raw of ref.slice(2).split("/")) {
-    const segment = decodeURIComponent(raw).replaceAll("~1", "/").replaceAll("~0", "~");
+    const segment = decodePointer(raw).replaceAll("~1", "/").replaceAll("~0", "~");
     if (!isObject(current)) return undefined;
     current = current[segment];
   }
@@ -95,8 +103,26 @@ function union(members: string[]): string {
   return unique.join(" | ");
 }
 
+function hasTopLevelUnion(type: string): boolean {
+  let depth = 0;
+  let quoted = false;
+  for (let index = 0; index < type.length; index += 1) {
+    const char = type[index];
+    if (quoted) {
+      if (char === "\\") index += 1;
+      else if (char === '"') quoted = false;
+      continue;
+    }
+    if (char === '"') quoted = true;
+    else if (char === "{" || char === "[" || char === "(" || char === "<") depth += 1;
+    else if (char === "}" || char === "]" || char === ")" || char === ">") depth -= 1;
+    else if (depth === 0 && type.startsWith(" | ", index)) return true;
+  }
+  return false;
+}
+
 function wrapUnion(type: string): string {
-  return type.includes(" | ") && !type.startsWith("{") ? `(${type})` : type;
+  return hasTopLevelUnion(type) ? `(${type})` : type;
 }
 
 function objectType(schema: JsonObject, ctx: Context, indent: string): string {

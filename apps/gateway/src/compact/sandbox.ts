@@ -57,14 +57,15 @@ class Gate {
   constructor(private readonly size: number) {}
 
   async acquire(): Promise<() => void> {
-    if (this.active >= this.size) await new Promise<void>((resolve) => this.waiting.push(resolve));
-    this.active += 1;
+    if (this.active < this.size) this.active += 1;
+    else await new Promise<void>((resolve) => this.waiting.push(resolve));
     let released = false;
     return () => {
       if (released) return;
       released = true;
-      this.active -= 1;
-      this.waiting.shift()?.();
+      const next = this.waiting.shift();
+      if (next) next();
+      else this.active -= 1;
     };
   }
 
@@ -152,7 +153,7 @@ export class Sandbox {
       const settle = (outcome: Settled) => {
         if (settled) return;
         settled = true;
-        this.active.delete(onAbort);
+        this.active.delete(onShutdown);
         clearTimeout(timer);
         request.signal?.removeEventListener("abort", onAbort);
         abort.abort();
@@ -170,23 +171,30 @@ export class Sandbox {
         limits.timeoutMs
       );
       const onAbort = () => fail("cancelled", { name: "AbortError", message: "the request was cancelled" });
+      const onShutdown = () => fail("busy", { name: "BusyError", message: "the gateway is shutting down" });
       if (request.signal?.aborted) {
         onAbort();
         return;
       }
       request.signal?.addEventListener("abort", onAbort, { once: true });
-      this.active.add(onAbort);
+      this.active.add(onShutdown);
+
+      const send = (message: Parameters<Subprocess["send"]>[0]) => {
+        if (settled) return;
+        try {
+          child?.send(message);
+        } catch (error) {
+          fail("crashed", { name: "SandboxError", message: `the sandbox stopped listening: ${errorText(error)}` });
+        }
+      };
 
       const runCall = async (id: number, name: string, input: string) => {
-        const respond = (message: Parameters<Subprocess["send"]>[0]) => {
-          if (!settled) child?.send(message);
-        };
         if (!request.call) {
-          respond({ type: "result", id, ok: false, name: "TypeError", error: "tools are not available in search" });
+          send({ type: "result", id, ok: false, name: "TypeError", error: "tools are not available in search" });
           return;
         }
         if (calls.length >= limits.maxCalls) {
-          respond({
+          send({
             type: "result",
             id,
             ok: false,
@@ -202,9 +210,9 @@ export class Sandbox {
           if (settled) return;
           const value = await request.call(name, JSON.parse(input), { signal: abort.signal, deadline });
           record.ok = true;
-          respond({ type: "result", id, ok: true, value: JSON.stringify(value ?? null) });
+          send({ type: "result", id, ok: true, value: JSON.stringify(value ?? null) });
         } catch (error) {
-          respond({ type: "result", id, ok: false, name: errorName(error), error: errorText(error) });
+          send({ type: "result", id, ok: false, name: errorName(error), error: errorText(error) });
         } finally {
           releaseCall();
         }
@@ -225,7 +233,7 @@ export class Sandbox {
               logLines: limits.logLines,
               logChars: limits.logChars
             };
-            child?.send(run);
+            send(run);
             return;
           }
           case "log":
@@ -278,7 +286,7 @@ export class Sandbox {
       void child.exited.then((code) => {
         if (settled) return;
         const detail = stderr.trim().split("\n").slice(-3).join(" ").slice(0, 300);
-        const memory = /out of memory|memory/i.test(detail);
+        const memory = /out of memory|allocation failed/i.test(detail);
         fail("crashed", {
           name: memory ? "MemoryError" : "SandboxError",
           message: memory

@@ -2,6 +2,19 @@ import { describe, expect, test } from "bun:test";
 import { memberAccess, propertyKey, schemaType, toolSignature } from "../../src/compact/signature.ts";
 
 describe("schemaType", () => {
+  test("wraps a nullable object in parentheses inside an array", () => {
+    const type = schemaType({
+      type: "array",
+      items: { anyOf: [{ type: "object", properties: { id: { type: "string" } } }, { type: "null" }] }
+    });
+    expect(type).toBe("({\n  id?: string;\n} | null)[]");
+  });
+
+  test("a malformed escape in a reference does not throw", () => {
+    const type = schemaType({ type: "object", properties: { a: { $ref: "#/$defs/100%" } }, $defs: {} });
+    expect(type).toBe("{\n  a?: unknown;\n}");
+  });
+
   test("renders objects with optional members and property docs", () => {
     const type = schemaType({
       type: "object",

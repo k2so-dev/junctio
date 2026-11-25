@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import type { CallToolResult } from "@modelcontextprotocol/client";
-import { requestLog, toolOverrides } from "../../src/db/schema.ts";
+import { requestLog, servers, toolOverrides } from "../../src/db/schema.ts";
 import {
   connectClient,
   seedApiKey,
@@ -242,6 +242,35 @@ describe("compact tool mode", () => {
     expect(text(result)).toMatch(/^SyntaxError: .+ \(line 2, column \d+\)$/);
     const missing = (await client.callTool({ name: "execute", arguments: {} })) as CallToolResult;
     expect(text(missing)).toContain("execute needs a code argument");
+    await client.close();
+  }, 20_000);
+
+  test("a trailing semicolon after the function still returns its value", async () => {
+    const { url, token } = await setup();
+    const client = await connectClient(url, token);
+    const result = await run(client, "execute", "async () => { return 41 + 1; };");
+    expect(text(result)).toBe("42");
+    await client.close();
+  }, 20_000);
+
+  test("a quarantined server is listed as such and its tools refuse calls", async () => {
+    const { url, token, serverId } = await setup();
+    harness.core.db
+      .update(servers)
+      .set({ quarantinedAt: Date.now(), quarantineReason: "test" })
+      .where(eq(servers.id, serverId))
+      .run();
+    const client = await connectClient(url, token);
+    const listed = await run(client, "search", "async () => servers");
+    expect(JSON.parse(text(listed))).toEqual([
+      { name: "mock", summary: null, instructions: null, tools: 0, quarantined: true }
+    ]);
+    const blocked = await run(client, "execute", "async () => tools.mock__echo({ message: 'x' })");
+    expect(blocked.isError).toBe(true);
+    expect(text(blocked)).toContain('no tool named "mock__echo"');
+    const direct = (await client.callTool({ name: "mock__echo", arguments: { message: "x" } })) as CallToolResult;
+    expect(direct.isError).toBe(true);
+    expect(text(direct)).toContain("quarantined");
     await client.close();
   }, 20_000);
 

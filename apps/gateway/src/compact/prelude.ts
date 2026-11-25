@@ -174,9 +174,10 @@ export function stripFences(code: string): string {
 export function sourceCandidates(code: string): { source: string; offset: number }[] {
   const body = stripFences(code);
   if (body === "") return [];
+  const expression = body.replace(/;\s*$/, "");
   return [
     {
-      source: `(async () => {\nconst __fn = (\n${body}\n);\nreturn typeof __fn === "function" ? await __fn() : await __fn;\n})()`,
+      source: `(async () => {\nconst __fn = (\n${expression}\n);\nreturn typeof __fn === "function" ? await __fn() : await __fn;\n})()`,
       offset: 2
     },
     { source: `(async () => {\n${body}\n})()`, offset: 1 }

@@ -193,6 +193,47 @@ describe("compact tool mode", () => {
     await client.close();
   }, 30_000);
 
+  for (const legacy of [false, true]) {
+    test(`a ${legacy ? "legacy" : "modern"} client that hangs up stops the run`, async () => {
+      const { url, token, endpointId } = await setup();
+      const meta = {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientInfo": { name: "test", version: "1" },
+        "io.modelcontextprotocol/clientCapabilities": {}
+      };
+      const headers: Record<string, string> = legacy
+        ? { "mcp-protocol-version": "2025-06-18" }
+        : { "mcp-protocol-version": "2026-07-28", "mcp-method": "tools/call", "mcp-name": "execute" };
+      const abort = new AbortController();
+      const pending = fetch(url, {
+        method: "POST",
+        signal: abort.signal,
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+          ...headers
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "execute",
+            arguments: { code: "async () => tools.mock__sleep({ ms: 2500 })" },
+            ...(legacy ? {} : { _meta: meta })
+          }
+        })
+      }).catch(() => null);
+      await Bun.sleep(800);
+      abort.abort();
+      await pending;
+      await Bun.sleep(400);
+      const rows = harness.core.db.select().from(requestLog).where(eq(requestLog.endpointId, endpointId)).all();
+      expect(rows.find((row) => row.tool === "execute")?.errorCode).toBe("code_cancelled");
+    }, 20_000);
+  }
+
   test("syntax errors point at the line of the code", async () => {
     const { url, token } = await setup();
     const client = await connectClient(url, token);

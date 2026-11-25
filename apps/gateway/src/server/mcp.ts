@@ -67,7 +67,7 @@ async function serveLegacy(
   protocol: string | null,
   mode: ToolMode
 ): Promise<Response> {
-  const server = await buildServer(core, endpoint, body, protocol, mode);
+  const server = await buildServer(core, endpoint, request, body, protocol, mode);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true
@@ -113,6 +113,7 @@ async function handshakeInstructions(core: Core, endpoint: EndpointRow, mode: To
 async function buildServer(
   core: Core,
   endpoint: EndpointRow,
+  httpRequest: Request,
   body: unknown,
   protocol: string | null,
   mode: ToolMode
@@ -154,7 +155,7 @@ async function buildServer(
     const name = request.params.name;
     if (mode === "compact" && isCompactTool(name)) {
       return runCompactTool(
-        { core, endpoint, protocol, signal: ctx.mcpReq.signal },
+        { core, endpoint, protocol, signal: AbortSignal.any([ctx.mcpReq.signal, httpRequest.signal]) },
         name,
         request.params.arguments as Record<string, unknown> | undefined
       );
@@ -239,7 +240,7 @@ export function createMcpRoute(options: McpRouteOptions): Hono<AppEnv> {
     protocol: string | null,
     mode: ToolMode
   ): Promise<Response> => {
-    const handler = createMcpHandler(() => buildServer(core, endpoint, body, protocol, mode), {
+    const handler = createMcpHandler(() => buildServer(core, endpoint, request, body, protocol, mode), {
       legacy: "reject",
       onerror: (error) => core.logger.error("mcp request failed", { endpoint: endpoint.slug, error: String(error) })
     });

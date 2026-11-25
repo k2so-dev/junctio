@@ -53,10 +53,10 @@ async function token(body: Record<string, string>): Promise<Response> {
   });
 }
 
-async function grant(resourceSlug = slug): Promise<{ access: string; refresh: string; clientId: string }> {
+async function grant(resourceSlug = slug, query = ""): Promise<{ access: string; refresh: string; clientId: string }> {
   const client = await register();
   const { verifier, challenge } = pkce();
-  const resource = `${harness.url}/mcp/${resourceSlug}`;
+  const resource = `${harness.url}/mcp/${resourceSlug}${query}`;
   const location = await authorize(client.client_id, challenge, resource);
   const requestId = new URL(location, harness.url).searchParams.get("request") ?? "";
   const approved = (await (await admin(`/v1/oauth/requests/${requestId}/approve`, { method: "POST" })).json()) as {
@@ -150,6 +150,12 @@ describe("built-in authorization server", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { result: { serverInfo: { name: string } } };
     expect(body.result.serverInfo.name).toBe("junctio");
+  }, 30_000);
+
+  test("accepts a token whose resource carries the tool mode query", async () => {
+    const { access } = await grant(slug, "?tools=full");
+    const response = await callMcp(access, `${slug}?tools=full`);
+    expect(response.status).toBe(200);
   }, 30_000);
 
   test("sends an unauthenticated caller to the resource metadata", async () => {

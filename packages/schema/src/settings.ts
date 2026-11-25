@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { AuditActionMap } from "./audit.ts";
+import { ToolMode } from "./endpoint.ts";
 
 export const SettingsDto = z.object({
   baseUrl: z.string(),
   toolSeparator: z.string(),
+  defaultToolMode: ToolMode,
   runtimePath: z.string(),
   apiKeyQueryParam: z.boolean(),
   requestLogRetentionDays: z.number(),
@@ -25,6 +27,7 @@ export const SettingsPatch = z.object({
     .max(8)
     .regex(/^[^a-zA-Z0-9\s]+$|^_+$/u, "use non-alphanumeric separator")
     .optional(),
+  defaultToolMode: ToolMode.optional(),
   runtimePath: z.string().min(1).optional(),
   apiKeyQueryParam: z.boolean().optional(),
   requestLogRetentionDays: z.number().int().min(1).max(365).optional(),

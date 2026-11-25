@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { AgentSettingsPatch, SettingsPatch, type SettingsDto } from "@junctio/schema";
 import type { Core } from "../core.ts";
-import { getSetting, getSettings, setSetting } from "../db/settings.ts";
+import { defaultToolMode, getSetting, getSettings, setSetting } from "../db/settings.ts";
 import { parseActionMap } from "../audit/policy.ts";
 import { badRequest, readJson } from "./util.ts";
 
@@ -25,6 +25,7 @@ export function createSettingsApi(core: Core, options: SettingsApiOptions = {}):
     const settings: SettingsDto = {
       baseUrl: core.config.baseUrl ?? `http://localhost:${core.config.port}`,
       toolSeparator: stored.tool_separator,
+      defaultToolMode: defaultToolMode(core.db),
       runtimePath: stored.runtime_path,
       apiKeyQueryParam: stored.api_key_query_param === "true",
       requestLogRetentionDays: Number(stored.request_log_retention_days),
@@ -45,6 +46,7 @@ export function createSettingsApi(core: Core, options: SettingsApiOptions = {}):
     if (!parsed.success) return badRequest(c, parsed.error);
     const patch: SettingsPatch = parsed.data;
     if (patch.toolSeparator !== undefined) setSetting(core.db, "tool_separator", patch.toolSeparator);
+    if (patch.defaultToolMode !== undefined) setSetting(core.db, "default_tool_mode", patch.defaultToolMode);
     if (patch.runtimePath !== undefined) setSetting(core.db, "runtime_path", patch.runtimePath);
     if (patch.apiKeyQueryParam !== undefined) {
       setSetting(core.db, "api_key_query_param", patch.apiKeyQueryParam ? "true" : "false");

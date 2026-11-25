@@ -85,7 +85,7 @@ export function registerMiscTools(server: McpServer, deps: AdminDeps): void {
     {
       title: "Update the settings",
       description:
-        "Change the tool separator, the PATH given to child processes, the api key query parameter, the request log retention or the audit interval. The management server cannot switch itself off, cannot enable the security audit and cannot change what a severity does; those are done by a human in the web ui.",
+        "Change the tool separator, the tool mode new endpoints start with, the api key query parameter or the request log retention. The management server cannot switch itself off, cannot enable the security audit and cannot change what a severity does; those are done by a human in the web ui.",
       inputSchema: AgentSettingsPatch,
       annotations: UPDATES
     },

@@ -41,6 +41,13 @@ export type AggregatedTool = {
   originalName: string;
 };
 
+export type ServerNote = {
+  serverId: string;
+  prefix: string;
+  quarantined: boolean;
+  text: string | null;
+};
+
 export class Aggregator {
   constructor(
     private readonly db: Db,
@@ -122,10 +129,24 @@ export class Aggregator {
     );
   }
 
+  async overview(namespaceId: string): Promise<{ tools: AggregatedTool[]; notes: ServerNote[] }> {
+    const entries = await this.catalogs(namespaceId);
+    const notes = entries.map(({ member, catalog }) => ({
+      serverId: member.serverId,
+      prefix: member.prefix,
+      quarantined: member.quarantined,
+      text: member.description ?? catalog.instructions
+    }));
+    return { tools: this.exposeTools(namespaceId, entries), notes };
+  }
+
   async listTools(namespaceId: string): Promise<AggregatedTool[]> {
+    return this.exposeTools(namespaceId, await this.catalogs(namespaceId));
+  }
+
+  private exposeTools(namespaceId: string, entries: Awaited<ReturnType<Aggregator["catalogs"]>>): AggregatedTool[] {
     const overrides = this.overrides(namespaceId);
     const separator = this.separator;
-    const entries = await this.catalogs(namespaceId);
     const out: AggregatedTool[] = [];
     const seen = new Set<string>();
     for (const { member, catalog } of entries) {
@@ -169,11 +190,16 @@ export class Aggregator {
   async callTool(
     namespaceId: string,
     exposed: string,
-    args: Record<string, unknown> | undefined
+    args: Record<string, unknown> | undefined,
+    options: { signal?: AbortSignal; timeoutMs?: number } = {}
   ): Promise<{ result: CallToolResult; serverId: string; toolName: string }> {
     const { serverId, toolName } = this.resolveTool(namespaceId, exposed);
+    const timeout = Math.min(options.timeoutMs ?? this.pool.callTimeoutMs, this.pool.callTimeoutMs);
     const result = await this.pool.withClient(serverId, (client) =>
-      client.callTool({ name: toolName, arguments: args }, { timeout: this.pool.callTimeoutMs })
+      client.callTool(
+        { name: toolName, arguments: args },
+        { timeout, ...(options.signal ? { signal: options.signal } : {}) }
+      )
     );
     return { result, serverId, toolName };
   }

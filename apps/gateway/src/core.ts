@@ -19,6 +19,7 @@ import { UpstreamAuthService } from "./auth/upstream/index.ts";
 import { JunctioOAuthProvider } from "./auth/downstream/as/provider.ts";
 import { RegistryClient } from "./registry/client.ts";
 import { AuditService, type AuditServiceOptions } from "./audit/service.ts";
+import { Sandbox, type SandboxOptions } from "./compact/sandbox.ts";
 
 export type Core = {
   config: Config;
@@ -37,6 +38,7 @@ export type Core = {
   oauthProvider: JunctioOAuthProvider;
   registryClient: RegistryClient;
   audit: AuditService;
+  sandbox: Sandbox;
   startedAt: number;
   setUpstreamAuth(auth: UpstreamAuth): void;
   shutdown(): Promise<void>;
@@ -49,6 +51,7 @@ export type CoreOptions = {
   refreshIntervalMs?: number;
   registryBaseUrl?: string;
   registryTimeoutMs?: number;
+  sandbox?: SandboxOptions;
   audit?: Partial<
     Pick<
       AuditServiceOptions,
@@ -101,6 +104,7 @@ export function createCore(options: CoreOptions): Core {
   });
   pool = new UpstreamPool({ registry, supervisor, gate, auth: authProxy, logger, logs });
   const aggregator = new Aggregator(db, pool, logger);
+  const sandbox = new Sandbox(options.sandbox);
 
   audit = new AuditService({
     db,
@@ -138,11 +142,13 @@ export function createCore(options: CoreOptions): Core {
       ...(options.registryTimeoutMs ? { timeoutMs: options.registryTimeoutMs } : {})
     }),
     audit,
+    sandbox,
     startedAt: Date.now(),
     setUpstreamAuth(next) {
       auth = next;
     },
     async shutdown() {
+      sandbox.close();
       audit.stop();
       upstreamAuth.stop();
       await pool.shutdown();

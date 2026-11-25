@@ -6,10 +6,12 @@ import SettingsRow from "@/components/settings/SettingsRow.vue";
 import SettingsSection from "@/components/settings/SettingsSection.vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSettingsDraft } from "@/composables/useSettingsDraft";
 
 const { draft, dirty, busy, reset, save, settings } = useSettingsDraft([
   "toolSeparator",
+  "defaultToolMode",
   "requestLogRetentionDays",
   "runtimePath"
 ] as const);
@@ -41,6 +43,17 @@ const { draft, dirty, busy, reset, save, settings } = useSettingsDraft([
       <SettingsSection title="Aggregation" description="Applies to every namespace.">
         <SettingsRow label="Tool separator" for="separator">
           <Input id="separator" v-model="draft.toolSeparator" class="h-8 w-24 font-mono text-xs" />
+        </SettingsRow>
+        <SettingsRow label="Tools of new endpoints">
+          <Tabs v-model="draft.defaultToolMode">
+            <TabsList class="h-8">
+              <TabsTrigger value="compact" class="text-xs">Compact</TabsTrigger>
+              <TabsTrigger value="full" class="text-xs">Full</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <template #description>
+            Compact gives a client search and execute instead of every tool. Existing endpoints keep their own mode.
+          </template>
         </SettingsRow>
         <SettingsRow label="Request log retention" for="retention">
           <div class="flex items-center gap-2">

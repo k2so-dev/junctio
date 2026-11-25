@@ -122,6 +122,9 @@ export const endpoints = sqliteTable("endpoints", {
     .default("api_key"),
   protocolMin: text("protocol_min").notNull().default("2026-07-28"),
   rateLimit: text("rate_limit", { mode: "json" }).$type<{ perMinute: number }>().notNull().default({ perMinute: 0 }),
+  toolMode: text("tool_mode", { enum: ["compact", "full"] })
+    .notNull()
+    .default("compact"),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at").notNull().default(now)
 });

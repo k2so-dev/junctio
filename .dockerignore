@@ -8,6 +8,7 @@ apps/gateway/test
 **/node_modules
 apps/web/dist
 data
+.cache
 *.db*
 .env
 Dockerfile

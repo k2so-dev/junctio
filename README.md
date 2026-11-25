@@ -19,6 +19,7 @@ The promise: **auth does not go stale.** Not between your client and the gateway
 
 - **No telemetry.** Nothing leaves your machine. There is no phone-home, no analytics, no update ping. The one outbound call the UI ever makes is to the public MCP registry, on the Explore page, and only while you are looking at it. Switch on the security audit and there is a second one, described in [docs/security-audit.md](docs/security-audit.md), carrying package names and versions and nothing else.
 - **One endpoint per client.** Point Claude Code, Codex or Cursor at a single URL and manage the servers behind it from a web UI.
+- **A small context.** In compact mode a client sees two tools, `search` and `execute`, instead of every tool of every server. The model looks tools up and calls several of them from one short script that runs in a sandbox.
 - **Upstream OAuth that survives.** Tokens are refreshed proactively on a schedule, not after a request already failed.
 
 ## Status
@@ -123,6 +124,7 @@ Behind a domain, set `JUNCTIO_BASE_URL` and `JUNCTIO_TRUST_PROXY=true` and termi
 
 - [Upstream servers](docs/upstream-servers.md): stdio runtimes, remote transports, servers that ship as an image, upstream OAuth
 - [Endpoints](docs/endpoints.md): aggregation, downstream auth, protocol negotiation, client compatibility
+- [Tool modes](docs/tool-modes.md): compact mode with search and execute, or every tool listed
 - [Management MCP](docs/management-mcp.md): let an agent configure the gateway instead of clicking through the UI
 - [Explore](docs/explore.md): the registry, the catalog of other sources, import from a pasted config
 - [Security audit](docs/security-audit.md): scheduled vulnerability checks and what a finding does

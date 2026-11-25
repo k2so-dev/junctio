@@ -34,7 +34,7 @@ export async function spawnProcess(launch: ProcessLaunch, log: (line: string) =>
     stdin: proc.stdin,
     stdout: proc.stdout,
     stderr: proc.stderr,
-    exited: proc.exited.then((code) => ({ code, signal: proc.signalCode })),
+    exited: proc.exited.then((code) => ({ code, signal: proc.signalCode === null ? null : String(proc.signalCode) })),
     terminate: () => proc.kill("SIGTERM"),
     kill: () => {
       try {

@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **An endpoint can hand out its tools in compact mode: two tools, `search` and `execute`, instead of every tool of every server.** The model searches the catalog with a line of JavaScript, reads each tool as a TypeScript signature that carries its descriptions, and calls several tools from one short function whose result is the only thing that reaches its context. The code runs in QuickJS compiled to WebAssembly, in a short-lived child process with no network, no file system, a 64 MiB memory cap and a 120 second limit. Hidden, renamed and annotated tools, the audit gate, resources, prompts and the request log behave as before, and a tool can still be called directly by its name. See [Tool modes](docs/tool-modes.md).
+- **New installations start in compact mode; an upgraded gateway keeps full mode.** The migration sets every existing endpoint to full and the default for new endpoints to full, so no client sees a change until you switch. The mode is set per endpoint on its page or with `toolMode`, the default in Settings → General or with `defaultToolMode`, and a client can override it with `?tools=compact` or `?tools=full` on the URL.
+
 ### Security
 
 - **`hono` moves to 4.13.22 and `@hono/node-server` to 2.1.11**, closing GHSA-h7mg-cq63-vhpq, GHSA-4m76-xfj5-7975, GHSA-46wx-v44x-9hh2, GHSA-4h7h-rv7c-7m2v, GHSA-3gg2-335m-rxc6, GHSA-qv5m-9pm6-hqp3 and GHSA-jpvv-r467-5p4w. The admin API guards every route with wildcard middleware, but no route uses the patterns that let RegExpRouter skip it, so none of these was an authentication bypass in the gateway.

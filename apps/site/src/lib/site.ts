@@ -18,6 +18,7 @@ export const DOCS_NAV: { label: string; items: { slug: string; title: string }[]
       { slug: "", title: "Getting started" },
       { slug: "upstream-servers", title: "Upstream servers" },
       { slug: "endpoints", title: "Endpoints" },
+      { slug: "tool-modes", title: "Tool modes" },
       { slug: "management-mcp", title: "Management MCP" },
       { slug: "explore", title: "Explore" },
       { slug: "security-audit", title: "Security audit" }

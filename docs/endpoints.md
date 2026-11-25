@@ -4,6 +4,8 @@
 
 Tools from an upstream are exposed as `<prefix>__<tool>`. The prefix defaults to the server name and is set per namespace membership; the separator is global. Name collisions are rejected when you save the configuration, not at request time. Per namespace you can hide a tool, rename it, rewrite its description or add annotations.
 
+How the tools reach a client depends on the endpoint's tool mode. Full lists every exposed tool; compact, the default on a new installation, gives the client `search` and `execute` instead and keeps the list on the gateway. See [Tool modes](tool-modes.md).
+
 Resources are prefixed in the URI scheme, so `mock://readme` from a server prefixed `alpha` becomes `alpha+mock://readme`.
 
 An endpoint also answers with `instructions`, the prose a client reads before it calls anything. It is composed rather than written: the namespace description first, then one `## <prefix>` section per enabled server carrying the instructions that server announced on connect. A server that announces nothing contributes no section, a quarantined one is left out, and when nothing contributes the field is omitted entirely. Per namespace membership you can replace what a server says with your own text, which is what the Instructions column in Namespaces edits; clearing it goes back to the upstream wording. `GET /v1/namespaces/:id/instructions` and the `preview_namespace_instructions` tool of [the management server](management-mcp.md) return the composed text, and the Namespaces page previews it behind one button.

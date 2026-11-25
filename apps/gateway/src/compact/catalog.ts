@@ -28,6 +28,20 @@ export type Catalog = {
 
 const SUMMARY_LIMIT = 160;
 
+export function searchWords(text: string | undefined): string {
+  const tokens = String(text ?? "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word !== "");
+  return [...new Set(tokens)].join(" ");
+}
+
+export function catalogPayload(catalog: Catalog): string {
+  const words = catalog.tools.map((tool) => [tool.name, tool.title, tool.server, tool.description].map(searchWords));
+  return JSON.stringify({ ...catalog, words });
+}
+
 export function summarize(text: string | null | undefined): string | null {
   const paragraph = text
     ?.split(/\n\s*\n/)

@@ -51,6 +51,13 @@ function describeError(vm: QuickJSContext, handle: QuickJSHandle, offset = 0): S
   return { name: "Error", message: String(dumped) };
 }
 
+function memoryUsed(vm: QuickJSContext): number {
+  const handle = vm.runtime.computeMemoryUsage();
+  const usage = vm.dump(handle) as { memory_used_size?: unknown };
+  handle.dispose();
+  return typeof usage.memory_used_size === "number" ? usage.memory_used_size : 0;
+}
+
 function setString(vm: QuickJSContext, name: string, value: string): void {
   const handle = vm.newString(value);
   vm.setProp(vm.global, name, handle);
@@ -112,7 +119,7 @@ function compile(vm: QuickJSContext, code: string): { source: string; offset: nu
 async function execute(run: RunMessage): Promise<void> {
   const module = await newQuickJSWASMModuleFromVariant(variant);
   runtime = module.newRuntime();
-  runtime.setMemoryLimit(run.memoryBytes);
+  runtime.setMemoryLimit(-1);
   runtime.setMaxStackSize(run.stackBytes);
   runtime.setInterruptHandler(shouldInterruptAfterDeadline(run.deadline));
   const vm = runtime.newContext();
@@ -128,6 +135,7 @@ async function execute(run: RunMessage): Promise<void> {
     return;
   }
   prelude.value.dispose();
+  runtime.setMemoryLimit(memoryUsed(vm) + run.memoryBytes);
 
   const compiled = compile(vm, run.code);
   if ("error" in compiled) {

@@ -1,5 +1,5 @@
 import type { Subprocess } from "bun";
-import type { Catalog } from "./catalog.ts";
+import { catalogPayload, type Catalog } from "./catalog.ts";
 import type { ChildMessage, RunMessage, SandboxFailure, SandboxMode } from "./protocol.ts";
 
 const CHILD = new URL("./sandbox-child.ts", import.meta.url).pathname;
@@ -13,6 +13,7 @@ export type SandboxLimits = {
   maxConcurrentCalls: number;
   logLines: number;
   logChars: number;
+  maxCatalogChars: number;
 };
 
 export const DEFAULT_LIMITS: SandboxLimits = {
@@ -22,7 +23,8 @@ export const DEFAULT_LIMITS: SandboxLimits = {
   maxCalls: 100,
   maxConcurrentCalls: 8,
   logLines: 200,
-  logChars: 8_000
+  logChars: 8_000,
+  maxCatalogChars: 64 * 1024 * 1024
 };
 
 export const SEARCH_TIMEOUT_MS = 10_000;
@@ -42,7 +44,7 @@ export type SandboxRequest = {
   limits?: Partial<SandboxLimits>;
 };
 
-export type SandboxFailureKind = "code" | "timeout" | "cancelled" | "crashed" | "busy";
+export type SandboxFailureKind = "code" | "timeout" | "cancelled" | "crashed" | "busy" | "catalog";
 
 type Settled =
   | { ok: true; value: unknown; logs: string[]; calls: SandboxCall[] }
@@ -78,6 +80,10 @@ function errorName(error: unknown): string {
   return error instanceof Error && error.name !== "" ? error.name : "Error";
 }
 
+function megabytes(chars: number): string {
+  return (chars / (1024 * 1024)).toFixed(1);
+}
+
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -108,38 +114,40 @@ export class Sandbox {
 
   async run(request: SandboxRequest): Promise<SandboxOutcome> {
     const started = Date.now();
+    const refuse = (kind: SandboxFailureKind, name: string, message: string): SandboxOutcome => ({
+      ok: false,
+      kind,
+      error: { name, message },
+      logs: [],
+      calls: [],
+      durationMs: Date.now() - started
+    });
+    const limits = { ...this.limits, ...request.limits };
+    const catalog = catalogPayload(request.catalog);
+    if (catalog.length > limits.maxCatalogChars) {
+      return refuse(
+        "catalog",
+        "CatalogError",
+        `the catalog of this endpoint is too large for compact mode (${request.catalog.tools.length} tools, ${megabytes(catalog.length)} MB, the limit is ${megabytes(limits.maxCatalogChars)} MB): hide tools in the namespace or split the servers across endpoints`
+      );
+    }
     if (this.closed || this.runs.queued >= this.maxQueued) {
-      return {
-        ok: false,
-        kind: "busy",
-        error: { name: "BusyError", message: "the gateway is running too much code right now, retry shortly" },
-        logs: [],
-        calls: [],
-        durationMs: 0
-      };
+      return refuse("busy", "BusyError", "the gateway is running too much code right now, retry shortly");
     }
     const release = await this.runs.acquire();
     if (this.closed) {
       release();
-      return {
-        ok: false,
-        kind: "busy",
-        error: { name: "BusyError", message: "the gateway is shutting down" },
-        logs: [],
-        calls: [],
-        durationMs: Date.now() - started
-      };
+      return refuse("busy", "BusyError", "the gateway is shutting down");
     }
     try {
-      const outcome = await this.spawn(request);
+      const outcome = await this.spawn(request, limits, catalog);
       return { ...outcome, durationMs: Date.now() - started };
     } finally {
       release();
     }
   }
 
-  private spawn(request: SandboxRequest): Promise<Settled> {
-    const limits = { ...this.limits, ...request.limits };
+  private spawn(request: SandboxRequest, limits: SandboxLimits, catalog: string): Promise<Settled> {
     const deadline = Date.now() + limits.timeoutMs;
     const logs: string[] = [];
     const calls: SandboxCall[] = [];
@@ -226,7 +234,7 @@ export class Sandbox {
               type: "run",
               mode: request.mode,
               code: request.code,
-              catalog: JSON.stringify(request.catalog),
+              catalog,
               deadline,
               memoryBytes: limits.memoryBytes,
               stackBytes: limits.stackBytes,

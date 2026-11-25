@@ -21,7 +21,8 @@ const FAILURE_CODES: Record<SandboxFailureKind, string> = {
   timeout: "code_timeout",
   cancelled: "code_cancelled",
   crashed: "sandbox_crashed",
-  busy: "sandbox_busy"
+  busy: "sandbox_busy",
+  catalog: "catalog_too_large"
 };
 
 export type CompactRequest = {

@@ -59,13 +59,14 @@ export const PRELUDE = String.raw`"use strict";
       .split(/[^\p{L}\p{N}]+/u)
       .filter((word) => word !== "");
 
-  const indexed = catalog.map((tool) => ({
-    tool,
-    name: words(tool.name),
-    title: words(tool.title),
-    server: words(tool.server),
-    description: words(tool.description)
-  }));
+  let indexed = null;
+  const index = () =>
+    (indexed ??= catalog.map((tool, position) => {
+      const [name, title, server, description] = data.words[position].map((text) =>
+        text === "" ? [] : text.split(" ")
+      );
+      return { tool, name, title, server, description };
+    }));
 
   const weigh = (term, tokens, weight) => {
     let best = 0;
@@ -84,7 +85,7 @@ export const PRELUDE = String.raw`"use strict";
     if (terms.length === 0) return catalog.slice(0, max);
     const phrase = String(query).toLowerCase().trim();
     const scored = [];
-    for (const entry of indexed) {
+    for (const entry of index()) {
       let score = 0;
       let matched = 0;
       for (const term of terms) {

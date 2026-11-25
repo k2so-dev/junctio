@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Attachments, render, sandboxValue, ToolError } from "../../src/compact/results.ts";
-import { buildCatalog, executeHints, summarize } from "../../src/compact/catalog.ts";
+import { buildCatalog, catalogPayload, executeHints, searchWords, summarize } from "../../src/compact/catalog.ts";
 
 describe("sandboxValue", () => {
   test("prefers structured content, then parsed text", () => {
@@ -104,5 +104,29 @@ describe("catalog", () => {
       openWorldHint: true
     });
     expect(executeHints(catalog.tools.slice(0, 1)).readOnlyHint).toBe(true);
+  });
+});
+
+describe("search words", () => {
+  test("split names, camel case and any script into unique lowercase words", () => {
+    expect(searchWords("github__listPullRequests")).toBe("github list pull requests");
+    expect(searchWords("Дерево регионов: регионов и городов")).toBe("дерево регионов и городов");
+    expect(searchWords(undefined)).toBe("");
+  });
+
+  test("travel next to the catalog, one entry per tool", () => {
+    const catalog = buildCatalog(
+      [
+        {
+          serverId: "s1",
+          originalName: "searchPages",
+          tool: { name: "docs__searchPages", description: "Find pages", inputSchema: { type: "object" } }
+        }
+      ],
+      [{ serverId: "s1", prefix: "docs", quarantined: false, text: null }]
+    );
+    const payload = JSON.parse(catalogPayload(catalog)) as { tools: unknown[]; words: string[][] };
+    expect(payload.tools).toHaveLength(1);
+    expect(payload.words).toEqual([["docs search pages", "", "docs", "find pages"]]);
   });
 });

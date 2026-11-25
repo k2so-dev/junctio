@@ -24,4 +24,4 @@ export type ChildMessage =
   | { type: "log"; line: string }
   | { type: "call"; id: number; name: string; input: string }
   | { type: "done"; ok: true; value: string }
-  | { type: "done"; ok: false; error: SandboxFailure };
+  | { type: "done"; ok: false; error: SandboxFailure; catalog?: true };

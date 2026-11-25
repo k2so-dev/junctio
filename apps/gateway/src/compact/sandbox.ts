@@ -4,6 +4,7 @@ import type { ChildMessage, RunMessage, SandboxFailure, SandboxMode } from "./pr
 
 const CHILD = new URL("./sandbox-child.ts", import.meta.url).pathname;
 const STDERR_LIMIT = 4_000;
+const CATALOG_ADVICE = "hide tools in the namespace or split the servers across endpoints";
 
 export type SandboxLimits = {
   timeoutMs: number;
@@ -125,22 +126,19 @@ export class Sandbox {
     if (this.closed || this.runs.queued >= this.maxQueued) {
       return refuse("busy", "BusyError", "the gateway is running too much code right now, retry shortly");
     }
-    const limits = { ...this.limits, ...request.limits };
-    const catalog = catalogPayload(request.catalog);
-    const catalogBytes = Buffer.byteLength(catalog);
-    if (catalogBytes > limits.maxCatalogBytes) {
-      return refuse(
-        "catalog",
-        "CatalogError",
-        `the catalog of this endpoint is too large for compact mode (${request.catalog.tools.length} tools, ${megabytes(catalogBytes)} MB, the limit is ${megabytes(limits.maxCatalogBytes)} MB): hide tools in the namespace or split the servers across endpoints`
-      );
-    }
     const release = await this.runs.acquire();
-    if (this.closed) {
-      release();
-      return refuse("busy", "BusyError", "the gateway is shutting down");
-    }
     try {
+      if (this.closed) return refuse("busy", "BusyError", "the gateway is shutting down");
+      const limits = { ...this.limits, ...request.limits };
+      const catalog = catalogPayload(request.catalog);
+      const catalogBytes = Buffer.byteLength(catalog);
+      if (catalogBytes > limits.maxCatalogBytes) {
+        return refuse(
+          "catalog",
+          "CatalogError",
+          `the catalog of this endpoint is too large for compact mode (${request.catalog.tools.length} tools, ${megabytes(catalogBytes)} MB, the limit is ${megabytes(limits.maxCatalogBytes)} MB): ${CATALOG_ADVICE}`
+        );
+      }
       const outcome = await this.spawn(request, limits, catalog);
       return { ...outcome, durationMs: Date.now() - started };
     } finally {
@@ -254,6 +252,10 @@ export class Sandbox {
           case "done":
             if (message.ok) {
               settle({ ok: true, value: JSON.parse(message.value), logs, calls });
+              return;
+            }
+            if (message.catalog) {
+              fail("catalog", message.error);
               return;
             }
             if (classify(message.error, deadline) === "timeout") {

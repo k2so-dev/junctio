@@ -134,7 +134,16 @@ async function execute(run: RunMessage): Promise<void> {
 
   const prelude = vm.evalCode(PRELUDE, "prelude.js");
   if (prelude.error) {
-    finish({ type: "done", ok: false, error: describeError(vm, prelude.error) });
+    const failure = describeError(vm, prelude.error);
+    finish({
+      type: "done",
+      ok: false,
+      catalog: true,
+      error: {
+        name: "CatalogError",
+        message: `the catalog of this endpoint could not be loaded into the sandbox (${failure.message}): hide tools in the namespace or split the servers across endpoints`
+      }
+    });
     return;
   }
   prelude.value.dispose();

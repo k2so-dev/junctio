@@ -250,6 +250,10 @@ describe("compact tool mode", () => {
     const client = await connectClient(url, token);
     const result = await run(client, "execute", "async () => { return 41 + 1; };");
     expect(text(result)).toBe("42");
+    const commented = await run(client, "execute", "async () => 42; // the answer");
+    expect(text(commented)).toBe("42");
+    const quoted = await run(client, "execute", 'async () => "a; // b".length');
+    expect(text(quoted)).toBe("7");
     await client.close();
   }, 20_000);
 

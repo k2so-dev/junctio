@@ -174,12 +174,12 @@ export function stripFences(code: string): string {
 export function sourceCandidates(code: string): { source: string; offset: number }[] {
   const body = stripFences(code);
   if (body === "") return [];
-  const expression = body.replace(/;\s*$/, "");
+  const expressions = new Set([body.replace(/;\s*$/, ""), body.replace(/;\s*\/\/[^\n]*$/, "")]);
   return [
-    {
+    ...[...expressions].map((expression) => ({
       source: `(async () => {\nconst __fn = (\n${expression}\n);\nreturn typeof __fn === "function" ? await __fn() : await __fn;\n})()`,
       offset: 2
-    },
+    })),
     { source: `(async () => {\n${body}\n})()`, offset: 1 }
   ];
 }

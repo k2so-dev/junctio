@@ -103,7 +103,7 @@ function union(members: string[]): string {
   return unique.join(" | ");
 }
 
-function hasTopLevelUnion(type: string): boolean {
+function hasTopLevelOperator(type: string): boolean {
   let depth = 0;
   let quoted = false;
   for (let index = 0; index < type.length; index += 1) {
@@ -113,16 +113,20 @@ function hasTopLevelUnion(type: string): boolean {
       else if (char === '"') quoted = false;
       continue;
     }
-    if (char === '"') quoted = true;
+    if (type.startsWith("/*", index)) {
+      const end = type.indexOf("*/", index + 2);
+      if (end === -1) return false;
+      index = end + 1;
+    } else if (char === '"') quoted = true;
     else if (char === "{" || char === "[" || char === "(" || char === "<") depth += 1;
     else if (char === "}" || char === "]" || char === ")" || char === ">") depth -= 1;
-    else if (depth === 0 && type.startsWith(" | ", index)) return true;
+    else if (depth === 0 && (type.startsWith(" | ", index) || type.startsWith(" & ", index))) return true;
   }
   return false;
 }
 
-function wrapUnion(type: string): string {
-  return hasTopLevelUnion(type) ? `(${type})` : type;
+function parenthesize(type: string): string {
+  return hasTopLevelOperator(type) ? `(${type})` : type;
 }
 
 function objectType(schema: JsonObject, ctx: Context, indent: string): string {
@@ -158,7 +162,7 @@ function arrayType(schema: JsonObject, ctx: Context, indent: string): string {
     return `[${members.join(", ")}]`;
   }
   if (schema.items === undefined || schema.items === true) return "unknown[]";
-  return `${wrapUnion(typeOf(schema.items, ctx, indent))}[]`;
+  return `${parenthesize(typeOf(schema.items, ctx, indent))}[]`;
 }
 
 function namedType(type: string, schema: JsonObject, ctx: Context, indent: string): string {
@@ -212,7 +216,7 @@ export function typeOf(schema: unknown, ctx: Context, indent = ""): string {
       if (Array.isArray(options)) return union(options.map((option) => typeOf(option, next, indent))) + nullable;
     }
     if (Array.isArray(schema.allOf)) {
-      const parts = schema.allOf.map((part) => wrapUnion(typeOf(part, next, indent)));
+      const parts = schema.allOf.map((part) => parenthesize(typeOf(part, next, indent)));
       const known = parts.filter((part) => part !== "unknown");
       return (known.length === 0 ? "unknown" : known.join(" & ")) + nullable;
     }

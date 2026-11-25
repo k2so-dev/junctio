@@ -10,6 +10,32 @@ describe("schemaType", () => {
     expect(type).toBe("({\n  id?: string;\n} | null)[]");
   });
 
+  test("a quote or bracket in a property description does not hide the union", () => {
+    const type = schemaType({
+      type: "array",
+      items: {
+        anyOf: [
+          { type: "object", properties: { w: { type: "number", description: 'width (e.g. 12" < 20' } } },
+          { type: "null" }
+        ]
+      }
+    });
+    expect(type).toBe('({\n  /** width (e.g. 12" < 20 */\n  w?: number;\n} | null)[]');
+  });
+
+  test("wraps an intersection in parentheses inside an array", () => {
+    const type = schemaType({
+      type: "array",
+      items: {
+        allOf: [
+          { type: "object", properties: { a: { type: "string" } } },
+          { type: "object", properties: { b: { type: "string" } } }
+        ]
+      }
+    });
+    expect(type).toBe("({\n  a?: string;\n} & {\n  b?: string;\n})[]");
+  });
+
   test("a malformed escape in a reference does not throw", () => {
     const type = schemaType({ type: "object", properties: { a: { $ref: "#/$defs/100%" } }, $defs: {} });
     expect(type).toBe("{\n  a?: unknown;\n}");

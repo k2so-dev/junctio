@@ -41,7 +41,7 @@ export function registerEndpointTools(server: McpServer, deps: AdminDeps): void 
     {
       title: "Create an endpoint",
       description:
-        "Publish a namespace at a url. The slug becomes the path. Auth mode api_key needs a key, which only a human can issue from the web ui. protocolMin defaults to the newest revision, which refuses older clients.",
+        "Publish a namespace at a url. The slug becomes the path. Auth mode api_key needs a key, which only a human can issue from the web ui. protocolMin defaults to the newest revision, which refuses older clients. toolMode compact exposes the tools through search and execute, full lists every tool; it defaults to the setting defaultToolMode.",
       inputSchema: EndpointInput,
       annotations: MUTATES
     },
@@ -54,7 +54,7 @@ export function registerEndpointTools(server: McpServer, deps: AdminDeps): void 
     "update_endpoint",
     {
       title: "Update an endpoint",
-      description: "Change the slug, namespace, auth mode, protocol floor or rate limit of an endpoint.",
+      description: "Change the slug, namespace, auth mode, protocol floor, rate limit or tool mode of an endpoint.",
       inputSchema: EndpointPatch.extend(Id.shape),
       annotations: UPDATES
     },

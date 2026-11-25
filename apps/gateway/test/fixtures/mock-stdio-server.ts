@@ -57,6 +57,44 @@ server.registerTool(
   async () => ({ content: [{ type: "text", text: Bun.env.MOCK_TOKEN ?? "none" }] })
 );
 
+if (Bun.env.MOCK_RICH === "1") {
+  server.registerTool(
+    "fail",
+    { description: "Always fails", inputSchema: { reason: z.string().optional() } },
+    async ({ reason }) => ({ content: [{ type: "text", text: reason ?? "it broke" }], isError: true })
+  );
+
+  server.registerTool("pixel", { description: "Returns a one pixel image", inputSchema: {} }, async () => ({
+    content: [
+      { type: "text", text: "here is a pixel" },
+      {
+        type: "image",
+        mimeType: "image/png",
+        data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+      }
+    ]
+  }));
+
+  server.registerTool(
+    "stats",
+    {
+      description: "Counts the words of a text",
+      inputSchema: { text: z.string().describe("Text to count") },
+      outputSchema: { words: z.number(), chars: z.number() },
+      annotations: { readOnlyHint: true }
+    },
+    async ({ text }) => {
+      const result = { words: text.split(/\s+/).filter(Boolean).length, chars: text.length };
+      return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result };
+    }
+  );
+
+  server.registerTool("sleep", { description: "Waits", inputSchema: { ms: z.number() } }, async ({ ms }) => {
+    await Bun.sleep(ms);
+    return { content: [{ type: "text", text: `slept ${ms}` }] };
+  });
+}
+
 server.registerResource("readme", "mock://readme", { title: "Readme", mimeType: "text/plain" }, async (uri) => ({
   contents: [{ uri: uri.href, text: `readme of ${name}` }]
 }));

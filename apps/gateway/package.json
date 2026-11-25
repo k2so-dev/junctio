@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@hono/mcp": "0.3.5",
+    "@jitl/quickjs-ng-wasmfile-release-sync": "0.32.0",
     "@junctio/schema": "workspace:*",
     "@modelcontextprotocol/client": "2.4.0",
     "@modelcontextprotocol/core": "2.4.0",
@@ -24,6 +25,7 @@
     "drizzle-orm": "0.45.4",
     "hono": "4.13.22",
     "jose": "6.2.18",
+    "quickjs-emscripten-core": "0.32.0",
     "zod": "4.6.7"
   },
   "devDependencies": {

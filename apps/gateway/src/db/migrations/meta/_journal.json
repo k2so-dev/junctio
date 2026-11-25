@@ -64,6 +64,13 @@
       "when": 1789574055139,
       "tag": "0008_typical_texas_twister",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1795625283123,
+      "tag": "0009_condemned_blonde_phantom",
+      "breakpoints": true
     }
   ]
 }

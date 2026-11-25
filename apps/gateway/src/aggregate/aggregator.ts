@@ -41,6 +41,13 @@ export type AggregatedTool = {
   originalName: string;
 };
 
+export type ServerNote = {
+  serverId: string;
+  prefix: string;
+  quarantined: boolean;
+  text: string | null;
+};
+
 export class Aggregator {
   constructor(
     private readonly db: Db,
@@ -122,6 +129,16 @@ export class Aggregator {
     );
   }
 
+  async serverNotes(namespaceId: string): Promise<ServerNote[]> {
+    const entries = await this.catalogs(namespaceId);
+    return entries.map(({ member, catalog }) => ({
+      serverId: member.serverId,
+      prefix: member.prefix,
+      quarantined: member.quarantined,
+      text: member.description ?? catalog.instructions
+    }));
+  }
+
   async listTools(namespaceId: string): Promise<AggregatedTool[]> {
     const overrides = this.overrides(namespaceId);
     const separator = this.separator;
@@ -169,11 +186,16 @@ export class Aggregator {
   async callTool(
     namespaceId: string,
     exposed: string,
-    args: Record<string, unknown> | undefined
+    args: Record<string, unknown> | undefined,
+    options: { signal?: AbortSignal; timeoutMs?: number } = {}
   ): Promise<{ result: CallToolResult; serverId: string; toolName: string }> {
     const { serverId, toolName } = this.resolveTool(namespaceId, exposed);
+    const timeout = Math.min(options.timeoutMs ?? this.pool.callTimeoutMs, this.pool.callTimeoutMs);
     const result = await this.pool.withClient(serverId, (client) =>
-      client.callTool({ name: toolName, arguments: args }, { timeout: this.pool.callTimeoutMs })
+      client.callTool(
+        { name: toolName, arguments: args },
+        { timeout, ...(options.signal ? { signal: options.signal } : {}) }
+      )
     );
     return { result, serverId, toolName };
   }

@@ -5,6 +5,7 @@ import type { Core } from "../core.ts";
 import { endpoints, namespaces, requestLog } from "../db/schema.ts";
 import type { EndpointRow } from "../db/schema.ts";
 import { randomId } from "../crypto.ts";
+import { defaultToolMode } from "../db/settings.ts";
 import { toEndpointDto } from "./dto.ts";
 import { badRequest, conflict, notFound, readJson } from "./util.ts";
 
@@ -40,6 +41,7 @@ export function createEndpointsApi(core: Core): Hono {
         authMode: input.authMode,
         protocolMin: input.protocolMin,
         rateLimit: input.rateLimit,
+        toolMode: input.toolMode ?? defaultToolMode(core.db),
         enabled: input.enabled,
         createdAt: Date.now()
       })
@@ -102,6 +104,7 @@ export function createEndpointsApi(core: Core): Hono {
         ...(patch.authMode !== undefined ? { authMode: patch.authMode } : {}),
         ...(patch.protocolMin !== undefined ? { protocolMin: patch.protocolMin } : {}),
         ...(patch.rateLimit !== undefined ? { rateLimit: patch.rateLimit } : {}),
+        ...(patch.toolMode !== undefined ? { toolMode: patch.toolMode } : {}),
         ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {})
       })
       .where(eq(endpoints.id, row.id))

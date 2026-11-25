@@ -7,7 +7,7 @@ import {
   Server,
   WebStandardStreamableHTTPServerTransport
 } from "@modelcontextprotocol/server";
-import { latestProtocolVersion, protocolVersions } from "@junctio/schema";
+import { latestProtocolVersion, protocolVersions, type ToolMode } from "@junctio/schema";
 import type { Core } from "../core.ts";
 import { VERSION } from "../config.ts";
 import type { EndpointRow } from "../db/schema.ts";
@@ -22,6 +22,8 @@ import { checkOrigin } from "./origin.ts";
 import { EndpointLimiter, clientAddress } from "./ratelimit.ts";
 import type { AppEnv } from "./env.ts";
 import { UpstreamError } from "../upstream/types.ts";
+import { compactInstructions, compactTools } from "../compact/describe.ts";
+import { compactCatalog, isCompactTool, runCompactTool } from "../compact/handler.ts";
 
 export type McpRouteOptions = {
   core: Core;
@@ -62,9 +64,10 @@ async function serveLegacy(
   endpoint: EndpointRow,
   request: Request,
   body: unknown,
-  protocol: string | null
+  protocol: string | null,
+  mode: ToolMode
 ): Promise<Response> {
-  const server = await buildServer(core, endpoint, body, protocol);
+  const server = await buildServer(core, endpoint, body, protocol, mode);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true
@@ -96,12 +99,27 @@ export function jsonRpcError(
 
 const HANDSHAKE_METHODS = new Set(["initialize", "server/discover"]);
 
-async function buildServer(core: Core, endpoint: EndpointRow, body: unknown, protocol: string | null): Promise<Server> {
+export function requestedToolMode(request: Request, endpoint: EndpointRow): ToolMode | null {
+  const value = new URL(request.url).searchParams.get("tools");
+  if (value === null || value === "") return endpoint.toolMode;
+  return value === "compact" || value === "full" ? value : null;
+}
+
+async function handshakeInstructions(core: Core, endpoint: EndpointRow, mode: ToolMode): Promise<string | undefined> {
+  const instructions = await core.aggregator.instructions(endpoint.namespaceId);
+  return mode === "compact" ? compactInstructions(instructions) : instructions;
+}
+
+async function buildServer(
+  core: Core,
+  endpoint: EndpointRow,
+  body: unknown,
+  protocol: string | null,
+  mode: ToolMode
+): Promise<Server> {
   const method = requestedMethod(body);
   const instructions =
-    method !== null && HANDSHAKE_METHODS.has(method)
-      ? await core.aggregator.instructions(endpoint.namespaceId)
-      : undefined;
+    method !== null && HANDSHAKE_METHODS.has(method) ? await handshakeInstructions(core, endpoint, mode) : undefined;
   const server = new Server(
     { name: "junctio", version: VERSION },
     {
@@ -114,7 +132,10 @@ async function buildServer(core: Core, endpoint: EndpointRow, body: unknown, pro
 
   server.setRequestHandler("tools/list", async () => {
     const started = Date.now();
-    const tools = await aggregator.listTools(namespaceId);
+    const tools =
+      mode === "compact"
+        ? compactTools(await compactCatalog(core, namespaceId), aggregator.separator, core.sandbox.defaults)
+        : (await aggregator.listTools(namespaceId)).map((item) => item.tool);
     recordRequest(core, {
       endpointId: endpoint.id,
       serverId: null,
@@ -125,12 +146,19 @@ async function buildServer(core: Core, endpoint: EndpointRow, body: unknown, pro
       status: "ok",
       errorCode: null
     });
-    return { tools: tools.map((item) => item.tool) };
+    return { tools };
   });
 
-  server.setRequestHandler("tools/call", async (request) => {
+  server.setRequestHandler("tools/call", async (request, ctx) => {
     const started = Date.now();
     const name = request.params.name;
+    if (mode === "compact" && isCompactTool(name)) {
+      return runCompactTool(
+        { core, endpoint, protocol, signal: ctx.mcpReq.signal },
+        name,
+        request.params.arguments as Record<string, unknown> | undefined
+      );
+    }
     try {
       const { result, serverId } = await aggregator.callTool(
         namespaceId,
@@ -208,9 +236,10 @@ export function createMcpRoute(options: McpRouteOptions): Hono<AppEnv> {
     endpoint: EndpointRow,
     request: Request,
     body: unknown,
-    protocol: string | null
+    protocol: string | null,
+    mode: ToolMode
   ): Promise<Response> => {
-    const handler = createMcpHandler(() => buildServer(core, endpoint, body, protocol), {
+    const handler = createMcpHandler(() => buildServer(core, endpoint, body, protocol, mode), {
       legacy: "reject",
       onerror: (error) => core.logger.error("mcp request failed", { endpoint: endpoint.slug, error: String(error) })
     });
@@ -251,6 +280,9 @@ export function createMcpRoute(options: McpRouteOptions): Hono<AppEnv> {
       });
     }
 
+    const mode = requestedToolMode(request, endpoint);
+    if (mode === null) return jsonRpcError(400, -32602, "the tools query parameter must be compact or full");
+
     const body = await readBody(request);
     const protocol = requestedProtocol(request, body);
     if (protocol !== null && protocol < endpoint.protocolMin) {
@@ -276,9 +308,9 @@ export function createMcpRoute(options: McpRouteOptions): Hono<AppEnv> {
 
     try {
       if (endpoint.protocolMin < MODERN_PROTOCOL && (await isLegacyRequest(request, body))) {
-        return await serveLegacy(core, endpoint, request, body, protocol);
+        return await serveLegacy(core, endpoint, request, body, protocol, mode);
       }
-      return await serveModern(endpoint, request, body, protocol);
+      return await serveModern(endpoint, request, body, protocol, mode);
     } catch (error) {
       core.logger.error("mcp request failed", { endpoint: slug, error: String(error) });
       return jsonRpcError(500, -32603, "internal error");

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import type { ToolMode } from "@junctio/schema";
 import type { Db } from "./index.ts";
 import { settings } from "./schema.ts";
 import { newCipherSalt, randomId } from "../crypto.ts";
@@ -27,6 +28,7 @@ export const DEFAULT_SETTINGS = {
   gateway_id: "",
   cipher_salt: "",
   tool_separator: "__",
+  default_tool_mode: "compact",
   runtime_path: defaultRuntimePath(),
   api_key_query_param: "false",
   request_log_retention_days: "7",
@@ -47,6 +49,10 @@ export function getSetting(db: Db, key: SettingKey): string {
 
 export function setSetting(db: Db, key: SettingKey, value: string): void {
   db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
+}
+
+export function defaultToolMode(db: Db): ToolMode {
+  return getSetting(db, "default_tool_mode") === "full" ? "full" : "compact";
 }
 
 export function cipherSalt(db: Db): Uint8Array {

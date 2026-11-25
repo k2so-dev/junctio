@@ -47,6 +47,7 @@ export type HarnessOptions = {
   fetchImpl?: typeof fetch;
   registryTimeoutMs?: number;
   audit?: CoreOptions["audit"];
+  sandbox?: CoreOptions["sandbox"];
 };
 
 export async function startHarness(options: HarnessOptions = {}): Promise<Harness> {
@@ -63,7 +64,8 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
     ...(options.refreshIntervalMs !== undefined ? { refreshIntervalMs: options.refreshIntervalMs } : {}),
     ...(options.fetchImpl !== undefined ? { fetchImpl: options.fetchImpl } : {}),
     ...(options.registryTimeoutMs !== undefined ? { registryTimeoutMs: options.registryTimeoutMs } : {}),
-    ...(options.audit !== undefined ? { audit: options.audit } : {})
+    ...(options.audit !== undefined ? { audit: options.audit } : {}),
+    ...(options.sandbox !== undefined ? { sandbox: options.sandbox } : {})
   });
   const app = createApp({ core, verifier: options.verifier ?? null, publicDir: null });
   const server = Bun.serve({
@@ -178,7 +180,13 @@ export function seedNamespace(
 
 export function seedEndpoint(
   core: Core,
-  options: { slug: string; namespaceId: string; authMode?: "none" | "api_key" | "oauth" | "any"; protocolMin?: string }
+  options: {
+    slug: string;
+    namespaceId: string;
+    authMode?: "none" | "api_key" | "oauth" | "any";
+    protocolMin?: string;
+    toolMode?: "compact" | "full";
+  }
 ): string {
   const id = randomId();
   core.db
@@ -190,6 +198,7 @@ export function seedEndpoint(
       authMode: options.authMode ?? "api_key",
       protocolMin: options.protocolMin ?? "2025-06-18",
       rateLimit: { perMinute: 0 },
+      toolMode: options.toolMode ?? "full",
       enabled: true,
       createdAt: Date.now()
     })

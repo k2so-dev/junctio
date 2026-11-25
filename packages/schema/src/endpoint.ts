@@ -4,6 +4,10 @@ export const endpointAuthModes = ["none", "api_key", "oauth", "any"] as const;
 export const EndpointAuthMode = z.enum(endpointAuthModes);
 export type EndpointAuthMode = z.infer<typeof EndpointAuthMode>;
 
+export const toolModes = ["compact", "full"] as const;
+export const ToolMode = z.enum(toolModes);
+export type ToolMode = z.infer<typeof ToolMode>;
+
 export const protocolVersions = ["2025-06-18", "2025-11-25", "2026-07-28"] as const;
 export const ProtocolVersion = z.enum(protocolVersions);
 export type ProtocolVersion = z.infer<typeof ProtocolVersion>;
@@ -27,6 +31,7 @@ export const EndpointInput = z.object({
   authMode: EndpointAuthMode.default("api_key"),
   protocolMin: ProtocolVersion.default(latestProtocolVersion),
   rateLimit: RateLimit.default({ perMinute: 0 }),
+  toolMode: ToolMode.optional(),
   enabled: z.boolean().default(true)
 });
 export type EndpointInput = z.infer<typeof EndpointInput>;
@@ -37,6 +42,7 @@ export const EndpointPatch = z.object({
   authMode: EndpointAuthMode.optional(),
   protocolMin: ProtocolVersion.optional(),
   rateLimit: RateLimit.optional(),
+  toolMode: ToolMode.optional(),
   enabled: z.boolean().optional()
 });
 export type EndpointPatch = z.infer<typeof EndpointPatch>;
@@ -56,6 +62,7 @@ export const EndpointDto = z.object({
   authMode: EndpointAuthMode,
   protocolMin: ProtocolVersion,
   rateLimit: RateLimit,
+  toolMode: ToolMode,
   enabled: z.boolean(),
   createdAt: z.number(),
   url: z.string(),

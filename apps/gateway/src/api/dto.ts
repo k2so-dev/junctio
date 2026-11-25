@@ -164,6 +164,7 @@ export function toEndpointDto(core: Core, row: EndpointRow): EndpointDto {
     authMode: row.authMode,
     protocolMin: row.protocolMin as EndpointDto["protocolMin"],
     rateLimit: row.rateLimit,
+    toolMode: row.toolMode,
     enabled: row.enabled,
     createdAt: row.createdAt,
     url: endpointUrl(core, row.slug),

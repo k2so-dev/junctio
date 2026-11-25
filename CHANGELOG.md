@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **`hono` moves to 4.13.22 and `@hono/node-server` to 2.1.11**, closing GHSA-h7mg-cq63-vhpq, GHSA-4m76-xfj5-7975, GHSA-46wx-v44x-9hh2, GHSA-4h7h-rv7c-7m2v, GHSA-3gg2-335m-rxc6, GHSA-qv5m-9pm6-hqp3 and GHSA-jpvv-r467-5p4w. The admin API guards every route with wildcard middleware, but no route uses the patterns that let RegExpRouter skip it, so none of these was an authentication bypass in the gateway.
+- **`@modelcontextprotocol/sdk` moves to 1.32.2, `@modelcontextprotocol/client`, `core` and `server` to 2.4.0, and `@hono/mcp` to 0.3.5.**
+- **The image ships Bun 1.4.5, npm 12.2.3 and uv 0.13.9 on Node 22.23.5**, closing GHSA-c8m5-c952-6cm4 in the rustls copy inside uv, the `undici` and `ip-address` copies bundled inside npm, and the apt advisory in the Debian base. Only `glob` and `minimatch` inside npm stay flagged, as their fixes are new majors npm has not adopted yet; npm only launches `npx` servers. The Node base image is now pinned to an exact version. uv 0.13 downloads Python 3.15 when a server asks for no particular version; servers already cached keep their interpreter.
+
 ## [0.2.6] - 2026-10-26
 
 ### Security

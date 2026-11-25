@@ -21,14 +21,14 @@
     "@modelcontextprotocol/core": "2.4.0",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@modelcontextprotocol/server": "2.4.0",
-    "drizzle-orm": "^0.45.4",
+    "drizzle-orm": "0.45.4",
     "hono": "4.13.22",
-    "jose": "^6.2.18",
+    "jose": "6.2.18",
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.5",
-    "drizzle-kit": "^0.31.11",
+    "@types/bun": "1.4.5",
+    "drizzle-kit": "0.31.11",
     "typescript": "^5.9.3"
   }
 }

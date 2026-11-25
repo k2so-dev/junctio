@@ -5,7 +5,8 @@ import type {
   EndpointDto,
   EndpointProtocolUsageDto,
   NamespaceDto,
-  ProtocolVersion
+  ProtocolVersion,
+  ToolMode
 } from "@junctio/schema";
 import { latestProtocolVersion } from "@junctio/schema";
 import { Check, Copy, ExternalLink, KeyRound, Loader2, Plus, Trash2 } from "@lucide/vue";
@@ -65,7 +66,11 @@ const kindPick = ref<AuthKind>("key");
 const keyPick = ref("");
 const { copy: write, copied } = useCopy();
 const creating = ref(false);
-const draft = ref({ slug: "", namespaceId: "" });
+const draft = ref<{ slug: string; namespaceId: string; toolMode: ToolMode }>({
+  slug: "",
+  namespaceId: "",
+  toolMode: "compact"
+});
 const busy = ref(false);
 
 const KEY_PLACEHOLDER = "<your-api-key>";
@@ -82,6 +87,19 @@ const AUTH_MODES: { value: EndpointAuthMode; label: string; hint: string }[] = [
   { value: "oauth", label: "OAuth", hint: "The browser flow. Needed for claude.ai connectors." },
   { value: "any", label: "Either", hint: "Accepts an API key or a valid token." },
   { value: "none", label: "Open", hint: "No authentication. Localhost only." }
+];
+
+const TOOL_MODES: { value: ToolMode; label: string; hint: string }[] = [
+  {
+    value: "compact",
+    label: "Compact",
+    hint: "Two tools, search and execute. The model looks tools up and calls them from code, so the context stays small."
+  },
+  {
+    value: "full",
+    label: "Full",
+    hint: "Every tool of every server is listed. For clients that load tools lazily on their own."
+  }
 ];
 
 const KINDS: { value: AuthKind; label: string }[] = [
@@ -179,6 +197,13 @@ const kindNote = computed(() => {
   return null;
 });
 
+const toolModeNote = computed(() => {
+  const mode = current.value?.toolMode;
+  if (!mode) return "";
+  const other = mode === "compact" ? "full" : "compact";
+  return `A client can ask for the other mode by adding ?tools=${other} to the URL. Resources and prompts are listed the same way in both modes.`;
+});
+
 const wellKnownNote = computed(() => {
   const mode = current.value?.authMode;
   if (mode === "oauth" || mode === "any") {
@@ -232,10 +257,11 @@ async function create() {
       authMode: "api_key",
       protocolMin: latestProtocolVersion,
       rateLimit: { perMinute: 0 },
+      toolMode: draft.value.toolMode,
       enabled: true
     });
     creating.value = false;
-    draft.value = { slug: "", namespaceId: "" };
+    draft.value = { slug: "", namespaceId: "", toolMode: settings.value?.defaultToolMode ?? "compact" };
     await loadAll();
     await router.push({ name: "endpoints", params: { id: created.id } });
   } catch (error) {
@@ -264,6 +290,10 @@ function copyUrl() {
 
 watch(namespaceOptions, (options) => {
   if (draft.value.namespaceId === "" && options.length > 0) draft.value.namespaceId = options[0]!.value;
+});
+
+watch(creating, (open) => {
+  if (open) draft.value.toolMode = settings.value?.defaultToolMode ?? "compact";
 });
 
 watch(client, (value) => {
@@ -325,7 +355,7 @@ onMounted(async () => {
       <template #item="{ item: endpoint }">
         <span class="truncate font-mono text-xs font-medium">/mcp/{{ endpoint.slug }}</span>
         <span class="truncate text-xs text-muted-foreground">
-          {{ endpoint.namespaceName }} · {{ endpoint.authMode }} · {{ endpoint.keyCount }} keys
+          {{ endpoint.namespaceName }} · {{ endpoint.authMode }} · {{ endpoint.toolMode }} · {{ endpoint.keyCount }} keys
         </span>
       </template>
 
@@ -334,7 +364,8 @@ onMounted(async () => {
           <div class="min-w-0">
             <h2 class="truncate font-mono text-lg font-semibold tracking-tight">{{ current.url }}</h2>
             <p class="mt-1 text-muted-foreground">
-              Namespace {{ current.namespaceName }} · {{ current.keyCount }} keys · protocol ≥ {{ current.protocolMin }}
+              Namespace {{ current.namespaceName }} · {{ current.keyCount }} keys · protocol ≥ {{ current.protocolMin }} ·
+              {{ current.toolMode }} tools
             </p>
           </div>
           <div class="flex gap-2">
@@ -420,6 +451,32 @@ onMounted(async () => {
             >
               {{ refusedNote }}
             </p>
+          </CardContent>
+        </Card>
+
+        <Card class="gap-0 shrink-0 overflow-hidden py-0">
+          <CardHeader class="border-b py-3 [.border-b]:pb-3">
+            <CardTitle class="text-sm font-medium">Tools</CardTitle>
+          </CardHeader>
+          <CardContent class="flex flex-col gap-2 py-4">
+            <div class="grid gap-2 sm:grid-cols-2">
+              <button
+                v-for="mode in TOOL_MODES"
+                :key="mode.value"
+                type="button"
+                :class="
+                  cn(
+                    'rounded-lg border p-3 text-left transition-colors hover:border-ring',
+                    current.toolMode === mode.value ? 'border-primary bg-accent' : 'bg-card'
+                  )
+                "
+                @click="patch({ toolMode: mode.value })"
+              >
+                <div class="font-medium">{{ mode.label }}</div>
+                <div class="mt-0.5 text-xs leading-snug text-muted-foreground">{{ mode.hint }}</div>
+              </button>
+            </div>
+            <p class="text-xs leading-relaxed text-muted-foreground">{{ toolModeNote }}</p>
           </CardContent>
         </Card>
 
@@ -553,6 +610,26 @@ onMounted(async () => {
           <div class="grid gap-2">
             <Label>Namespace</Label>
             <SearchSelect v-model="draft.namespaceId" :options="namespaceOptions" />
+          </div>
+          <div class="grid gap-2">
+            <Label>Tools</Label>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <button
+                v-for="mode in TOOL_MODES"
+                :key="mode.value"
+                type="button"
+                :class="
+                  cn(
+                    'rounded-lg border p-3 text-left transition-colors hover:border-ring',
+                    draft.toolMode === mode.value ? 'border-primary bg-accent' : 'bg-card'
+                  )
+                "
+                @click="draft.toolMode = mode.value"
+              >
+                <div class="font-medium">{{ mode.label }}</div>
+                <div class="mt-0.5 text-xs leading-snug text-muted-foreground">{{ mode.hint }}</div>
+              </button>
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" @click="creating = false">Cancel</Button>

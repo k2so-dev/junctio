@@ -91,7 +91,7 @@ Examples:
 async () => find("open pull requests").map((tool) => tool.signature)
 
 // Every tool of one server, names and titles only
-async () => catalog.filter((tool) => tool.server === "github").map((tool) => [tool.name, tool.title])
+async () => catalog.filter((tool) => tool.server === ${JSON.stringify(catalog.servers[0]?.name ?? "github")}).map((tool) => [tool.name, tool.title])
 
 // Tools that only read
 async () => catalog.filter((tool) => tool.annotations?.readOnlyHint).map((tool) => tool.name)`;
